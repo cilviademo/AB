@@ -30,7 +30,8 @@ packages = ["ab_engine"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["."]
-addopts = "-ra"
+# every failure is named and timed in the summary — a failing test must never be an anonymous "1 failed" (B7 reliability)
+addopts = "-rfE --durations=5"
 
 [tool.ruff]
 line-length = 100

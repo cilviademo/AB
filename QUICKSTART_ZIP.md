@@ -12,7 +12,7 @@ powershell -ExecutionPolicy Bypass -File .\bootstrap_windows.ps1
 It checks Python 3.11+ / Node 20+ / Git, installs the engine, builds the static engine, prints `doctor`, runs the
 pipeline on the committed synthetic plugin (ingest → static → route → export), lists the reference library and
 runs the engine unit tests. Honest note: the engine has so far been exercised on Linux (127 tests, every fixture
-gate); this is its first Windows run — please send back any red line. The deeper stages need the native host
+gate); this is its first Windows run — please send back any red line. Every failure is named in the summary; to soak the suite (sequential + CPU hog + random order) run `powershell -File tools\test_series.ps1`. The deeper stages need the native host
 (`native\vst3host\build_all.ps1`, CMake + MSVC) and the pinned tools (`ab-cli tools install`).
 
 ## What runs where
