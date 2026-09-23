@@ -77,6 +77,10 @@ def test_set_context_is_explicit_recorded_and_interpretation_only(ws):
     lib = api.dispatch("reference.list", {"write": False}, ws)
     e = next(x for x in lib["entries"] if x["id"] == a["job_id"])
     assert e["entry_type"] == "BLACK_BOX_REFERENCE" and e["actions"] == []                  # alone on the bench: nothing to compare against
+    # re-typing never loses the job's inputs (an INSERT OR REPLACE upsert once cascaded them away) — the pipeline still runs
+    from ab_engine.jobs import db as jobs_db
+    assert [i["kind"] for i in jobs_db.get_inputs(jobs_db.connect(ws.db_path), a["job_id"])] == ["binary"]
+    assert api.dispatch("job.run", {"job_id": a["job_id"], "stages": ["INGESTED", "STATIC_COMPLETE"], "options": {"prefer_node": True}}, ws)["stages"][1]["status"] == "OK"
 
 
 def test_provenance_answers_where_ab_learned_this(tmp_path: Path):

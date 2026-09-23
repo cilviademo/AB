@@ -342,14 +342,29 @@ def set_context(conn: sqlite3.Connection, job: Job, usage_context: str | None, s
     before = job.context
     job.usage_context, job.source_availability = new_ctx, new_src
     jobs_db.upsert_job(conn, job)   # upsert_job owns its transaction
+    from ab_engine.contracts import ContractError  # noqa: PLC0415
+
     mp = Path(job.project_dir) / "00_manifest" / "input_manifest.json"
     manifest = _load(mp)
+    entry = {"from": before, "to": job.context, "at": _now(), "by": "reference.set_context"}
+    recorded_in = None
     if isinstance(manifest, dict):
-        hist = list(manifest.get("context_history") or [])
-        hist.append({"from": before, "to": job.context, "at": jobs_db.now() if hasattr(jobs_db, "now") else _now(), "by": "reference.set_context"})
+        hist = list(manifest.get("context_history") or []) + [entry]
         manifest.update({"usage_context": job.usage_context, "source_availability": job.source_availability, "interpretation": job.interpretation, "context_history": hist})
-        write_json(mp, "artifactbench.input_manifest", manifest)
-    return {"job_id": job.job_id, "before": before, "after": job.context, "entry_type": CONTEXT_TO_TYPE.get(job.usage_context, "USER_ARTIFACT")}
+        manifest.setdefault("job_id", job.job_id)
+        manifest.setdefault("name", job.name)
+        try:
+            write_json(mp, "artifactbench.input_manifest", manifest)
+            recorded_in = "00_manifest/input_manifest.json"
+        except ContractError:
+            manifest = None       # a manifest from before the current contract: never rewritten into an invalid file
+    if recorded_in is None:
+        # the change is still recorded next to the manifest (older projects); the job row is authoritative either way
+        side = mp.parent / "context_history.json"
+        prev = _load(side) or {}
+        write_json(side, "artifactbench.context_history", {"job_id": job.job_id, **job.context, "history": list(prev.get("history") or []) + [entry]})
+        recorded_in = "00_manifest/context_history.json"
+    return {"job_id": job.job_id, "before": before, "after": job.context, "entry_type": CONTEXT_TO_TYPE.get(job.usage_context, "USER_ARTIFACT"), "recorded_in": recorded_in}
 
 
 def _now() -> str:

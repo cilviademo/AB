@@ -73,8 +73,12 @@ def tx(conn: sqlite3.Connection) -> Iterator[sqlite3.Connection]:
 
 def upsert_job(conn: sqlite3.Connection, job: Job) -> None:
     with tx(conn):
+        # never INSERT OR REPLACE here: REPLACE deletes the row first and the foreign keys cascade — an upsert that only
+        # re-typed a job silently dropped its inputs (found by the B9 black-box run); update in place instead
         conn.execute(
-            "INSERT OR REPLACE INTO jobs (job_id, name, artifact_sha256, ownership, created, primary_path, project_dir, source_availability) VALUES (?,?,?,?,?,?,?,?)",
+            "INSERT INTO jobs (job_id, name, artifact_sha256, ownership, created, primary_path, project_dir, source_availability) VALUES (?,?,?,?,?,?,?,?) "
+            "ON CONFLICT(job_id) DO UPDATE SET name=excluded.name, artifact_sha256=excluded.artifact_sha256, ownership=excluded.ownership, created=excluded.created, "
+            "primary_path=excluded.primary_path, project_dir=excluded.project_dir, source_availability=excluded.source_availability",
             (job.job_id, job.name, job.artifact_sha256, job.usage_context, job.created, job.primary, job.project_dir, job.source_availability),
         )
         for s in job.stages:
