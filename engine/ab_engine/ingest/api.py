@@ -189,8 +189,13 @@ def stage_ingested(ctx: StageContext) -> None:
         "reconstruction_allowed": job.reconstruction_allowed,
         "primary": {"path": primary["path"], "size": primary["size"], "sha256": primary["sha256"], "kind": "binary",
                     "format_hint": meta.get("format", "unknown")},
-        "inputs": [{"path": i["path"], "size": i["size"], "sha256": i["sha256"], "kind": i["kind"]} for i in inputs],
-        "attachments": attachments, "ignored": int(meta.get("ignored", 0)), "duplicates": dupes,
+        # ADDENDUM A5: every dropped item is identified (magic + extension + LIEF for binaries) and kept; types AB has no
+        # parser for are stored in the object store and listed as PRESERVED_UNPARSED — never silently dropped
+        "inputs": [{"path": i["path"], "size": i["size"], "sha256": i["sha256"], "kind": i["kind"],
+                    "status": "PRESERVED_UNPARSED" if i["kind"] in ("other", "obj") else "IDENTIFIED"} for i in inputs],
+        "attachments": attachments, "preserved_unparsed": [i["path"] for i in inputs if i["kind"] in ("other", "obj")],
+        "ignored": int(meta.get("ignored", 0)), "ignored_note": "skip-dir contents (node_modules, .git, JUCE/modules, build/_deps) and unreadable files; everything else is stored",
+        "duplicates": dupes,
         "bundle_key": meta.get("bundle_key", ""), "source_roots": meta.get("source_roots", []),
     }
     write_json(ctx.project_dir / "00_manifest" / "input_manifest.json", "artifactbench.input_manifest", manifest)

@@ -155,7 +155,7 @@ def handoff_md(job: Job, ev: dict[str, Any]) -> str:
         gates = ev["gt"].get("gates", [])
         lines.append(f"- ground truth (fixture only): {sum(1 for g in gates if g['ok'] is True)} pass / {sum(1 for g in gates if g['ok'] is False)} fail / {sum(1 for g in gates if g['ok'] is None)} pending")
     # how to build
-    lines += ["", "## How to build", "```", "cmake -S 04_reconstruction -B build -DCMAKE_BUILD_TYPE=Release -DJUCE_DIR=<path to JUCE 8.0.9> -DAB_BUILD_KIND=SURROGATE",
+    lines += ["", "## How to build", "In the exported `<Plugin>_RECOVERED/` folder (inside the app's project it is `04_reconstruction/`):", "```", "cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DJUCE_DIR=<path to JUCE 8.0.9> -DAB_BUILD_KIND=SURROGATE",
               "cmake --build build --config Release", "```",
               "FIDELITY (original identity, session-compatible) needs `identity.cmake` with VERIFIED_RUNTIME codes: " + ("present" if (ev["pd"] / "04_reconstruction" / "identity.cmake").is_file() else "absent — run the RUNTIME stage first") + ".",
               "After any DSP change: rebuild, then re-run COMPARE (`ab-cli run <job> --stage BUILD_COMPLETE --stage VALIDATION_COMPLETE`) and read 06_validation/VALIDATION.md.", ""]

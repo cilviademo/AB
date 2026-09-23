@@ -62,8 +62,9 @@ def test_export_runs_scanners_and_git_ready(ws, tmp_path):
 
     r = api.dispatch("bundle.export", {"job_id": job_id, "zip": True}, ws)
     out = Path(r["out_dir"])
-    assert (out / "UNRECOVERABLE.md").is_file() and (out / "04_reconstruction" / "CMakeLists.txt").is_file()
-    assert (out / "02_recovered_assets" / "fonts" / "ttf_000.ttf").is_file()
+    assert out.name.endswith("_RECOVERED") and (out / "UNRECOVERABLE.md").is_file() and (out / "CMakeLists.txt").is_file()
+    assert (out / "Source" / "Active").is_dir() and (out / "HANDOFF.md").is_file() and (out / "reconstruction_index.json").is_file()
+    assert (out / "evidence" / "02_recovered_assets" / "fonts" / "ttf_000.ttf").is_file() and (out / "evidence" / "01_evidence" / "rtti" / "classes.json").is_file()
     assert r["path_findings"] == [] and r["secret_findings"] == []
     checks = {c["name"]: c for c in r["git_ready"]["checks"]}
     assert checks["legal filenames"]["ok"] and checks["no secrets"]["ok"] and checks["no machine paths"]["ok"]
@@ -71,8 +72,8 @@ def test_export_runs_scanners_and_git_ready(ws, tmp_path):
     assert r["git_ready"]["ok"] is True
     with zipfile.ZipFile(r["zip_path"]) as zf:
         assert any(n.endswith("/UNRECOVERABLE.md") for n in zf.namelist())
-    report = json.loads((out / "00_manifest" / "export_report.json").read_text())
-    assert report["schema"] == "artifactbench.export_report"
+    report = json.loads((out / "evidence" / "00_manifest" / "export_report.json").read_text())
+    assert report["schema"] == "artifactbench.export_report" and report["data"]["layout"].startswith("A7")
 
 
 @needs_node
@@ -84,5 +85,5 @@ def test_third_party_export_has_no_reconstruction(ws, tmp_path):
     api.dispatch("job.run", {"job_id": job_id, "stages": ["INGESTED", "STATIC_COMPLETE"], "options": {"prefer_node": True}}, ws)
     r = api.dispatch("bundle.export", {"job_id": job_id, "zip": False}, ws)
     out = Path(r["out_dir"])
-    assert not (out / "04_reconstruction").exists() and (out / "ANALYSIS_ONLY.md").is_file()
-    assert (out / "01_evidence" / "rtti" / "classes.json").is_file()
+    assert not (out / "Source").exists() and not (out / "CMakeLists.txt").exists() and (out / "ANALYSIS_ONLY.md").is_file()
+    assert (out / "evidence" / "01_evidence" / "rtti" / "classes.json").is_file()

@@ -14,6 +14,7 @@
 from __future__ import annotations
 
 import json
+import re
 import shutil
 import sys
 import zipfile
@@ -210,7 +211,7 @@ Everything under `04_reconstruction/` is GENERATED unless its entry in
 def git_ready_checks(out: Path, job: Job, path_findings: list, secret_findings: list) -> list[dict[str, Any]]:
     """SPEC §14 Export: legal filenames, no secrets, no machine paths, deps documented, .gitignore,
     build instructions, provenance manifest, no bundled SDK, configure/build passed, validation passed."""
-    recon = out / "04_reconstruction"
+    recon = out if (out / "CMakeLists.txt").is_file() else out / "04_reconstruction"
     validation = job.stage("VALIDATION_COMPLETE")
     build = job.stage("BUILD_COMPLETE")
     rows: list[dict[str, Any]] = [
@@ -219,10 +220,11 @@ def git_ready_checks(out: Path, job: Job, path_findings: list, secret_findings: 
         {"name": "no machine paths", "ok": not [f for f in secret_findings if f["kind"].endswith("_path")], "detail": "no absolute user paths outside 01_evidence" if not [f for f in secret_findings if f["kind"].endswith("_path")] else "; ".join(f"{f['path']}:{f['line']}" for f in secret_findings if f["kind"].endswith("_path"))[:200]},
         {"name": "dependencies documented", "ok": (out / "README_RECOVERY.md").is_file() and (not recon.is_dir() or (recon / "CMakeLists.txt").is_file()), "detail": "README_RECOVERY.md and CMakeLists.txt name JUCE and the build modes"},
         {"name": ".gitignore", "ok": (out / ".gitignore").is_file(), "detail": str(out / ".gitignore")},
-        {"name": "build instructions", "ok": (out / "07_agent_handoff" / "HANDOFF.md").is_file(), "detail": "07_agent_handoff/HANDOFF.md"},
-        {"name": "provenance manifest", "ok": (out / "00_manifest" / "input_manifest.json").is_file() and (out / "00_manifest" / "hashes.json").is_file(), "detail": "00_manifest/{input_manifest,hashes,tool_versions}.json"},
+        {"name": "build instructions", "ok": (out / "HANDOFF.md").is_file(), "detail": "HANDOFF.md (How to build)"},
+        {"name": "provenance manifest", "ok": (out / "evidence" / "00_manifest" / "input_manifest.json").is_file() and (out / "evidence" / "00_manifest" / "hashes.json").is_file(), "detail": "evidence/00_manifest/{input_manifest,hashes,tool_versions}.json"},
+        {"name": "knowledge provenance", "ok": (out / "evidence" / "knowledge_used.json").is_file() or not job.stage("DECOMPILATION_COMPLETE"), "detail": "evidence/knowledge_used.json explains every skipped-analysis decision"},
         {"name": "generated vs recovered separated", "ok": not recon.is_dir() or ((recon / "Source" / "Active").is_dir() and (recon / "Source" / "RecoveredScaffolds").is_dir()), "detail": "Source/Active vs Source/RecoveredScaffolds; 01_evidence immutable"},
-        {"name": "no bundled SDK", "ok": not any((out / d).is_dir() for d in ("04_reconstruction/JUCE", "04_reconstruction/vst3sdk", "JUCE", "vst3sdk")), "detail": "JUCE / VST3 SDK are fetched, never vendored"},
+        {"name": "no bundled SDK", "ok": not any((out / d).is_dir() for d in ("04_reconstruction/JUCE", "04_reconstruction/vst3sdk", "JUCE", "vst3sdk", "build")), "detail": "JUCE / VST3 SDK are fetched, never vendored"},
         {"name": "configure/build passed", "ok": (build.status == "OK") if build and build.status in ("OK", "FAILED") else None, "detail": "pending: build stage (Phase 4)" if not build or build.status not in ("OK", "FAILED") else build.status},
         {"name": "validation passed", "ok": (validation.status == "OK") if validation and validation.status in ("OK", "FAILED") else None, "detail": "pending: pluginval + differential (Phase 4)" if not validation or validation.status not in ("OK", "FAILED") else validation.status},
     ]
@@ -230,6 +232,17 @@ def git_ready_checks(out: Path, job: Job, path_findings: list, secret_findings: 
 
 
 def export_job(ws: Workspace, conn: Any, job: Job, *, zip_it: bool, ctx: StageContext | None = None) -> dict[str, Any]:
+    """Materialize ``<Plugin>_RECOVERED/`` (ADDENDUM A7): the product is the export, not the database.
+
+        <Plugin>_RECOVERED/
+          Source/ (Active + RecoveredScaffolds) · Resources/ · CMakeLists.txt · identity.cmake
+          human_source/ · evidence_source/              (04_reconstruction, when reconstruction is allowed)
+          evidence/   (00_manifest, 01_evidence immutable, 02_recovered_assets, 03_architecture, 05_reference_behavior, knowledge_used.json)
+          validation/ (06_validation)
+          HANDOFF.md · TODO.md · agent_prompt.md · reconstruction_index.json · UNRECOVERABLE.md · README_RECOVERY.md · .gitignore
+    Every HANDOFF claim links to an evidence path; knowledge rows used during the run are listed in
+    evidence/knowledge_used.json so the export is auditable without the database.
+    """
     pd = Path(job.project_dir)
     if not (pd / "00_manifest" / "input_manifest.json").is_file():
         raise StageFailed("NOT_INGESTED", "nothing to export: the job has no manifest yet")
@@ -238,50 +251,67 @@ def export_job(ws: Workspace, conn: Any, job: Job, *, zip_it: bool, ctx: StageCo
     from ab_engine.handoff import writer as handoff_writer  # noqa: PLC0415
 
     handoff_writer.write_all(job)
-    out = ws.exports / name
+    product = re.sub(r"[^A-Za-z0-9._-]+", "_", (job.name or name)).strip("_") or name
+    out = ws.exports / f"{product}_RECOVERED"
     if out.exists():
         shutil.rmtree(out)
     out.mkdir(parents=True)
     copied = 0
-    for d in BUNDLE_DIRS:
-        src = pd / d
-        if not src.is_dir():
-            continue
-        if d == "04_reconstruction" and not job.reconstruction_allowed:
-            continue  # SPEC §15: third-party mode exports no reconstruction source
-        shutil.copytree(src, out / d)
-        copied += sum(1 for _ in (out / d).rglob("*") if _.is_file())
-    for f in ("README_RECOVERY.md",):
-        if (pd / f).is_file():
-            shutil.copyfile(pd / f, out / f)
-    names_note = "" if (job.stage("STATIC_COMPLETE") and (pd / "00_manifest" / "input_manifest.json").is_file() and any(i.get("kind") == "pdb" for i in (json.loads((pd / "00_manifest" / "input_manifest.json").read_text(encoding="utf-8")).get("data", {}).get("inputs", [])))) else "\n- original function and member names (no .pdb)"
-    (out / "UNRECOVERABLE.md").write_text(UNRECOVERABLE.format(names=names_note), encoding="utf-8")
-    if not (out / ".gitignore").is_file():
-        (out / ".gitignore").write_text("build/\n*.pdb\n*.ilk\n.DS_Store\nThumbs.db\n", encoding="utf-8")
+
+    def copy_tree(src: Path, dst: Path) -> None:
+        nonlocal copied
+        if src.is_dir():
+            shutil.copytree(src, dst, dirs_exist_ok=True)
+            copied += sum(1 for _ in dst.rglob("*") if _.is_file())
+
+    def copy_file(src: Path, dst: Path) -> None:
+        nonlocal copied
+        if src.is_file():
+            dst.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(src, dst)
+            copied += 1
+
+    # evidence/ (immutable 01_evidence + the manifest, assets, architecture and reference behaviour)
+    for d in ("00_manifest", "01_evidence", "02_recovered_assets", "03_architecture", "05_reference_behavior"):
+        copy_tree(pd / d, out / "evidence" / d)
+    copy_tree(pd / "06_validation", out / "validation")
+    rec = pd / "04_reconstruction"
+    if job.reconstruction_allowed and rec.is_dir():
+        for d in ("Source", "Resources", "human_source", "evidence_source"):
+            copy_tree(rec / d, out / d)
+        for f in ("CMakeLists.txt", "identity.cmake", "RECONSTRUCTION.md", "reconstruction_model.json"):
+            copy_file(rec / f, out / f)
+    for f in ("HANDOFF.md", "TODO.md", "agent_prompt.md", "reconstruction_index.json", "UNRECOVERABLE.md", "binary_symbol_map.json"):
+        copy_file(pd / "07_agent_handoff" / f, out / f)
+    copy_file(pd / "README_RECOVERY.md", out / "README_RECOVERY.md")
+    copy_file(pd / "LINEAGE_REPORT.md", out / "LINEAGE_REPORT.md")
+    if not (out / "UNRECOVERABLE.md").is_file():
+        names_note = "" if any(i.get("kind") == "pdb" for i in (json.loads((pd / "00_manifest" / "input_manifest.json").read_text(encoding="utf-8")).get("data", {}).get("inputs", []))) else "\n- original function and member names (no .pdb)"
+        (out / "UNRECOVERABLE.md").write_text(UNRECOVERABLE.format(names=names_note), encoding="utf-8")
+    (out / ".gitignore").write_text("build/\nJUCE/\n*.pdb\n*.ilk\n.DS_Store\nThumbs.db\nevidence/05_reference_behavior/original_renders/\nvalidation/rebuild_renders/\n", encoding="utf-8")
     if not job.reconstruction_allowed:
         (out / "ANALYSIS_ONLY.md").write_text("# Third-party analysis\n\nOwnership was declared THIRD_PARTY at ingest: this export holds evidence, architecture and corpus signatures only. No reconstruction source is generated or exported (SPEC §1.9, §15).\n", encoding="utf-8")
     if ctx is not None:
         from ab_engine.knowledge import hooks as knowledge_hooks  # noqa: PLC0415
 
-        ku = knowledge_hooks.knowledge_used(ctx)
         (out / "evidence").mkdir(exist_ok=True)
-        write_json(out / "evidence" / "knowledge_used.json", "artifactbench.knowledge_used", ku)
+        write_json(out / "evidence" / "knowledge_used.json", "artifactbench.knowledge_used", knowledge_hooks.knowledge_used(ctx))
     path_findings = scan_paths(out)
     secret_findings = scan_secrets(out)
     checks = git_ready_checks(out, job, path_findings, secret_findings)
     git_ready = all(c["ok"] is True for c in checks if c["ok"] is not None) and not any(c["ok"] is False for c in checks)
-    zip_path = (ws.exports / f"{name}.zip") if zip_it else None
-    report = {"job_id": job.job_id, "exported": datetime.now(UTC).isoformat(), "out_dir": str(out), "files": copied,
+    zip_path = (ws.exports / f"{product}_RECOVERED.zip") if zip_it else None
+    report = {"job_id": job.job_id, "exported": datetime.now(UTC).isoformat(), "out_dir": str(out), "files": copied, "layout": "A7 <Plugin>_RECOVERED",
               "reconstruction_exported": job.reconstruction_allowed, "path_findings": path_findings, "secret_findings": secret_findings,
               "git_ready": git_ready, "checks": checks, "zip_path": str(zip_path) if zip_path else None}
-    write_json(out / "00_manifest" / "export_report.json", "artifactbench.export_report", report)
+    write_json(out / "evidence" / "00_manifest" / "export_report.json", "artifactbench.export_report", report)
     if zip_path is not None:
         with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
             for p in sorted(out.rglob("*")):
                 if p.is_file():
-                    zf.write(p, f"{name}/{p.relative_to(out).as_posix()}")
+                    zf.write(p, f"{product}_RECOVERED/{p.relative_to(out).as_posix()}")
     if ctx is not None:
-        ctx.metrics.update({"files": copied, "git_ready": git_ready, "path_findings": len(path_findings), "secret_findings": len(secret_findings)})
+        ctx.metrics.update({"files": copied, "git_ready": git_ready, "path_findings": len(path_findings), "secret_findings": len(secret_findings), "out_dir": str(out)})
         for f in path_findings[:20]:
             ctx.warn("ILLEGAL_PATH", f"{f['path']}: {f['detail']}")
         for f in secret_findings[:20]:
@@ -296,7 +326,7 @@ def stage_export(ctx: StageContext) -> None:
     ctx.completeness = "NOT_APPLICABLE"
 
 
-runner.register_stage(StageImpl("EXPORT_COMPLETE", version=1, run=stage_export, tool_version=TOOL, config_keys=("zip",)))
+runner.register_stage(StageImpl("EXPORT_COMPLETE", version=2, run=stage_export, tool_version=TOOL, config_keys=("zip",)))
 
 
 def h_bundle_export(params: dict[str, Any], ws: Workspace) -> dict[str, Any]:
@@ -305,7 +335,9 @@ def h_bundle_export(params: dict[str, Any], ws: Workspace) -> dict[str, Any]:
     rec = job.stage("EXPORT_COMPLETE")
     if rec is None or rec.status != "OK":
         raise api.ApiError((rec.errors[0]["code"] if rec and rec.errors else "EXPORT_FAILED"), (rec.errors[0]["message"] if rec and rec.errors else "export did not run"))
-    report = json.loads((ws.exports / Path(job.project_dir).name / "00_manifest" / "export_report.json").read_text(encoding="utf-8"))["data"]
+    rec = job.stage("EXPORT_COMPLETE")
+    out_dir = Path(rec.metrics.get("out_dir", ""))
+    report = json.loads((out_dir / "evidence" / "00_manifest" / "export_report.json").read_text(encoding="utf-8"))["data"]
     return {"out_dir": report["out_dir"], "zip_path": report.get("zip_path"), "git_ready": {"ok": report["git_ready"], "checks": report["checks"]},
             "path_findings": report["path_findings"], "secret_findings": report["secret_findings"], "files": report["files"]}
 

@@ -41,3 +41,15 @@ Temurin 21.0.8+9 (Windows x64 zip, Linux x64 tar.gz, macOS aarch64 tar.gz)
 with the sha256 values published beside each asset (`.sha256.txt`). JUCE
 8.0.9 (Windows/Linux release zips) and pluginval 1.0.4 (Windows/Linux/macOS)
 are pinned the same way. No `PIN_ME` entries remain.
+
+## B-008 iPlug2 ground-truth fixture cannot be built in this environment
+ADDENDUM A5 asks for a second fixture in iPlug2. iPlug2 targets Windows and
+macOS (Linux support is experimental and its VST3 build is not maintained), so
+`fixtures/groundtruth_iplug2/` ships the source (same parameters, DSP,
+resources and PROTECTED_SUBSYSTEM stub as the JUCE fixture, generated from the
+same `spec.json`) with `build_all.ps1`, but it has not been compiled here.
+Studio-PC action: run `fixtures/groundtruth_iplug2/build_all.ps1` (clones
+iPlug2 and its dependencies), then ingest `out/stripped/ABGroundTruthIP.vst3`
+and run `ab-cli --text ground-truth <job> --truth fixtures/groundtruth_iplug2/truth.json --phase 2`.
+Until then gate A5's second report is pending-windows, and the JUCE rule
+non-firing check (A4) is unverified.
