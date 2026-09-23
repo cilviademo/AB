@@ -1,0 +1,99 @@
+{
+  "schema": "artifactbench.tool_manifest",
+  "schema_version": 1,
+  "note": "Pinned first-run downloads (SPEC §3.1, §15). The downloader refuses any entry without a sha256; PIN_ME entries must be filled by the owner after a manual download + `ab-cli tools hash <file>`. No auto-update without a manifest change.",
+  "tools": {
+    "ghidra": {
+      "version": "11.3.2",
+      "url": "https://github.com/NationalSecurityAgency/ghidra/releases/download/Ghidra_11.3.2_build/ghidra_11.3.2_PUBLIC_20250415.zip",
+      "sha256": "99d45035bdcc3d6627e7b1232b7b379905a9fad76c772c920602e2b5d8b2dac2",
+      "size": 446297359,
+      "extract": "zip",
+      "root": "ghidra_11.3.2_PUBLIC",
+      "platforms": [
+        "win32",
+        "linux",
+        "darwin"
+      ],
+      "license": "Apache-2.0"
+    },
+    "jdk": {
+      "version": "21.0.8+9",
+      "platforms": {
+        "win32": {
+          "url": "https://github.com/adoptium/temurin21-binaries/releases/download/jdk-21.0.8%2B9/OpenJDK21U-jdk_x64_windows_hotspot_21.0.8_9.zip",
+          "sha256": "5dbb74a4edda94c2aae97a1e30f448db0ad9023a9466fe31a8c68377d9dfbac4",
+          "extract": "zip",
+          "root_glob": "jdk-21*"
+        },
+        "linux": {
+          "url": "https://github.com/adoptium/temurin21-binaries/releases/download/jdk-21.0.8%2B9/OpenJDK21U-jdk_x64_linux_hotspot_21.0.8_9.tar.gz",
+          "sha256": "f2dc5418092c43003db8f9005c4a286e1c0104fea96ccdd49e8ebd037cac9219",
+          "extract": "tar.gz",
+          "root_glob": "jdk-21*"
+        },
+        "darwin": {
+          "url": "https://github.com/adoptium/temurin21-binaries/releases/download/jdk-21.0.8%2B9/OpenJDK21U-jdk_aarch64_mac_hotspot_21.0.8_9.tar.gz",
+          "sha256": "59422c2292ae4e76b87e00d8808dbe49cffa39af731e08bb0292ddb0af4e0261",
+          "extract": "tar.gz",
+          "root_glob": "jdk-21*"
+        }
+      },
+      "note": "Eclipse Temurin 21.0.8+9 (exact release assets; sha256 from the release's published .sha256.txt files). A system JDK 21 on PATH or JAVA_HOME is used when present.",
+      "license": "GPLv2+CE"
+    },
+    "pluginval": {
+      "version": "1.0.4",
+      "platforms": {
+        "win32": {
+          "url": "https://github.com/Tracktion/pluginval/releases/download/v1.0.4/pluginval_Windows.zip",
+          "sha256": "c08e61ce3b96db41636f8ec7e76f4c7e2c13ebdac7fa1b5a1f52b4f32ec715ab",
+          "extract": "zip",
+          "binary": "pluginval.exe"
+        },
+        "linux": {
+          "url": "https://github.com/Tracktion/pluginval/releases/download/v1.0.4/pluginval_Linux.zip",
+          "sha256": "c01c49d8063965c4c2dea8324468336768f5c9139e0b1caebde14c2400b55352",
+          "extract": "zip",
+          "binary": "pluginval"
+        },
+        "darwin": {
+          "url": "https://github.com/Tracktion/pluginval/releases/download/v1.0.4/pluginval_macOS.zip",
+          "sha256": "3c4c533bda0c5059eea3ddaea752d757ee2025041f0f47e6bcb0e87f6082b29f",
+          "extract": "zip",
+          "binary": "pluginval.app/Contents/MacOS/pluginval",
+          "size": 9202795
+        }
+      },
+      "license": "GPLv3"
+    },
+    "juce": {
+      "version": "8.0.9",
+      "platforms": {
+        "win32": {
+          "url": "https://github.com/juce-framework/JUCE/releases/download/8.0.9/juce-8.0.9-windows.zip",
+          "sha256": "c38505ed6ff3e4800e2c73152617aa3a5f85b28d96be0c9a48f4ccc69267f6b3",
+          "size": 36498761,
+          "extract": "zip",
+          "root": "JUCE"
+        },
+        "linux": {
+          "url": "https://github.com/juce-framework/JUCE/releases/download/8.0.9/juce-8.0.9-linux.zip",
+          "sha256": "fe2169509716aad9253a70e0eb278a3de90c29988a7a077aa21652f60240d03b",
+          "size": 38298295,
+          "extract": "zip",
+          "root": "JUCE"
+        },
+        "darwin": {
+          "url": "https://github.com/juce-framework/JUCE/releases/download/8.0.9/juce-8.0.9-osx.zip",
+          "sha256": "55367ce9ec1dd0dbb2a9ce5f2cd6c99637cd7dc5fe1cd2143401832be21f9139",
+          "extract": "zip",
+          "root": "JUCE",
+          "size": 48181228
+        }
+      },
+      "note": "JUCE source tree for the BUILD stage (SURROGATE/FIDELITY rebuilds). Same pinned release the ground-truth fixture is built with. The rebuild is compiled under the owner's own JUCE licence terms.",
+      "license": "AGPL-3.0 / JUCE commercial (owner's choice)"
+    }
+  }
+}

@@ -1,0 +1,6 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "artifactbench.signal_flow",
+  "description": "Decompiler-stage contract (SPEC §8). Written by ghidra/*.java or ab_engine.decompile; shapes documented in those files.",
+  "type": ["object", "array"]
+}

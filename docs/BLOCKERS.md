@@ -33,3 +33,11 @@ recorded in `docs/STATUS.md` when run.
 ## B-006 GitHub usage
 Assumed: commit and push to `claude/blissful-ritchie-1408h8` only; no PR
 unless asked. `Push to GitHub` in the Export screen stays optional.
+
+## B-007 Pin the JDK 21 download hashes in tools/manifest.json — RESOLVED
+Adoptium's API is blocked from the build environment, but the exact Temurin
+release assets on GitHub are reachable: `tools/manifest.json` now pins
+Temurin 21.0.8+9 (Windows x64 zip, Linux x64 tar.gz, macOS aarch64 tar.gz)
+with the sha256 values published beside each asset (`.sha256.txt`). JUCE
+8.0.9 (Windows/Linux release zips) and pluginval 1.0.4 (Windows/Linux/macOS)
+are pinned the same way. No `PIN_ME` entries remain.

@@ -101,7 +101,11 @@ def find_static_engine_cli() -> Tool:
 
 
 def find_jdk(ws: Workspace) -> Tool:
-    for base in (ws.tools / "jdk", Path(os.environ.get("JAVA_HOME", "")) if os.environ.get("JAVA_HOME") else None):
+    bases = [Path(os.environ["JAVA_HOME"]) if os.environ.get("JAVA_HOME") else None, ws.tools / "jdk"]
+    if (ws.tools / "jdk").is_dir():  # downloader layout: tools/jdk/<root_glob>/ (macOS: <root>/Contents/Home)
+        for d in sorted((ws.tools / "jdk").glob("jdk-21*"), reverse=True):
+            bases += [d, d / "Contents" / "Home"]
+    for base in bases:
         if base and (base / "bin" / _exe("java")).is_file():
             exe = base / "bin" / _exe("java")
             return Tool("jdk", str(exe), _version([str(exe), "-version"]), "for Ghidra")
@@ -112,7 +116,7 @@ def find_jdk(ws: Workspace) -> Tool:
 
 
 def find_ghidra(ws: Workspace) -> Tool:
-    roots = [ws.tools]
+    roots = [ws.tools / "ghidra", ws.tools]  # downloader layout: tools/ghidra/ghidra_<ver>_PUBLIC/
     if os.environ.get("GHIDRA_INSTALL_DIR"):
         roots.insert(0, Path(os.environ["GHIDRA_INSTALL_DIR"]).parent)
     for root in roots:
@@ -130,6 +134,25 @@ def find_pluginval(ws: Workspace) -> Tool:
         if c and c.is_file():
             return Tool("pluginval", str(c), _version([str(c), "--version"]), "plugin validator")
     return Tool("pluginval", None, None, "not installed; optional (Phase 4)")
+
+
+def find_juce(ws: Workspace, override: str | None = None) -> Tool:
+    """JUCE source tree for the build stage: option/env override, <workspace>/tools/JUCE, or the fixture's clone in a dev checkout."""
+    root = repo_root()
+    cands = [Path(override) if override else None, Path(os.environ["AB_JUCE_DIR"]) if os.environ.get("AB_JUCE_DIR") else None,
+             ws.tools / "juce" / "JUCE", ws.tools / "juce", ws.tools / "JUCE", (root / "fixtures" / "groundtruth" / "third_party" / "JUCE") if root else None]
+    for c in cands:
+        if c and (c / "CMakeLists.txt").is_file():
+            ver = None
+            try:
+                import re as _re  # noqa: PLC0415
+
+                mm = _re.search(r"JUCE VERSION ([0-9.]+)", (c / "CMakeLists.txt").read_text(encoding="utf-8", errors="replace"))
+                ver = mm.group(1) if mm else None
+            except OSError:
+                pass
+            return Tool("juce", str(c), ver, "JUCE source tree (build stage)")
+    return Tool("juce", None, None, "not found; set AB_JUCE_DIR or clone JUCE 8.0.9 to <workspace>/tools/JUCE")
 
 
 def find_cmake() -> Tool:
@@ -157,4 +180,4 @@ def find_msvc() -> Tool:
 
 def all_tools(ws: Workspace) -> list[Tool]:
     return [find_node(ws), find_static_engine_cli(), find_vst3host(ws), find_jdk(ws), find_ghidra(ws),
-            find_pluginval(ws), find_cmake(), find_msvc()]
+            find_pluginval(ws), find_cmake(), find_msvc(), find_juce(ws)]
