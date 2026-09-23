@@ -69,6 +69,17 @@ def _load_image(path: Path) -> dict[str, Any]:
         content = bytes(s.content)
         if not content:
             continue
+        # only sections mapped at run time: non-allocated .debug_* / symbol tables would inflate the image
+        # range and change which immediates look like addresses (the A3 release-vs-stripped confound)
+        if fmt == "ELF":
+            try:
+                if not s.has(lief.ELF.Section.FLAGS.ALLOC):
+                    continue
+            except Exception:  # noqa: BLE001
+                if name.startswith((".debug", ".symtab", ".strtab", ".comment", ".note.GNU-stack")):
+                    continue
+        elif fmt == "MACHO" and name.startswith("__debug"):
+            continue
         is_code = False
         if fmt == "PE":
             is_code = name in (".text",) or "CODE" in name.upper() or name.startswith(".text")

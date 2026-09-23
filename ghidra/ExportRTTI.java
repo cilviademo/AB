@@ -13,7 +13,9 @@ import ghidra.app.script.GhidraScript;
 import ghidra.program.model.address.Address;
 import ghidra.program.model.data.DataType;
 import ghidra.program.model.listing.*;
+import ghidra.program.model.mem.Memory;
 import ghidra.program.model.mem.MemoryAccessException;
+import ghidra.program.model.mem.MemoryBlock;
 import ghidra.program.model.symbol.*;
 import ghidra.app.util.demangler.DemangledObject;
 import ghidra.app.util.demangler.DemanglerUtil;
@@ -68,6 +70,11 @@ public class ExportRTTI extends GhidraScript {
                 c.slotCounts.add(countSlots(s.getAddress(), c.methods));
             }
         }
+        // 1b. Stripped ELF / Mach-O: no typeinfo/vtable symbols exist. Recover the Itanium RTTI structurally
+        //     (typeinfo-name string → typeinfo object → vtables), which is what the product faces on a real
+        //     stripped Linux/macOS build. Names become VERIFIED_RTTI only when a typeinfo object references
+        //     the string; vtables VERIFIED_VTABLE only when a table's typeinfo pointer resolves to that object.
+        if (!isPE) structuralItanium(classes, listing);
         // 2. Inheritance from the class namespaces Ghidra built (base class descriptors on PE;
         //    on ELF from the typeinfo layout). Ghidra records it as "Data Type" class structures.
         // functions grouped by namespace once (was O(classes × functions): hung on 700 classes × 40k functions)
@@ -111,6 +118,98 @@ public class ExportRTTI extends GhidraScript {
             w.println("]}");
         }
         println("ExportRTTI: " + classes.size() + " classes -> " + out);
+    }
+
+    /** Port of the v2 demangleItaniumType rule (nested-name grammar only). */
+    static String demangleItanium(String m) {
+        int i = 0; boolean nested = false;
+        if (m.startsWith("_ZTS")) i = 4;
+        if (i < m.length() && m.charAt(i) == 'N') { nested = true; i++; }
+        List<String> parts = new ArrayList<>();
+        while (i < m.length()) {
+            int j = i; while (j < m.length() && Character.isDigit(m.charAt(j))) j++;
+            if (j == i) break;
+            int len = Integer.parseInt(m.substring(i, j)); i = j;
+            if (i + len > m.length()) return null;
+            parts.add(m.substring(i, i + len)); i += len;
+            if (!nested) break;
+        }
+        if (nested && (i >= m.length() || m.charAt(i) != 'E')) return null;
+        return parts.isEmpty() ? null : String.join("::", parts);
+    }
+
+    static boolean itaniumWellFormed(String m) {
+        return m.matches("(N(\\d+[A-Za-z_]\\w*)+E|\\d+[A-Za-z_]\\w*)") && demangleItanium(m) != null;
+    }
+
+    /** Itanium ABI without symbols: typeinfo objects are {vptr, name*, …} in .data.rel.ro/.rodata; vtables are
+        {offset_to_top, typeinfo*, slots…}. Everything is found by scanning aligned pointer words. */
+    void structuralItanium(Map<String, Cls> classes, Listing listing) throws Exception {
+        Memory mem = currentProgram.getMemory(); int ptr = currentProgram.getDefaultPointerSize();
+        if (ptr != 8) { println("structuralItanium: only 64-bit images supported here"); return; }
+        // name strings by address
+        Map<Long, String> nameAt = new HashMap<>();
+        for (Data d : listing.getDefinedData(true)) {
+            if (!d.getDataType().getName().toLowerCase().contains("string")) continue;
+            Object v = d.getValue(); if (!(v instanceof String)) continue;
+            String m = (String) v; if (m.length() < 3 || m.length() > 400 || !itaniumWellFormed(m)) continue;
+            String name = demangleItanium(m); if (name == null) continue;
+            if (!name.contains("::") && name.length() < 3) continue;
+            nameAt.put(d.getAddress().getOffset(), name);
+        }
+        // scan pointer words in data blocks
+        Map<Long, Long> typeinfoOf = new HashMap<>();   // typeinfo object addr -> name addr
+        List<long[]> words = new ArrayList<>();          // [addr, value] for every aligned word in data blocks
+        for (MemoryBlock b : mem.getBlocks()) {
+            if (!b.isInitialized() || b.isExecute()) continue;
+            String bn = b.getName();
+            if (!(bn.contains("data") || bn.contains("rodata") || bn.contains("const") || bn.contains("got"))) continue;
+            long size = b.getSize(); if (size > 256L * 1024 * 1024) continue;
+            byte[] buf = new byte[(int) size]; b.getBytes(b.getStart(), buf);
+            long base = b.getStart().getOffset();
+            for (int i = 0; i + 8 <= buf.length; i += 8) {
+                long v = 0; for (int k = 7; k >= 0; k--) v = (v << 8) | (buf[i + k] & 0xFFL);
+                if (v == 0) continue;
+                words.add(new long[] { base + i, v });
+                if (nameAt.containsKey(v)) typeinfoOf.put(base + i - 8, v);   // name pointer sits at typeinfo+8
+            }
+        }
+        // typeinfo sanity: the word at the object start must be a pointer (vptr into a data block)
+        Map<Long, Long> tiValid = new HashMap<>();
+        for (Map.Entry<Long, Long> e : typeinfoOf.entrySet()) {
+            try { long vptr = mem.getLong(toAddr(e.getKey())); if (mem.getBlock(toAddr(vptr)) != null) tiValid.put(e.getKey(), e.getValue()); } catch (MemoryAccessException ignored) {}
+        }
+        int nv = 0;
+        for (Map.Entry<Long, Long> e : tiValid.entrySet()) {
+            long ti = e.getKey(); String name = nameAt.get(e.getValue());
+            Cls c = classes.computeIfAbsent(name, k -> new Cls());
+            if (c.name == null) { c.name = name; c.rttiKind = "ITANIUM_RTTI_STRUCTURAL"; c.typeDescriptor = ti; }
+            // bases: si (typeinfo* at +16) or vmi (flags int at +16, count at +20, then {typeinfo*, offset_flags} pairs at +24)
+            try {
+                long w16 = mem.getLong(toAddr(ti + 16));
+                if (tiValid.containsKey(w16)) { c.bases.add(nameAt.get(tiValid.get(w16))); }
+                else {
+                    int flags = mem.getInt(toAddr(ti + 16)), count = mem.getInt(toAddr(ti + 20));
+                    if (flags >= 0 && flags < 16 && count > 0 && count <= 8) for (int k = 0; k < count; k++) { long bt = mem.getLong(toAddr(ti + 24 + k * 16L)); if (tiValid.containsKey(bt)) c.bases.add(nameAt.get(tiValid.get(bt))); }
+                }
+            } catch (MemoryAccessException ignored) {}
+            // vtables: words equal to the typeinfo address whose preceding word is offset_to_top (0 or small negative)
+            for (long[] w : words) {
+                if (w[1] != ti) continue;
+                long a = w[0];
+                try {
+                    long off = mem.getLong(toAddr(a - 8));
+                    if (off != 0 && (off > 0 || off < -65536)) continue;
+                    long slots0 = a + 8;
+                    if (listing.getFunctionAt(toAddr(mem.getLong(toAddr(slots0)))) == null) continue;   // first slot must be a function
+                    if (c.vtables.contains(a - 8)) continue;
+                    c.vtables.add(a - 8);
+                    c.slotCounts.add(countSlots(toAddr(a - 8), c.methods));
+                    nv++;
+                } catch (MemoryAccessException ignored) {}
+            }
+        }
+        println("structuralItanium: " + nameAt.size() + " typeinfo-name strings, " + tiValid.size() + " typeinfo objects, " + nv + " vtables");
     }
 
     int countSlots(Address vt, List<Long> methods) {
