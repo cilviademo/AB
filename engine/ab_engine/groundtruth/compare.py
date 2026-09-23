@@ -203,9 +203,9 @@ def compare(job: Job, truth: dict[str, Any], *, phase: int = 1) -> dict[str, Any
     else:
         metrics["process_block_path"] = None
     if dsp_candidates:
-        top5 = [(c.get("class") or c.get("name") or "") + ((" ≈ " + c["knowledge_name"] + " (knowledge)") if c.get("knowledge_name") else "") for c in dsp_candidates[:5]]
+        top5 = [(c.get("class") or c.get("name") or "") + ((" ≈ " + c["knowledge_name"] + " (knowledge)") if c.get("knowledge_name") else "") + ((" ⊃ " + ", ".join(c["inlined_classes"]) + " (inlined, INFERRED)") if c.get("inlined_classes") else "") for c in dsp_candidates[:5]]
         metrics["dsp_function_identification"] = {"top5": top5, "waveshaper_in_top5": any("TanhShaper" in str(x) for x in top5), "filter_in_top5": any("TptLowpass" in str(x) for x in top5),
-                                                  "via_knowledge": any(c.get("knowledge_name") for c in dsp_candidates[:5])}
+                                                  "via_knowledge": any(c.get("knowledge_name") for c in dsp_candidates[:5]), "via_inlining": any(c.get("inlined_classes") for c in dsp_candidates[:5])}
     else:
         metrics["dsp_function_identification"] = None
     metrics["rtti_verified"] = {"classes": len(verified)} if verified else None

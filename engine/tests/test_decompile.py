@@ -62,3 +62,20 @@ def test_fingerprint_stability_matches_on_normalized_hash():
     r = stability.compare(a, b)
     assert r["functions_a"] == 2 and r["matched"] == 2 and r["ok"] and r["raw_hash_equal"] == 1
     assert {m["name_a"] for m in r["matches"]} == {"processBlock", "tanh_shaper"}
+
+
+def test_name_token_roles_and_inlined_class_inference():
+    from ab_engine.decompile import roles as roles_mod
+
+    assert roles_mod.role_from_name("abgt::TanhShaper") == ("WAVESHAPER", "CANDIDATE") and roles_mod.role_from_name("abgt::TptLowpass") == ("FILTER", "CANDIDATE")
+    assert roles_mod.role_from_name("abgt::LicenseStub")[0] == "LICENSING_AND_ENTITLEMENT_SUBSYSTEM" and roles_mod.role_from_name("Whatever") == ("UNKNOWN", "CANDIDATE")
+    classes = [{"recovered_name": "abgt::TanhShaper", "kind": "PLUGIN_OWNED_CANDIDATE", "role": "WAVESHAPER", "role_status": "CANDIDATE", "methods": ["0x10", "0x11"]},
+               {"recovered_name": "abgt::TptLowpass", "kind": "PLUGIN_OWNED_CANDIDATE", "role": "FILTER", "role_status": "CANDIDATE", "methods": ["0x20"]},
+               {"recovered_name": "abgt::Big", "kind": "PLUGIN_OWNED_CANDIDATE", "role": "FILTER", "role_status": "CANDIDATE", "methods": ["0x30"]},
+               {"recovered_name": "juce::X", "kind": "FRAMEWORK", "role": "FILTER", "methods": ["0x40"]}]
+    scored = [{"addr": "0x10", "size": 5}, {"addr": "0x11", "size": 14}, {"addr": "0x20", "size": 14}, {"addr": "0x30", "size": 400}, {"addr": "0x40", "size": 5},
+              {"addr": "0x100", "size": 900, "float_ops": 57, "libm_calls": 2}]
+    inl = roles_mod.infer_inlined(classes, scored, "0x100")
+    assert [x["class"] for x in inl] == ["abgt::TanhShaper", "abgt::TptLowpass"]           # Big has a real body; juce::X is not plugin-owned
+    assert inl[0]["evidence"] == "INFERRED" and inl[0]["inlined_into"] == "0x100" and "largest 14 B" in inl[0]["basis"][1]
+    assert roles_mod.infer_inlined(classes, scored, None) == []

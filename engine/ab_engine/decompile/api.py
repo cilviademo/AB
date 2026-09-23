@@ -40,7 +40,7 @@ from ab_engine.jobs.runner import StageContext, StageFailed, StageImpl, StageSki
 from ab_engine.workers.run import run_worker
 from ab_engine.workspace import Workspace
 
-STAGE_VERSION = 5  # 5: Fingerprint.java sizes restored (were 0 → every Ghidra fingerprint was skipped by the knowledge base); 4: structural RTTI + vtable layouts; 3: Capstone (A3)
+STAGE_VERSION = 6  # 6: name-token roles for structural classes, inlined-class inference; 5: Fingerprint.java sizes restored (were 0 → every Ghidra fingerprint was skipped by the knowledge base); 4: structural RTTI + vtable layouts; 3: Capstone (A3)
 SCRIPTS = ("ExportRTTI.java", "ExportCallgraph.java", "Fingerprint.java", "ExportDecompiled.java")
 
 
@@ -212,9 +212,11 @@ def stage_decompile(ctx: StageContext) -> None:
     seen = {c["recovered_name"] for c in static_classes} | {leaf(c["recovered_name"]) for c in static_classes}
     for v in verified:
         if v["name"] not in seen and leaf(v["name"]) not in seen:
-            merged.append({"recovered_name": v["name"], "kind": "PLUGIN_OWNED_CANDIDATE" if not v["name"].startswith(("juce::", "std::", "Steinberg::")) else "FRAMEWORK",
+            fw = v["name"].startswith(("juce::", "std::", "Steinberg::", "__cxxabiv1::", "__gnu_cxx::"))
+            role, role_status = roles_mod.role_from_name(v["name"]) if not fw else ("FRAMEWORK", "CANDIDATE")
+            merged.append({"recovered_name": v["name"], "kind": "PLUGIN_OWNED_CANDIDATE" if not fw else "FRAMEWORK", "role": role, "role_status": role_status, "role_basis": ["name tokens"] if not fw else ["framework namespace"],
                            "name_status": "VERIFIED_RTTI", "structure_status": v.get("structure_status"), "vtables": v.get("vtables", []), "slot_counts": v.get("slot_counts", []),
-                           "bases": v.get("bases", []), "base_status": v.get("base_status", "UNKNOWN"), "methods": v.get("methods", []), "source": "Ghidra RTTI analyzer"})
+                           "bases": v.get("bases", []), "base_status": v.get("base_status", "UNKNOWN"), "methods": v.get("methods", []), "source": "Ghidra RTTI (" + str(v.get("rtti_kind") or "analyzer") + ")"})
     write_json(ctx.project_dir / "03_architecture" / "classes.json", "artifactbench.classes_verified", merged)
     ctx.output("03_architecture/classes.json")
 
@@ -251,11 +253,28 @@ def stage_decompile(ctx: StageContext) -> None:
                        "wrapper": bool(meta.get("wrapper")), "param_refs": param_refs, "vtable_slot": (fp or {}).get("VTABLE_SLOT", -1), "file": meta.get("file"), **s})
     scored.sort(key=lambda r: -r["priority"])
     dsp = [r for r in scored if r["role"] in roles_mod.DSP_ROLES and not r["noise"]]
+    # optimizer inlining (stripped -O2 builds): DSP-role classes with no surviving method body live inside processBlock
+    seeds_now = callgraph.get("seeds", {})
+    inlined = roles_mod.infer_inlined(merged, scored, seeds_now.get("processBlock") or seeds_now.get("processBlock_candidate"))
+    for r in dsp:
+        mine = [x for x in inlined if x["inlined_into"] == r["addr"]]
+        if mine:
+            r["inlined_classes"] = [x["class"] for x in mine]
+            r["inlined_basis"] = mine[0]["basis"]
+    if inlined:
+        write_json(ev / "decompiler" / "inlined_classes.json", "artifactbench.inlined_classes", inlined)
+        ctx.output("01_evidence/decompiler/inlined_classes.json")
     write_json(ev / "decompiler" / "roles.json", "artifactbench.decompiled_functions", scored)
     write_json(ev / "decompiler" / "dsp_candidates.json", "artifactbench.dsp_candidates", dsp[:200])
+    def _dsp_row(i: int, r: dict[str, Any]) -> str:
+        kn = f" ≈ `{r['knowledge_name']}` (knowledge, INFERRED)" if r.get("knowledge_name") else ""
+        inl = " ⊃ inlined " + ", ".join(r["inlined_classes"]) + " (INFERRED)" if r.get("inlined_classes") else ""
+        basis = "; ".join(r["role_basis"])
+        return f"| {i + 1} | {r['priority']} | {r['role']} | {r['role_status']} | {r['dist']} | {r['class']} | `{r['name']}`{kn}{inl} @ {r['addr']} | {basis} |"
+
     (ev / "decompiler" / "dsp_candidates.md").write_text(
         "# DSP candidates — priority = reachability × plugin-specific × parameter/state refs × DSP evidence (SPEC §8.6)\n\n| # | priority | role | status | dist | class | function | basis |\n|---|---|---|---|---|---|---|---|\n"
-        + "\n".join(f"| {i + 1} | {r['priority']} | {r['role']} | {r['role_status']} | {r['dist']} | {r['class']} | `{r['name']}`{(' ≈ `' + r['knowledge_name'] + '` (knowledge, INFERRED)') if r.get('knowledge_name') else ''} @ {r['addr']} | {'; '.join(r['role_basis'])} |" for i, r in enumerate(dsp[:100])) + "\n", encoding="utf-8")
+        + "\n".join(_dsp_row(i, r) for i, r in enumerate(dsp[:100])) + "\n", encoding="utf-8")
     for rel in ("01_evidence/decompiler/roles.json", "01_evidence/decompiler/dsp_candidates.json", "01_evidence/decompiler/dsp_candidates.md"):
         ctx.output(rel)
 

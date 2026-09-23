@@ -33,6 +33,51 @@ STATIC_TO_FINAL = {"DELAY_REVERB": "DELAY", "ENVELOPE": "COMPRESSOR", "STATE_CON
 DSP_ROLES = {"AUDIO_LOOP", "GAIN", "WAVESHAPER", "FILTER", "FILTER_COEFFICIENT", "OVERSAMPLER", "COMPRESSOR", "LIMITER", "GATE",
              "DELAY", "REVERB", "CONVOLUTION", "PITCH_TIME", "MODULATION"}
 
+#: class role from name tokens alone (CANDIDATE, basis "name tokens") — the v2 static classifier's vocabulary, used for
+#: classes the static stage never saw (stripped builds: structural RTTI / typeinfo candidates)
+_NAME_ROLES = (
+    (r"(licen\w*|serial|activat\w*|unlock|trial|hwid|entitle\w*|registr\w*)", LICENSING_ROLE),
+    (r"(tanh|shaper|drive|distort\w*|satur\w*|clip\w*|fold|waveshap\w*)", "WAVESHAPER"),
+    (r"(oversampl\w*|resampl\w*|upsamp\w*|downsamp\w*|halfband|polyphase)", "OVERSAMPLER"),
+    (r"(filter|lpf|hpf|svf|tpt|biquad|ladder|shelf|lowpass|highpass|bandpass|eq)", "FILTER"),
+    (r"(compress\w*|comp)", "COMPRESSOR"), (r"(limit\w*)", "LIMITER"), (r"(gate)", "GATE"), (r"(delay|echo)", "DELAY"), (r"(reverb|plate|hall)", "REVERB"),
+    (r"(meter|vu|analy[sz]er)", "METER"), (r"(editor|component|button|slider|knob|lookandfeel|gui|panel)", "GUI"), (r"(state|preset|valuetree|xml)", "STATE"),
+)
+
+
+def role_from_name(name: str | None) -> tuple[str, str]:
+    """(role, role_status) from CamelCase / snake tokens of a class name — always CANDIDATE."""
+    toks = _tokens(name or "")
+    for rx, role in _NAME_ROLES:
+        if re.search(r" " + rx + r" ", toks):
+            return role, "CANDIDATE"
+    return "UNKNOWN", "CANDIDATE"
+
+
+def infer_inlined(classes: list[dict[str, Any]], scored: list[dict[str, Any]], seed: str | None, *, owned_kinds=("PLUGIN_OWNED_CANDIDATE", "PLUGIN_OWNED")) -> list[dict[str, Any]]:
+    """Plugin-owned DSP-role classes whose only surviving methods are trivial (destructors / < 32 B) had their work
+    inlined by the optimizer into the caller. Attribute them to the processBlock seed as ``inlined_classes``
+    (INFERRED, basis stated) so a stripped -O2 build still names the module the DSP lives in."""
+    if not seed:
+        return []
+    by_addr = {r["addr"]: r for r in scored}
+    seed_row = by_addr.get(seed)
+    if seed_row is None:
+        return []
+    out = []
+    for c in classes:
+        if c.get("kind") not in owned_kinds or c.get("role") not in DSP_ROLES:
+            continue
+        methods = [by_addr[a] for a in (c.get("methods") or []) if a in by_addr]
+        sizes = [int(m.get("size") or 0) for m in methods]
+        if methods and max(sizes) >= 48:
+            continue   # a real method body survived: nothing to infer
+        basis = [f"class role {c.get('role')} ({c.get('role_status') or 'CANDIDATE'})", f"{len(methods)} surviving method(s), largest {max(sizes) if sizes else 0} B (destructors / trivial)",
+                 f"processBlock seed {seed} is the DSP-dense caller (float ops {seed_row.get('float_ops')}, libm {seed_row.get('libm_calls')})"]
+        out.append({"class": c.get("recovered_name") or c.get("name"), "role": c.get("role"), "inlined_into": seed, "evidence": "INFERRED", "basis": basis})
+    return out
+
+
 KNOWN_CONSTANTS = {"pi": 3.141592653589793, "2pi": 6.283185307179586, "sqrt2": 1.4142135623730951, "inv_sqrt2": 0.7071067811865476,
                    "ln10_20": 0.11512925464970229, "20_ln10": 8.685889638065037}
 
