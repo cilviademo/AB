@@ -201,6 +201,9 @@ def refresh_from_evidence(ws, job) -> dict[str, Any]:
     roles = _load(pd / "01_evidence" / "decompiler" / "roles.json") or []
     classes = _load(pd / "01_evidence" / "rtti" / "classes_verified.json") or []
     cg = _load(pd / "01_evidence" / "callgraphs" / "callgraph.json") or {}
+    from ab_engine.decompile.api import _fill_sizes  # noqa: PLC0415
+
+    _fill_sizes(fps, cg)
     role_by = {r["addr"]: r for r in roles}
     b = db.record_functions(job.artifact_sha256, fps, source="ghidra", tool_version="ghidra/Fingerprint.java", evidence_version="knowledge-refresh",
                             kind_of=lambda fp: kind_from_name(fp.get("name")) or ("KNOWN_PLUGIN_SPECIFIC" if role_by.get(fp.get("addr"), {}).get("role") in ("WAVESHAPER", "FILTER", "AUDIO_LOOP", "PARAMETER_UPDATE", "STATE", "GAIN", "LICENSING_AND_ENTITLEMENT_SUBSYSTEM") and not role_by.get(fp.get("addr"), {}).get("noise") else None),

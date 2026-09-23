@@ -40,7 +40,7 @@ from ab_engine.jobs.runner import StageContext, StageFailed, StageImpl, StageSki
 from ab_engine.workers.run import run_worker
 from ab_engine.workspace import Workspace
 
-STAGE_VERSION = 4  # 4: structural Itanium RTTI + knowledge-learned vtable layouts seed processBlock on stripped builds; 3: Capstone pre-fingerprints (A3)
+STAGE_VERSION = 5  # 5: Fingerprint.java sizes restored (were 0 → every Ghidra fingerprint was skipped by the knowledge base); 4: structural RTTI + vtable layouts; 3: Capstone (A3)
 SCRIPTS = ("ExportRTTI.java", "ExportCallgraph.java", "Fingerprint.java", "ExportDecompiled.java")
 
 
@@ -88,6 +88,18 @@ def run_ghidra(ws: Workspace, log_dir: Path, binary: Path, out: Path, *, timeout
 
 def _load(p: Path) -> Any:
     return json.loads(p.read_text(encoding="utf-8")).get("data") if p.is_file() else None
+
+
+def _fill_sizes(fps: list[dict[str, Any]], callgraph: dict[str, Any]) -> int:
+    """A fingerprint row without a size (a Fingerprint.java export bug shipped once) takes the callgraph's
+    size for the same address — same evidence, one column."""
+    sizes = {f.get("addr"): int(f.get("size", 0)) for f in callgraph.get("functions", []) if f.get("addr")}
+    n = 0
+    for fp in fps:
+        if int(fp.get("size", 0) or 0) == 0 and sizes.get(fp.get("addr")):
+            fp["size"] = sizes[fp["addr"]]
+            n += 1
+    return n
 
 
 def stage_decompile(ctx: StageContext) -> None:
@@ -150,6 +162,7 @@ def stage_decompile(ctx: StageContext) -> None:
     verified = _load(ev / "rtti" / "classes_verified.json") or []
     callgraph = _load(ev / "callgraphs" / "callgraph.json") or {"functions": [], "seeds": {}, "seed_basis": "none"}
     fps = (_load(ev / "decompiler" / "fingerprints.json") or {}).get("functions", [])
+    _fill_sizes(fps, callgraph)
     funcs = _load(ev / "decompiler" / "functions.json") or []
     resolution = _load(ev / "decompiler" / "binarydata_resolution.json") or {}
 

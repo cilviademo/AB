@@ -68,7 +68,7 @@ public class Fingerprint extends GhidraScript {
         }
 
         for (Function f : listing.getFunctions(true)) {
-            FP fp = new FP(); fp.addr = f.getEntryPoint().getOffset(); fp.name = f.getName(true);   // qualified (namespace::class::method) so a name hint learned from a symbol build carries its class fp.size = (int) f.getBody().getNumAddresses();
+            FP fp = new FP(); fp.addr = f.getEntryPoint().getOffset(); fp.name = f.getName(true); fp.size = (int) f.getBody().getNumAddresses();   // qualified name (namespace::class::method) so a learned name hint carries its class
             // raw bytes
             ByteArrayOutputStream raw = new ByteArrayOutputStream();
             StringBuilder norm = new StringBuilder(); TreeSet<String> strs = new TreeSet<>(); List<Long> cl = new ArrayList<>();
