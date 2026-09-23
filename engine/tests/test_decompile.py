@@ -44,6 +44,14 @@ def test_binarydata_resolution_by_content():
     rows3 = bd.resolve(res3, carved, [])
     assert rows3[0]["binarydata_name"] is None and rows3[0]["mapping_status"].startswith("VERIFIED_BYTES_NAME_UNRESOLVED")
     assert bd.juce_name_hash("knob_png") == bd.juce_name_hash("knob_png")
+    # stripped path: the getNamedResource branch names the pair through its case constant (JUCE name hash)
+    res4 = {"names": ["knob_png", "ABMono_ttf", "Init_xml"],
+            "resources": [{"function": "0x81fc30", "name": "knob_png", "name_basis": "getNamedResource case constant -0x16f8fb20 == JUCE name hash of knob_png", "size": 790, "pointer": "0xa84658", "sha256": "a" * 64},
+                          {"function": "0x81fc30", "name": None, "name_basis": None, "size": 360, "pointer": "0xa84668", "sha256": "c" * 64}]}
+    rows4 = bd.resolve(res4, carved, [])
+    by4 = {r["binarydata_name"]: r for r in rows4}
+    assert by4["knob_png"]["carved"] == "png_000.png" and by4["knob_png"]["mapping_status"].startswith("VERIFIED (getNamedResource case constant == JUCE name hash")
+    assert any(r["binarydata_name"] is None and r["mapping_status"].startswith("VERIFIED_BYTES_NAME_UNRESOLVED") for r in rows4)   # unnamed pair, tables of unequal length
 
 
 def test_fingerprint_stability_matches_on_normalized_hash():

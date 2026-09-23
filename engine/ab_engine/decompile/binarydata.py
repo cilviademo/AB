@@ -32,17 +32,22 @@ def resolve(resolution: dict[str, Any], carved: list[dict[str, Any]], static_nam
     by_sha = {c.get("sha256"): c for c in carved if c.get("sha256")}
     rows: list[dict[str, Any]] = []
     used_names: set[str] = set()
-    # 0. named by a surviving symbol (BinaryData::<name> + <name>Size): the strongest evidence, no positional claim needed
+    # 0. named entries: by a surviving symbol (BinaryData::<name> + <name>Size), or — the stripped case — by the
+    #    getNamedResource branch whose case constant equals the JUCE name hash (31*h + c) of a listed name.
+    #    Either way the bytes are proven by hash; no positional claim is needed.
     named = [r for r in resources if r.get("name")]
     for r in named:
         c = by_sha.get(r.get("sha256"))
+        by_hash = bool(r.get("function")) or "hash" in str(r.get("name_basis") or "")
+        how = "getNamedResource case constant == JUCE name hash" if by_hash else "symbol BinaryData::name + nameSize"
+        name_basis = r.get("name_basis") or r.get("basis") or "symbol"
         if c is not None:
             rows.append({"binarydata_name": r["name"], "carved": c["name"], "sha256": r["sha256"], "size": r["size"], "pointer": r["pointer"],
-                         "mapping_status": "VERIFIED (symbol BinaryData::name + nameSize; bytes sha256 match)",
-                         "basis": ["sha256 of the bytes at the named symbol equals the carved asset", r.get("basis", "symbol")]})
+                         "mapping_status": f"VERIFIED ({how}; bytes sha256 match)",
+                         "basis": ["sha256 of the bytes at the resolved pointer equals the carved asset", name_basis]})
         else:
             rows.append({"binarydata_name": r["name"], "carved": None, "sha256": r["sha256"], "size": r["size"], "pointer": r["pointer"],
-                         "mapping_status": "RESOURCE_NOT_CARVED (bytes located at the named symbol but no carved asset has this hash — DEEP_SCAN or non-carvable type)", "basis": [r.get("basis", "symbol")]})
+                         "mapping_status": "RESOURCE_NOT_CARVED (bytes located in the binary but no carved asset has this hash — DEEP_SCAN or non-carvable type)", "basis": [name_basis]})
         used_names.add(r["name"])
     resources = [r for r in resources if not r.get("name")]
     names = [n for n in names if n not in used_names]

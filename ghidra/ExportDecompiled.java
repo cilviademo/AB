@@ -157,7 +157,12 @@ public class ExportDecompiled extends GhidraScript {
         }
         for (Address a : nameAddrs) for (Reference r : currentProgram.getReferenceManager().getReferencesTo(a)) { Function f = listing.getFunctionContaining(r.getFromAddress()); if (f != null) visited.add(f.getEntryPoint().getOffset()); }
         for (Row row : rows) if (!row.noise && row.code != null && row.code.contains("switch") && row.code.split("return").length > 3) visited.add(row.addr);
-        Pattern pair = Pattern.compile("\\*\\s*(?:param_2|[A-Za-z_]\\w*)\\s*=\\s*(0x[0-9a-fA-F]+|\\d+)\\s*;\\s*(?:\\n\\s*)?(?:return\\s+|\\w+\\s*=\\s*)(?:\\(char\\s*\\*\\)\\s*)?&?\\s*(?:BinaryData::)?([A-Za-z_]\\w*|0x[0-9a-fA-F]+|DAT_[0-9a-fA-F]+|PTR_[0-9a-fA-F_]+)");
+        // `*param_2 = <size>; return <pointer symbol>;` — the pointer token is any Ghidra symbol (PTR_DAT_…, PTR_PNG_…,
+        // PTR_s_<_xml_…, BinaryData::knob_png, DAT_…) or a literal address; resolved through the symbol table below
+        Pattern pair = Pattern.compile("\\*\\s*(?:param_2|[A-Za-z_]\\w*)\\s*=\\s*(0x[0-9a-fA-F]+|\\d+)\\s*;\\s*(?:\\n\\s*)?(?:return\\s+|\\w+\\s*=\\s*)(?:\\(char\\s*\\*\\)\\s*)?&?\\s*(?:BinaryData::)?([A-Za-z_][^\\s;()]*|0x[0-9a-fA-F]+)");
+        Pattern caseConst = Pattern.compile("(?:==\\s*|case\\s+)(-?0x[0-9a-fA-F]+|-?\\d+)");
+        Map<Long, String> nameByHash = new HashMap<>();
+        for (String nm : names) { int h = 0; for (char c : nm.toCharArray()) h = 31 * h + c; nameByHash.put((long) h, nm); nameByHash.put((long) h & 0xFFFFFFFFL, nm); }
         // Path 1 (symbols survive, e.g. ELF .dynsym): BinaryData::<name> data + BinaryData::<name>Size int → bytes hashed directly
         for (int i = 0; i < names.size(); i++) {
             String nm = names.get(i);
@@ -187,15 +192,27 @@ public class ExportDecompiled extends GhidraScript {
                 long size = m.group(1).startsWith("0x") ? Long.parseLong(m.group(1).substring(2), 16) : Long.parseLong(m.group(1));
                 if (size <= 0 || size > 200_000_000L) continue;
                 String sym = m.group(2); Address ptr = null;
-                if (sym.startsWith("0x")) ptr = toAddr(Long.parseLong(sym.substring(2), 16));
-                else if (sym.startsWith("DAT_") || sym.startsWith("PTR_")) { String hx = sym.replaceAll("^(DAT|PTR)_", "").replaceAll("_.*$", ""); try { ptr = toAddr(Long.parseLong(hx, 16)); } catch (NumberFormatException ignored) {} }
-                else { List<Symbol> ss = currentProgram.getSymbolTable().getGlobalSymbols(sym); if (!ss.isEmpty()) ptr = ss.get(0).getAddress(); }
+                if (sym.startsWith("0x")) { try { ptr = toAddr(Long.parseLong(sym.substring(2), 16)); } catch (NumberFormatException ignored) {} }
+                else {
+                    for (Symbol sy : currentProgram.getSymbolTable().getSymbols(sym)) { ptr = sy.getAddress(); break; }
+                    if (ptr == null) { List<Symbol> ss = currentProgram.getSymbolTable().getGlobalSymbols(sym); if (!ss.isEmpty()) ptr = ss.get(0).getAddress(); }
+                    if (ptr == null) { Matcher hx = Pattern.compile("_([0-9a-fA-F]{6,16})$").matcher(sym); if (hx.find()) { try { ptr = toAddr(Long.parseLong(hx.group(1), 16)); } catch (NumberFormatException ignored) {} } }
+                }
                 if (ptr == null) continue;
+                // the name: the hash constant this branch compared against (JUCE: 31*h + c over the resource name)
+                String nm = null; String nmBasis = null;
+                Matcher cc = caseConst.matcher(c.substring(Math.max(0, m.start() - 160), m.start()));
+                String last = null; while (cc.find()) last = cc.group(1);
+                if (last != null) {
+                    try { long k = last.startsWith("-0x") ? -Long.parseLong(last.substring(3), 16) : last.startsWith("0x") ? Long.parseLong(last.substring(2), 16) : Long.parseLong(last);
+                          nm = nameByHash.get(k); if (nm == null) nm = nameByHash.get(k & 0xFFFFFFFFL); if (nm == null) nm = nameByHash.get((long) (int) k);
+                          if (nm != null) nmBasis = "getNamedResource case constant " + last + " == JUCE name hash of " + nm; } catch (NumberFormatException ignored) {}
+                }
                 if (sym.startsWith("PTR_")) { try { long v = currentProgram.getDefaultPointerSize() == 8 ? mem.getLong(ptr) : (mem.getInt(ptr) & 0xFFFFFFFFL); ptr = toAddr(v); } catch (MemoryAccessException e) { continue; } }
                 byte[] bytes = new byte[(int) size];
                 try { mem.getBytes(ptr, bytes); } catch (MemoryAccessException e) { continue; }
                 String sha = ExportRTTI.esc(hexOf(MessageDigest.getInstance("SHA-256").digest(bytes)));
-                entries.add("{\"function\":\"0x" + Long.toHexString(addr) + "\",\"size\":" + size + ",\"pointer\":\"0x" + Long.toHexString(ptr.getOffset()) + "\",\"sha256\":" + sha + ",\"head_hex\":\"" + hexOf(Arrays.copyOf(bytes, Math.min(8, bytes.length))) + "\"}");
+                entries.add("{\"function\":\"0x" + Long.toHexString(addr) + "\",\"name\":" + esc(nm) + ",\"name_basis\":" + esc(nmBasis) + ",\"size\":" + size + ",\"pointer\":\"0x" + Long.toHexString(ptr.getOffset()) + "\",\"sha256\":" + sha + ",\"head_hex\":\"" + hexOf(Arrays.copyOf(bytes, Math.min(8, bytes.length))) + "\"}");
                 resolved++;
             }
         }
