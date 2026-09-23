@@ -141,3 +141,26 @@ def test_stage_record_roundtrip(ws):
     # a legacy ownership word round-trips as its context alias (D-026); nothing is gated on it
     assert back.stages[0].cache_key == "k" and back.usage_context == "BLACK_BOX_REFERENCE" and back.source_availability == "SOURCE_UNAVAILABLE"
     assert "binary-derived" in back.interpretation
+
+
+def test_blocked_dependency_is_never_green_and_contracts_are_enforced(ws, pipeline):
+    """ADDENDUM B3: a missing dependency is BLOCKED (with the setup hint), and a stage that returns without
+    meeting its completion contract is FAILED CONTRACT_UNMET — emitting a file is not completion."""
+    conn, job, runs = pipeline
+
+    def blocked(ctx):
+        raise runner.BlockedDependency("Ghidra not installed: Settings → Tools → install")
+
+    runner._REGISTRY["DECOMPILATION_COMPLETE"] = StageImpl("DECOMPILATION_COMPLETE", 1, blocked)
+    job, outcomes = runner.run_job(ws, conn, job)
+    rec = job.stage("DECOMPILATION_COMPLETE")
+    assert rec.status == "BLOCKED" and outcomes["DECOMPILATION_COMPLETE"] == "blocked" and "install" in rec.skip_reason
+
+    def hollow(ctx):
+        ctx.metrics["status"] = "BUILT"          # claims success, produces nothing
+
+    runner._REGISTRY["BUILD_COMPLETE"] = StageImpl("BUILD_COMPLETE", 1, hollow, contract=runner.CONTRACTS["BUILD_COMPLETE"])
+    job, outcomes = runner.run_job(ws, conn, job)
+    rec = job.stage("BUILD_COMPLETE")
+    assert rec.status == "FAILED" and rec.errors[0]["code"] == "CONTRACT_UNMET" and "installed bundle" in rec.errors[0]["message"]
+    assert outcomes["BUILD_COMPLETE"] == "failed" and job.stage("VALIDATION_COMPLETE").status == "SKIPPED"

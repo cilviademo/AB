@@ -109,7 +109,7 @@ def test_static_skips_without_node(ws, tmp_path, fixture_binary, monkeypatch):
     job_id = _ingest(ws, tmp_path, fixture_binary)
     result = api.dispatch("job.run", {"job_id": job_id, "stages": ["INGESTED", "STATIC_COMPLETE"], "options": {"prefer_node": True}}, ws)
     rec = next(s for s in result["stages"] if s["stage"] == "STATIC_COMPLETE")
-    assert rec["status"] == "SKIPPED" and "static engine unavailable" in rec["skip_reason"]
+    assert rec["status"] == "BLOCKED" and "static engine unavailable" in rec["skip_reason"]   # missing dependency → BLOCKED (Addendum B3)
 
 
 @needs_node

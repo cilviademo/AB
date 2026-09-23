@@ -277,12 +277,12 @@ export function Ev({ state, title }: { state: string; title?: string }) {
 
 export interface RailStage {
   key: string;            // INGEST · STATIC · RUNTIME · …
-  status: "PENDING" | "RUNNING" | "OK" | "FAILED" | "SKIPPED";
+  status: "PENDING" | "RUNNING" | "OK" | "FAILED" | "SKIPPED" | "BLOCKED";
   detail?: string;        // elapsed, completeness flag, skip reason
 }
 
 const RAIL_GLYPH: Record<RailStage["status"], string> = {
-  PENDING: "·", RUNNING: "◌", OK: "●", FAILED: "✕", SKIPPED: "–",
+  PENDING: "·", RUNNING: "◌", OK: "●", FAILED: "✕", SKIPPED: "–", BLOCKED: "⊘",
 };
 
 export function StageRail({

@@ -22,7 +22,7 @@ from ab_engine import TOOL, api
 from ab_engine.contracts import write_json
 from ab_engine.jobs import db as jobs_db
 from ab_engine.jobs import runner
-from ab_engine.jobs.runner import StageContext, StageFailed, StageImpl, StageSkipped
+from ab_engine.jobs.runner import BlockedDependency, StageContext, StageFailed, StageImpl, StageSkipped
 from ab_engine.runtime.correlate import correlate, diff_states, parse_state_text, tiers
 from ab_engine.runtime.host import HostError, Vst3Host
 from ab_engine.runtime.identity import identity_from_runtime
@@ -82,7 +82,7 @@ def _loadable(root: Path) -> Path:
 def stage_runtime(ctx: StageContext) -> None:
     host = Vst3Host(ctx.ws, ctx.ws.logs / ctx.job.job_id, timeout=float(ctx.options.get("host_timeout_s", 60)))
     if not host.available:
-        raise StageSkipped("vst3host not built: run native/vst3host/build_all.{sh,ps1}")
+        raise BlockedDependency("vst3host not built: run native/vst3host/build_all.{sh,ps1}")
     ctx.tool_versions["vst3host"] = host.version or "vst3host"
     plugin = _loadable(_primary_plugin(ctx))
     ev = ctx.project_dir / "01_evidence" / "vst3"
@@ -234,7 +234,7 @@ def _write_identity_cmake(ctx: StageContext, ident: dict[str, Any]) -> None:
 
 
 runner.register_stage(StageImpl("RUNTIME_COMPLETE", version=STAGE_VERSION, run=stage_runtime, tool_version=TOOL,
-                                config_keys=("sample_rate", "block_size", "host_timeout_s")))
+                                config_keys=("sample_rate", "block_size", "host_timeout_s"), contract=runner.CONTRACTS["RUNTIME_COMPLETE"]))
 
 
 def h_runtime_call(params: dict[str, Any], ws: Workspace) -> dict[str, Any]:

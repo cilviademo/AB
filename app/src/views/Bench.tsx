@@ -30,7 +30,7 @@ function railFrom(job: Job, events: ProgressEvent[]): RailStage[] {
     const key = STAGE_OF[rec.stage];
     if (!key) continue;
     const elapsed = rec.started && rec.ended ? ms(new Date(rec.ended).getTime() - new Date(rec.started).getTime()) : undefined;
-    const detail = rec.status === "SKIPPED" ? (rec.skip_reason ?? "skipped")
+    const detail = rec.status === "SKIPPED" || rec.status === "BLOCKED" ? (rec.skip_reason ?? rec.status.toLowerCase())
       : rec.status === "FAILED" ? (rec.errors[0]?.code ?? "failed")
       : rec.status === "OK" ? [elapsed, rec.completeness !== "NOT_APPLICABLE" ? rec.completeness : null].filter(Boolean).join(" · ")
       : rec.status.toLowerCase();
@@ -39,7 +39,7 @@ function railFrom(job: Job, events: ProgressEvent[]): RailStage[] {
   for (const e of events) {
     const key = (e.stage.toUpperCase() as StageKey);
     if (!byStage.has(key)) continue;
-    const status = e.status === "running" ? "RUNNING" : e.status === "ok" ? "OK" : e.status === "failed" ? "FAILED" : e.status === "skipped" ? "SKIPPED" : "PENDING";
+    const status = e.status === "running" ? "RUNNING" : e.status === "ok" ? "OK" : e.status === "failed" ? "FAILED" : e.status === "skipped" ? "SKIPPED" : e.status === "blocked" ? "BLOCKED" : "PENDING";
     if (status === "RUNNING") byStage.set(key, { key, status, detail: e.detail });
   }
   return STAGE_KEYS.map((k) => byStage.get(k)!);
@@ -126,10 +126,10 @@ function Overview({ job, onScreen }: { job: Job; onScreen: (s: BenchScreen) => v
           <div className="stages">
             {job.stages.map((s) => (
               <div key={s.stage} className="stage" data-status={s.status.toLowerCase() === "ok" ? "ok" : s.status.toLowerCase()}>
-                <span className="g" aria-hidden="true">{s.status === "OK" ? "●" : s.status === "FAILED" ? "✕" : s.status === "SKIPPED" ? "–" : s.status === "RUNNING" ? "◌" : "·"}</span>
+                <span className="g" aria-hidden="true">{s.status === "OK" ? "●" : s.status === "FAILED" ? "✕" : s.status === "SKIPPED" ? "–" : s.status === "BLOCKED" ? "⊘" : s.status === "RUNNING" ? "◌" : "·"}</span>
                 <span className="nm">{STAGE_OF[s.stage] ?? s.stage}</span>
                 <span className="dt">
-                  {s.status === "SKIPPED" ? s.skip_reason : s.status === "FAILED" ? `${s.errors[0]?.code}: ${s.errors[0]?.message}` : `${s.completeness}${s.warnings.length ? ` · ${s.warnings.length} warning${s.warnings.length > 1 ? "s" : ""}` : ""}`}
+                  {s.status === "SKIPPED" || s.status === "BLOCKED" ? s.skip_reason : s.status === "FAILED" ? `${s.errors[0]?.code}: ${s.errors[0]?.message}` : `${s.completeness}${s.warnings.length ? ` · ${s.warnings.length} warning${s.warnings.length > 1 ? "s" : ""}` : ""}`}
                   {s.metrics && Object.keys(s.metrics).length > 0 && (
                     <span className="mono faint"> · {Object.entries(s.metrics).slice(0, 4).map(([k, v]) => `${k} ${String(v)}`).join(" · ")}</span>
                   )}

@@ -7,7 +7,7 @@
   "properties": {
     "job_id": {"type": "string"},
     "stage": {"type": "string", "enum": ["INGESTED", "STATIC_COMPLETE", "RUNTIME_COMPLETE", "DECOMPILATION_COMPLETE", "BEHAVIOR_COMPLETE", "RECONSTRUCTION_COMPLETE", "BUILD_COMPLETE", "VALIDATION_COMPLETE", "EXPORT_COMPLETE"]},
-    "status": {"type": "string", "enum": ["PENDING", "RUNNING", "OK", "FAILED", "SKIPPED"]},
+    "status": {"type": "string", "enum": ["PENDING", "RUNNING", "OK", "FAILED", "SKIPPED", "BLOCKED"]},
     "input_hashes": {"type": "array", "items": {"type": "string"}},
     "tool_versions": {"type": "object", "additionalProperties": {"type": "string"}},
     "config_hash": {"type": "string"},

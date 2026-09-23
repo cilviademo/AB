@@ -27,7 +27,7 @@ from ab_engine.behavior import metrics as m
 from ab_engine.behavior import probes
 from ab_engine.contracts import write_json
 from ab_engine.jobs import runner
-from ab_engine.jobs.runner import StageContext, StageFailed, StageImpl, StageSkipped
+from ab_engine.jobs.runner import BlockedDependency, StageContext, StageFailed, StageImpl, StageSkipped
 from ab_engine.runtime.api import _loadable, _primary_plugin
 from ab_engine.runtime.host import HostError, Vst3Host
 from ab_engine.validate import harness
@@ -51,7 +51,7 @@ def rebuild_bundle(project: Path) -> Path | None:
 def stage_validate(ctx: StageContext) -> None:
     host = Vst3Host(ctx.ws, ctx.ws.logs / ctx.job.job_id, timeout=float(ctx.options.get("host_timeout_s", 120)))
     if not host.available:
-        raise StageSkipped("vst3host not built: run native/vst3host/build_all.{sh,ps1}")
+        raise BlockedDependency("vst3host not built: run native/vst3host/build_all.{sh,ps1}")
     reb = rebuild_bundle(ctx.project_dir)
     if reb is None:
         raise StageSkipped("no rebuilt plugin (BUILD_COMPLETE did not produce a bundle)")
@@ -269,7 +269,7 @@ def stage_validate(ctx: StageContext) -> None:
     ctx.completeness = "NOT_APPLICABLE"
 
 
-runner.register_stage(StageImpl("VALIDATION_COMPLETE", version=STAGE_VERSION, run=stage_validate, tool_version=TOOL, config_keys=("host_timeout_s",)))
+runner.register_stage(StageImpl("VALIDATION_COMPLETE", version=STAGE_VERSION, run=stage_validate, tool_version=TOOL, config_keys=("host_timeout_s",), contract=runner.CONTRACTS["VALIDATION_COMPLETE"]))
 
 
 def h_compare(params: dict[str, Any], ws: Workspace) -> dict[str, Any]:

@@ -17,7 +17,7 @@ export const STAGE_OF: Record<string, StageKey> = {
   VALIDATION_COMPLETE: "COMPARE", EXPORT_COMPLETE: "EXPORT",
 };
 
-export type StageStatus = "PENDING" | "RUNNING" | "OK" | "FAILED" | "SKIPPED";
+export type StageStatus = "PENDING" | "RUNNING" | "OK" | "FAILED" | "SKIPPED" | "BLOCKED";   // BLOCKED = missing dependency (Addendum B3), never green
 
 // ADDENDUM C1: interpretation tags — they change how results read, never what runs
 export type UsageContext = "USER_RECOVERY" | "KNOWN_SOURCE_FIXTURE" | "BLACK_BOX_REFERENCE" | "SOURCE_AVAILABLE_REFERENCE" | "UNKNOWN_CONTEXT";

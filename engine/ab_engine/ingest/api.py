@@ -210,7 +210,7 @@ def stage_ingested(ctx: StageContext) -> None:
     ctx.completeness = "NOT_APPLICABLE"
 
 
-runner.register_stage(StageImpl("INGESTED", version=1, run=stage_ingested, config_keys=("attachments_hash",)))
+runner.register_stage(StageImpl("INGESTED", version=1, run=stage_ingested, config_keys=("attachments_hash",), contract=runner.CONTRACTS["INGESTED"]))
 
 
 # --------------------------------------------------------------------------- #

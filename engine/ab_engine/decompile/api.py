@@ -36,7 +36,7 @@ from ab_engine.decompile import roles as roles_mod
 from ab_engine.decompile import stability
 from ab_engine.jobs import db as jobs_db
 from ab_engine.jobs import runner
-from ab_engine.jobs.runner import StageContext, StageFailed, StageImpl, StageSkipped
+from ab_engine.jobs.runner import BlockedDependency, StageContext, StageFailed, StageImpl, StageSkipped
 from ab_engine.workers.run import run_worker
 from ab_engine.workspace import Workspace
 
@@ -66,7 +66,7 @@ def run_ghidra(ws: Workspace, log_dir: Path, binary: Path, out: Path, *, timeout
                scripts: tuple[str, ...] = SCRIPTS) -> Any:
     ghidra = tools_mod.find_ghidra(ws)
     if not ghidra.present:
-        raise StageSkipped("Ghidra not installed: Settings → Tools → install (pinned tools/manifest.json) or set GHIDRA_INSTALL_DIR")
+        raise BlockedDependency("Ghidra not installed: Settings → Tools → install (pinned tools/manifest.json) or set GHIDRA_INSTALL_DIR")
     sdir = scripts_dir()
     if sdir is None:
         raise StageFailed("GHIDRA_FAILED", "ghidra/ scripts not found beside the engine")
@@ -106,9 +106,9 @@ def stage_decompile(ctx: StageContext) -> None:
     jdk = tools_mod.find_jdk(ctx.ws)
     ghidra = tools_mod.find_ghidra(ctx.ws)
     if not ghidra.present:
-        raise StageSkipped("Ghidra not installed: Settings → Tools → install (pinned tools/manifest.json) or set GHIDRA_INSTALL_DIR")
+        raise BlockedDependency("Ghidra not installed: Settings → Tools → install (pinned tools/manifest.json) or set GHIDRA_INSTALL_DIR")
     if not jdk.present:
-        raise StageSkipped("JDK 21 not found for Ghidra (tools/manifest.json jdk entry needs a pinned hash, BLOCKERS B-007)")
+        raise BlockedDependency("JDK 21 not found for Ghidra (tools/manifest.json jdk entry needs a pinned hash, BLOCKERS B-007)")
     ctx.tool_versions["ghidra"] = ghidra.version or "ghidra"
     ctx.tool_versions["jdk"] = (jdk.version or "jdk")[:60]
     binary = _primary_file(ctx)
@@ -351,7 +351,7 @@ def stage_decompile(ctx: StageContext) -> None:
 
 
 runner.register_stage(StageImpl("DECOMPILATION_COMPLETE", version=STAGE_VERSION, run=stage_decompile, tool_version=TOOL,
-                                config_keys=("max_functions", "ghidra_timeout_s", "sibling_fingerprints")))
+                                config_keys=("max_functions", "ghidra_timeout_s", "sibling_fingerprints"), contract=runner.CONTRACTS["DECOMPILATION_COMPLETE"]))
 
 
 def h_fingerprint_stability(params: dict[str, Any], ws: Workspace) -> dict[str, Any]:

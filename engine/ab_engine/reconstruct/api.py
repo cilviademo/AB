@@ -96,7 +96,7 @@ def stage_reconstruct(ctx: StageContext) -> None:
     ctx.completeness = "NOT_APPLICABLE"
 
 
-runner.register_stage(StageImpl("RECONSTRUCTION_COMPLETE", version=STAGE_VERSION, run=stage_reconstruct, tool_version=TOOL, config_keys=("build_kind", "naming", "naming_terms", "goal", *sorted(__import__("ab_engine.transform.goals", fromlist=["SWITCHES"]).SWITCHES))))
+runner.register_stage(StageImpl("RECONSTRUCTION_COMPLETE", version=STAGE_VERSION, run=stage_reconstruct, tool_version=TOOL, config_keys=("build_kind", "naming", "naming_terms", "goal", *sorted(__import__("ab_engine.transform.goals", fromlist=["SWITCHES"]).SWITCHES)), contract=runner.CONTRACTS["RECONSTRUCTION_COMPLETE"]))
 
 
 def h_reconstruct(params: dict[str, Any], ws: Workspace) -> dict[str, Any]:

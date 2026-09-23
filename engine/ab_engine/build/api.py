@@ -27,7 +27,7 @@ from ab_engine import TOOL, api
 from ab_engine import tools as tools_mod
 from ab_engine.contracts import write_json
 from ab_engine.jobs import runner
-from ab_engine.jobs.runner import StageContext, StageFailed, StageImpl, StageSkipped
+from ab_engine.jobs.runner import BlockedDependency, StageContext, StageFailed, StageImpl, StageSkipped
 from ab_engine.workers.run import DEFAULT_ENV_ALLOWLIST, run_worker
 from ab_engine.workspace import Workspace
 
@@ -74,7 +74,7 @@ def build_project(ws: Workspace, log_dir: Path, rec: Path, build_dir: Path, *, j
                   timeout: float, jobs: int) -> dict[str, Any]:
     cmake = tools_mod.find_cmake()
     if not cmake.path:
-        raise StageSkipped("CMake not on PATH: install CMake ≥ 3.22 (winget install Kitware.CMake) — the build stage cannot run without it")
+        raise BlockedDependency("CMake not on PATH: install CMake ≥ 3.22 (winget install Kitware.CMake) — the build stage cannot run without it")
     cfg = [cmake.path, "-S", str(rec), "-B", str(build_dir), "-DCMAKE_BUILD_TYPE=Release", f"-DJUCE_DIR={juce_dir}", f"-DAB_BUILD_KIND={build_kind}"]
     if generator:
         cfg += ["-G", generator]
@@ -121,10 +121,10 @@ def stage_build(ctx: StageContext) -> None:
         raise StageSkipped("04_reconstruction has no Active sources yet (RECONSTRUCTION_COMPLETE did not run)")
     juce = tools_mod.find_juce(ctx.ws, ctx.options.get("juce_dir"))
     if not juce.path:
-        raise StageSkipped("JUCE not found: set the juce_dir option / AB_JUCE_DIR, or clone JUCE 8.0.9 into <workspace>/tools/JUCE")
+        raise BlockedDependency("JUCE not found: set the juce_dir option / AB_JUCE_DIR, or clone JUCE 8.0.9 into <workspace>/tools/JUCE")
     compiler = tools_mod.find_msvc()
     if not compiler.path:
-        raise StageSkipped("no C++ compiler: install Visual Studio Build Tools (C++ workload) — see scripts/setup-windows.ps1")
+        raise BlockedDependency("no C++ compiler: install Visual Studio Build Tools (C++ workload) — see scripts/setup-windows.ps1")
     ctx.tool_versions.update({"cmake": tools_mod.find_cmake().version or "cmake", "juce": juce.version or "juce", "compiler": (compiler.version or compiler.name)[:60]})
     kind = str(ctx.options.get("build_kind", "SURROGATE")).upper()
     build_dir = ctx.ws.tmp / f"build-{ctx.job.job_id}"
@@ -171,7 +171,7 @@ def stage_build(ctx: StageContext) -> None:
 
 
 runner.register_stage(StageImpl("BUILD_COMPLETE", version=STAGE_VERSION, run=stage_build, tool_version=TOOL,
-                                config_keys=("build_kind", "juce_dir", "cmake_generator", "pluginval_strictness", "skip_pluginval")))
+                                config_keys=("build_kind", "juce_dir", "cmake_generator", "pluginval_strictness", "skip_pluginval"), contract=runner.CONTRACTS["BUILD_COMPLETE"]))
 
 
 def h_build(params: dict[str, Any], ws: Workspace) -> dict[str, Any]:

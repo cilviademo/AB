@@ -29,7 +29,7 @@ from ab_engine import tools as tools_mod
 from ab_engine.contracts import write_json, check_envelope
 from ab_engine.jobs import db as jobs_db
 from ab_engine.jobs import runner
-from ab_engine.jobs.runner import StageContext, StageFailed, StageImpl, StageSkipped
+from ab_engine.jobs.runner import BlockedDependency, StageContext, StageFailed, StageImpl, StageSkipped
 from ab_engine.workers.run import run_worker
 from ab_engine.workspace import Workspace
 
@@ -64,7 +64,7 @@ def _run_node(ctx: StageContext, deep: bool) -> dict[str, Any]:
     node = tools_mod.find_node(ctx.ws)
     cli = tools_mod.find_static_engine_cli()
     if not node.present or not cli.present:
-        raise StageSkipped("static engine unavailable here: run from the AB app (worker) or install Node and build app/static-engine")
+        raise BlockedDependency("static engine unavailable here: run from the AB app (worker) or install Node and build app/static-engine")
     work = Path(tempfile.mkdtemp(prefix="ab-static-", dir=ctx.ws.tmp))
     inputs = _inputs_for_node(ctx)
     if not any(i["kind"] == "binary" for i in inputs):
@@ -277,7 +277,7 @@ def _write_inventory(ctx: StageContext) -> None:
 
 
 runner.register_stage(StageImpl("STATIC_COMPLETE", version=STAGE_VERSION, run=stage_static, tool_version=STATIC_TOOL,
-                                config_keys=("attachments_hash", "deep_scan", "prefer_node")))
+                                config_keys=("attachments_hash", "deep_scan", "prefer_node"), contract=runner.CONTRACTS["STATIC_COMPLETE"]))
 
 
 # --------------------------------------------------------------------------- #

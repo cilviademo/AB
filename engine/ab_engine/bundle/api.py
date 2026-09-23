@@ -347,7 +347,7 @@ def stage_export(ctx: StageContext) -> None:
     ctx.completeness = "NOT_APPLICABLE"
 
 
-runner.register_stage(StageImpl("EXPORT_COMPLETE", version=2, run=stage_export, tool_version=TOOL, config_keys=("zip",)))
+runner.register_stage(StageImpl("EXPORT_COMPLETE", version=2, run=stage_export, tool_version=TOOL, config_keys=("zip",), contract=runner.CONTRACTS["EXPORT_COMPLETE"]))
 
 
 def h_bundle_export(params: dict[str, Any], ws: Workspace) -> dict[str, Any]:

@@ -4,7 +4,7 @@ A stage is reused (zero work) when its cache key
 ``sha256(artifact) + tool_version + stage_version + config_hash`` matches the
 stored OK record. Running a stage invalidates only the stages after it.
 Every stage record is written before the run (RUNNING) and after (OK / FAILED
-/ SKIPPED) both to ``jobs.db`` and to ``<project>/stages/<stage>.json``
+/ SKIPPED / BLOCKED) both to ``jobs.db`` and to ``<project>/stages/<stage>.json``
 (``artifactbench.stage``), so a partial output is never left unmarked.
 """
 
@@ -29,11 +29,19 @@ from ab_engine.workspace import Workspace
 
 
 class StageSkipped(Exception):
-    """Raised by a stage that cannot run here (missing tool, third-party mode…)."""
+    """Raised by a stage that cannot run here. ``code`` says why (ADDENDUM B3 — no false green):
+    ``BLOCKED_DEPENDENCY`` (a tool or dependency is missing: the stage is recorded BLOCKED with the setup
+    instruction) or ``UPSTREAM_MISSING`` (an earlier stage's evidence is absent: recorded SKIPPED)."""
 
-    def __init__(self, reason: str) -> None:
+    def __init__(self, reason: str, code: str = "UPSTREAM_MISSING") -> None:
         super().__init__(reason)
         self.reason = reason
+        self.code = code
+
+
+class BlockedDependency(StageSkipped):
+    def __init__(self, reason: str) -> None:
+        super().__init__(reason, "BLOCKED_DEPENDENCY")
 
 
 class StageFailed(Exception):
@@ -88,6 +96,8 @@ class StageImpl:
     tool_version: str = TOOL
     #: option keys this stage's config hash depends on (others do not invalidate it)
     config_keys: tuple[str, ...] = ()
+    #: completion contract (ADDENDUM B3): (project_dir, ctx) -> violation text or None; None = no contract (test stubs)
+    contract: Callable[[Path, "StageContext"], str | None] | None = None
 
 
 _REGISTRY: dict[str, StageImpl] = {}
@@ -136,6 +146,59 @@ def cancel(job_id: str) -> bool:
         return False
     ev.set()
     return True
+
+
+def _contract_unmet(stage: str, project_dir: Path, ctx: "StageContext") -> str | None:
+    """Explicit completion contracts (ADDENDUM B3). A stage is green only when its contract holds."""
+    import json as _json  # noqa: PLC0415
+
+    def has(rel: str) -> bool:
+        return (project_dir / rel).is_file()
+
+    def data(rel: str):
+        try:
+            return _json.loads((project_dir / rel).read_text(encoding="utf-8")).get("data")
+        except (OSError, ValueError):
+            return None
+
+    if stage == "INGESTED":
+        return None if has("00_manifest/input_manifest.json") and has("00_manifest/hashes.json") else "00_manifest/input_manifest.json + hashes.json missing"
+    if stage == "STATIC_COMPLETE":
+        return None if has("00_manifest/recovery_summary.json") and has("01_evidence/rtti/classes.json") else "v2 contracts missing"
+    if stage == "RUNTIME_COMPLETE":
+        rp = data("01_evidence/vst3/runtime_parameters.json")
+        return None if isinstance(rp, list) and has("03_architecture/identity.json") else "host introspection output (runtime_parameters.json + identity.json) missing"
+    if stage == "DECOMPILATION_COMPLETE":
+        cg = data("01_evidence/callgraphs/callgraph.json") or {}
+        fps = (data("01_evidence/decompiler/fingerprints.json") or {}).get("functions") if isinstance(data("01_evidence/decompiler/fingerprints.json"), dict) else None
+        seeds = cg.get("seeds") or {}
+        if not fps:
+            return "no fingerprints exported"
+        if not (seeds.get("processBlock") or seeds.get("processBlock_candidate") or seeds.get("GetPluginFactory")):
+            return "no seeded entry point (processBlock / candidate / factory) in the callgraph"
+        return None
+    if stage == "BEHAVIOR_COMPLETE":
+        ms = data("05_reference_behavior/measurements.json") or {}
+        return None if any(r.get("ok") for r in ms.get("renders", [])) else "no successful reference render"
+    if stage == "RECONSTRUCTION_COMPLETE":
+        return None if has("04_reconstruction/Source/Active/PluginProcessor.cpp") and has("07_agent_handoff/reconstruction_index.json") else "Source/Active or reconstruction_index.json missing"
+    if stage == "BUILD_COMPLETE":
+        rep = data("06_validation/build_report.json") or {}
+        inst = rep.get("installed")
+        return None if rep.get("status") == "BUILT" and inst and (project_dir / inst).exists() else "compiler+linker did not produce an installed bundle"
+    if stage == "VALIDATION_COMPLETE":
+        dr = data("06_validation/differential_results.json") or {}
+        return None if dr.get("renders") else "validator did not execute any render"
+    if stage == "EXPORT_COMPLETE":
+        out = ctx.metrics.get("out_dir")
+        return None if out and Path(out).is_dir() and (Path(out) / "evidence" / "00_manifest" / "export_report.json").is_file() else "export folder or export_report.json missing"
+    return None
+
+
+CONTRACTS: dict[str, Callable[[Path, "StageContext"], str | None]] = {
+    st: (lambda st: (lambda project_dir, ctx: _contract_unmet(st, project_dir, ctx)))(st)
+    for st in ("INGESTED", "STATIC_COMPLETE", "RUNTIME_COMPLETE", "DECOMPILATION_COMPLETE", "BEHAVIOR_COMPLETE", "RECONSTRUCTION_COMPLETE", "BUILD_COMPLETE", "VALIDATION_COMPLETE", "EXPORT_COMPLETE")
+}
 
 
 def run_job(ws: Workspace, conn: Any, job: Job, *, options: dict[str, Any] | None = None,
@@ -195,13 +258,18 @@ def run_job(ws: Workspace, conn: Any, job: Job, *, options: dict[str, Any] | Non
         t0 = time.monotonic()
         try:
             impl.run(ctx)
+            unmet = impl.contract(project_dir, ctx) if impl.contract is not None else None
+            if unmet:
+                # ADDENDUM B3: launching a worker, emitting a file or generating C++ is not completion
+                raise StageFailed("CONTRACT_UNMET", f"{stage} completion contract not met: {unmet}")
             rec.status = "OK"
             outcomes[stage] = "run"
             api.progress(rail, "ok", f"{int((time.monotonic() - t0) * 1000)} ms · {ctx.completeness}")
         except StageSkipped as exc:
-            rec.status, rec.skip_reason, rec.cache_key = "SKIPPED", exc.reason, ""
-            outcomes[stage] = "skipped"
-            api.progress(rail, "skipped", exc.reason)
+            blocked = getattr(exc, "code", "") == "BLOCKED_DEPENDENCY"
+            rec.status, rec.skip_reason, rec.cache_key = ("BLOCKED" if blocked else "SKIPPED"), exc.reason, ""
+            outcomes[stage] = "blocked" if blocked else "skipped"
+            api.progress(rail, "blocked" if blocked else "skipped", exc.reason)
         except StageFailed as exc:
             rec.status, rec.cache_key = "FAILED", ""
             rec.errors.append({"code": exc.code, "message": exc.message})

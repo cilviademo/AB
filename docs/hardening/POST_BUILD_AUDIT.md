@@ -17,6 +17,10 @@ Repo-wide marker scan (2026-09-23): no `TODO/FIXME/HACK/NotImplemented` placehol
 | AUD-009 | DEFERRED | `fixtures/groundtruth_iplug2` | the iPlug2 fixture is written but unbuilt in the Linux environment (no maintained Linux VST3 target) | DEFERRED |
 | AUD-010 | DEFERRED | `transform (MIGRATE / PORT / REBUILD)` | goals accepted and recorded NOT_AVAILABLE; no generator | DEFERRED |
 
+## B3 — completion contracts (no false green)
+
+Every real stage registers a completion contract the runner checks after the stage returns (`ab_engine.jobs.runner.CONTRACTS`): INGESTED = manifest + hashes written · STATIC = v2 contracts present · RUNTIME = host introspection output (`runtime_parameters.json`, `identity.json`) · DECOMPILATION = fingerprints exported and a seeded entry point in the callgraph · BEHAVIOR = ≥ 1 successful reference render · RECONSTRUCTION = `Source/Active/PluginProcessor.cpp` + index · BUILD = status BUILT and the installed bundle exists · VALIDATION = the validator executed ≥ 1 render · EXPORT = folder + `export_report.json`. A violation is `FAILED CONTRACT_UNMET`. A missing dependency raises `BlockedDependency` → status `BLOCKED` with the setup instruction (never SKIPPED-as-fine, never OK). Test: `engine/tests/test_jobs.py::test_blocked_dependency_is_never_green_and_contracts_are_enforced`.
+
 ## Details
 
 ### AUD-001 — HIGH — ghidra/Fingerprint.java
