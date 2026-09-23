@@ -550,6 +550,13 @@ def generate(project: Path, m: dict[str, Any], *, plan: dict[str, Any] | None = 
                   "evidence": ["VERIFIED_RUNTIME editor size"], "todos": ["UI not recovered: UI_ONLY_CONTROL evidence absent"]})
     for c in m["scaffolds"]:
         sub = "Licensing" if c["role"] == roles_mod.LICENSING_ROLE else "UI" if c["role"] == "GUI" else "DSP" if c["role"] not in ("UNKNOWN", "STATE") else "Unclassified"
+        scaffold_path = project / "04_reconstruction" / "Source" / "RecoveredScaffolds" / sub / f"{c['safe']}.h"
+        if not scaffold_path.is_file():
+            # stripped builds (D-025): the static stage had no RTTI to scaffold from; the decompiler's structural class
+            # gets the same evidence-derived, non-compiled header — declaration + addresses, never invented members
+            scaffold_path.parent.mkdir(parents=True, exist_ok=True)
+            scaffold_path.write_text(scaffold_source(c, sub), encoding="utf-8")
+            written.append(str(scaffold_path.relative_to(project)))
         index.append({"symbol": c["name"], "file": f"04_reconstruction/Source/RecoveredScaffolds/{sub}/{c['safe']}.h", "compiled": False, "status": "SCAFFOLD_ONLY",
                       "role": c["role"], "role_status": c["role_status"], "name_status": c["name_status"], "structure_status": c["structure_status"],
                       "binary_addresses": c.get("vtables", []) + c.get("methods", [])[:16], "bases": c.get("bases", []),
@@ -562,4 +569,27 @@ def generate(project: Path, m: dict[str, Any], *, plan: dict[str, Any] | None = 
     return {"index": index, "written": written, "target": target, "summary": summary, "resources": resources}
 
 
-__all__ = ["generate", "waveshaper_source", "parameters_source", "cmake_source", "surrogate_codes"]
+def scaffold_source(c: dict[str, Any], sub: str) -> str:
+    """Evidence-derived, NOT compiled scaffold for a class the decompiler found (no static RTTI on stripped builds).
+    Only what the evidence says: the name (with its status), the role candidate and its basis, base classes,
+    vtable / method addresses. No members, no method bodies — those are recovered, never invented."""
+    ns, _, leaf = str(c["name"]).rpartition("::")
+    leaf = re.sub(r"[^A-Za-z0-9_]", "_", leaf) or c["safe"]
+    lines = [HEADER, "#pragma once",
+             f"// GENERATED scaffold — NOT compiled (lives in RecoveredScaffolds/{sub}/; promote to Source/Active only after BEHAVIOR_MATCHED).",
+             f"// class {c['name']}  name: {c.get('name_status') or 'UNKNOWN'} · structure: {c.get('structure_status') or 'UNKNOWN'} · role: {c['role']} ({c.get('role_status')}; basis: {', '.join(c.get('role_basis') or []) or 'none'})",
+             "// source: decompiler structural RTTI pass (typeinfo / vtable), no static RTTI (stripped build)" if c.get("from_decompiler") else "// source: static RTTI",
+             *[f"// base: {b}" for b in (c.get("bases") or [])],
+             *[f"// vtable: {v}" for v in (c.get("vtables") or [])[:8]],
+             *[f"// method: {a}" for a in (c.get("methods") or [])[:32]]]
+    if c["role"] == roles_mod.LICENSING_ROLE:
+        lines.append("// LICENSING_AND_ENTITLEMENT_SUBSYSTEM: recovered, reconstructed and validated like DSP (ADDENDUM C2). Replacing a check with a constant is TRANSFORMED_BREAKING, never recovery.")
+    if ns:
+        lines.append(f"namespace {re.sub(r'[^A-Za-z0-9_:]', '_', ns)} {{")
+    lines += [f"class {leaf}", "{", "public:", f"    // members and methods: UNRECOVERED — see evidence_source/ and 07_agent_handoff/reconstruction_index.json", "};"]
+    if ns:
+        lines.append(f"}} // namespace {ns}")
+    return "\n".join(lines) + "\n"
+
+
+__all__ = ["generate", "waveshaper_source", "parameters_source", "cmake_source", "surrogate_codes", "scaffold_source"]

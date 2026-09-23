@@ -33,7 +33,7 @@ from ab_engine.runtime.host import HostError, Vst3Host
 from ab_engine.validate import harness
 from ab_engine.workspace import Workspace
 
-STAGE_VERSION = 4  # 4: per-variant behaviour, three-way comparisons, transformation graph + licensing states (C2/C3); 3: windowed ramp comparison, unity-peak scaling, module split (default vs sweeps)
+STAGE_VERSION = 5  # 5: licence state fields read from state_only (C2 on stripped builds); 4: per-variant behaviour, three-way comparisons, transformation graph + licensing states (C2/C3); 3: windowed ramp comparison, unity-peak scaling, module split (default vs sweeps)
 
 
 def _load(p: Path) -> Any:
@@ -184,7 +184,8 @@ def stage_validate(ctx: StageContext) -> None:
     idx0 = _load(ctx.project_dir / "07_agent_handoff" / "reconstruction_index.json") or []
     lic_entries = [e for e in idx0 if isinstance(e, dict) and lic_mod.is_licensing_role(e.get("role"))]
     lic_keys = [k for k in (cross.get("keys") or []) if lic_mod.looks_like_license_state(k)] if isinstance(cross, dict) else []
-    state_keys = [f.get("key") or f.get("id") for f in (model.get("state") or {}).get("fields", []) if isinstance(f, dict)] if isinstance(model.get("state"), dict) else []
+    st = model.get("state") if isinstance(model.get("state"), dict) else {}
+    state_keys = [f.get("key") or f.get("id") for group in ("fields", "state_only") for f in (st.get(group) or []) if isinstance(f, dict)]
     lic_state_keys = [k for k in state_keys if k and lic_mod.looks_like_license_state(k)]
     rec_dir = ctx.project_dir / "04_reconstruction"
     bypass = []
@@ -196,6 +197,8 @@ def stage_validate(ctx: StageContext) -> None:
             state, why = "LICENSE_STATE_COMPATIBLE", f"licence state fields {lic_state_keys} round-trip in the state cross-load"
         elif e.get("compiled"):
             state, why = "LICENSE_REQUIRES_MANUAL_REVIEW", "compiled, but no licence state field was cross-loaded and no licence-state probe set exists yet (valid/invalid/expired/missing/trial)"
+        elif lic_state_keys and cross.get("classification") == "CROSS_LOAD_VALIDATED":
+            state, why = "LICENSE_REQUIRES_MANUAL_REVIEW", f"{e.get('status', 'SCAFFOLD_ONLY')}: class and its licence state fields {lic_state_keys} recovered (the fields round-trip in the state cross-load); the check implementation is not yet reconstructed"
         else:
             state, why = "LICENSE_REQUIRES_MANUAL_REVIEW", f"{e.get('status', 'SCAFFOLD_ONLY')}: interface and relationships recovered, implementation not yet reconstructed"
         lic_rows.append({"symbol": e.get("symbol"), "file": e.get("file"), "reconstruction_status": e.get("status"), "state": state, "reason": why})

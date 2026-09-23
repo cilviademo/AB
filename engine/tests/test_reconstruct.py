@@ -161,3 +161,23 @@ def test_module_assignment_by_probe():
 def test_surrogate_codes_are_stable_and_four_chars():
     a, b = generate.surrogate_codes("Some Plugin")
     assert a == "AbSr" and len(b) == 4 and (a, b) == generate.surrogate_codes("Some Plugin")
+
+
+def test_stripped_build_scaffolds_decompiler_only_classes(tmp_path):
+    """D-025 / C2 on a stripped binary: the static v2 RTTI list is empty and every class comes from the decompiler's
+    structural pass (03_architecture/classes.json). They are owned candidates and get scaffolds — the licensing stub
+    included — instead of silently vanishing from the reconstruction."""
+    p = _synthetic_project(tmp_path)
+    write_json(p / "01_evidence/rtti/classes.json", "recovery.classes", [])
+    write_json(p / "03_architecture/classes.json", "artifactbench.classes_verified", [
+        {"recovered_name": "abgt::LicenseStub", "kind": "PLUGIN_OWNED_CANDIDATE", "role": "LICENSING_AND_ENTITLEMENT_SUBSYSTEM", "role_status": "CANDIDATE", "role_basis": ["name tokens"], "name_status": "VERIFIED_RTTI", "vtables": [], "methods": [], "bases": []},
+        {"recovered_name": "abgt::TanhShaper", "kind": "PLUGIN_OWNED_CANDIDATE", "role": "WAVESHAPER", "role_status": "CANDIDATE", "role_basis": ["name tokens"], "name_status": "VERIFIED_RTTI", "vtables": [], "methods": [], "bases": []},
+        {"recovered_name": "juce::AudioProcessor", "kind": "FRAMEWORK", "role": "FRAMEWORK", "role_status": "VERIFIED", "name_status": "VERIFIED_RTTI", "vtables": [], "methods": [], "bases": []},
+    ])
+    classes = model.owned_classes(p)
+    assert {c["name"] for c in classes} == {"abgt::LicenseStub", "abgt::TanhShaper"}          # framework rows never become scaffolds
+    m = model.build(p)
+    out = generate.generate(p, m)
+    lic = next(e for e in out["index"] if e["symbol"] == "abgt::LicenseStub")
+    assert lic["subsystem"] == "LICENSING_AND_ENTITLEMENT_SUBSYSTEM" and lic["compiled"] is False and "TRANSFORMED_BREAKING" in lic["promotion"]
+    assert (p / "04_reconstruction" / "Source" / "RecoveredScaffolds" / "Licensing").is_dir()

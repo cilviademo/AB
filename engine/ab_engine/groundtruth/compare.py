@@ -76,8 +76,12 @@ def compare(job: Job, truth: dict[str, Any], *, phase: int = 1) -> dict[str, Any
     metrics["ownership_accuracy"] = {"expected_owned_classified_owned": owned_ok, "of": len(hit), "framework_misclassified_as_owned": len(wrong_owned)}
     for r in wrong_owned:
         fps.append({"kind": "ownership", "item": r})
-    # DSP role identification (static, name-based CANDIDATE)
+    # DSP role identification (static, name-based CANDIDATE); on a stripped build the roles live on the decompiler's
+    # classes (03_architecture/classes.json) — same vocabulary, same CANDIDATE status
     roles = {_norm_class(r["recovered_name"]): r.get("role") for r in recovered.values()}
+    for r in _load(pd, "03_architecture/classes.json") or []:
+        if isinstance(r, dict) and r.get("recovered_name") and _norm_class(r["recovered_name"]) not in roles:
+            roles[_norm_class(r["recovered_name"])] = r.get("role")
     dsp_expect = {"TptLowpass": "FILTER", "TanhShaper": "WAVESHAPER"}
     role_hits = sum(1 for k, v in dsp_expect.items() if roles.get(k) == v)
     metrics["dsp_role_candidates"] = {"expected": len(dsp_expect), "matched": role_hits, "basis": "name tokens (CANDIDATE)"}

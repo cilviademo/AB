@@ -318,6 +318,11 @@ def owned_classes(project: Path) -> list[dict[str, Any]]:
         doc = json.loads(p3.read_text(encoding="utf-8"))
         if doc.get("schema") == "artifactbench.classes_verified":  # written by DECOMPILATION_COMPLETE; the v2 static file has another shape
             verified = {c.get("recovered_name"): c for c in doc.get("data", [])}
+    # stripped builds (D-025): the static v2 RTTI list is empty and every class comes from the decompiler's
+    # structural pass — those classes are owned candidates too, with the roles DECOMPILE assigned (name tokens,
+    # knowledge, callgraph). Without them no scaffold (DSP / Licensing / UI) would exist for a stripped binary.
+    seen = {c.get("recovered_name") for c in rows}
+    rows = list(rows) + [dict(v, from_decompiler=True) for n, v in verified.items() if n and n not in seen]
     out = []
     for c in rows:
         c = {**c, **{k: v for k, v in verified.get(c.get("recovered_name"), {}).items() if k in ("name_status", "structure_status", "vtables", "methods", "bases", "base_status")}}
@@ -327,7 +332,8 @@ def owned_classes(project: Path) -> list[dict[str, Any]]:
         role = roles_mod.STATIC_TO_FINAL.get(role, role)
         out.append({"name": c.get("recovered_name"), "safe": c.get("safe_name") or re.sub(r"[^A-Za-z0-9_]", "_", str(c.get("recovered_name"))), "role": role,
                     "role_status": c.get("role_status", "UNKNOWN"), "name_status": c.get("name_status"), "structure_status": c.get("structure_status", "UNKNOWN"),
-                    "vtables": c.get("vtables", []), "methods": c.get("methods", []), "bases": c.get("bases", []) or ([c["inferred_base"]] if c.get("inferred_base") else [])})
+                    "vtables": c.get("vtables", []), "methods": c.get("methods", []), "bases": c.get("bases", []) or ([c["inferred_base"]] if c.get("inferred_base") else []),
+                    "from_decompiler": bool(c.get("from_decompiler")), "role_basis": c.get("role_basis") or [], "address": c.get("address") or c.get("typeinfo") or None})
     return out
 
 
