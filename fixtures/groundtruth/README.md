@@ -15,3 +15,5 @@ A small JUCE plugin **with source**, so every recovery claim can be scored again
 Build: `build_all.ps1` (Windows: Debug+PDB, Release+PDB, Release stripped) or `build_all.sh`
 (Linux/macOS mirror). Outputs land in `out/<variant>/` and are CI artifacts, never committed.
 Score a bundle: `ab-cli ground-truth <job_id>` → `GROUND_TRUTH_REPORT.json`.
+
+See also `fixtures/groundtruth_unseen/` — a second, deliberately different fixture used only as the *unseen* acceptance test (ADDENDUM B8 test 1); both fixtures share `gen.py` (spec → GeneratedParams.h + truth.json).

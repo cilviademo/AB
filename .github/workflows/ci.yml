@@ -83,6 +83,18 @@ jobs:
           ab-cli --workspace "$WS" run "$JOB" --stage BEHAVIOR_COMPLETE --stage RECONSTRUCTION_COMPLETE --stage BUILD_COMPLETE --stage VALIDATION_COMPLETE --option quick_probes=true --option skip_pluginval=true
           # phase-3 gates stay PENDING here (Ghidra is not provisioned in CI); no gate may FAIL
           ab-cli --workspace "$WS" --text ground-truth "$JOB" --phase 4 --allow-pending
+      - name: unseen fixture (ADDENDUM B8 test 1) — build, blind run, score against its own truth.json
+        env:
+          AB_VST3HOST: ${{ github.workspace }}/native/vst3host/build/vst3host
+          AB_JUCE_DIR: ${{ github.workspace }}/fixtures/groundtruth/third_party/JUCE
+        run: |
+          set -euo pipefail
+          fixtures/groundtruth_unseen/build_all.sh
+          WS="$RUNNER_TEMP/gtws"
+          ab-cli --workspace "$WS" ingest --context KNOWN_SOURCE_FIXTURE --source-availability KNOWN_SOURCE_GROUND_TRUTH --name ABUnseen fixtures/groundtruth_unseen/out/stripped/ABUnseen.vst3 > ingest_unseen.json
+          JOBU=$(python -c "import json;print(json.load(open('ingest_unseen.json'))['data']['jobs'][0]['job_id'])")
+          ab-cli --workspace "$WS" run "$JOBU" --stage INGESTED --stage STATIC_COMPLETE --stage RUNTIME_COMPLETE --stage BEHAVIOR_COMPLETE --stage RECONSTRUCTION_COMPLETE --stage BUILD_COMPLETE --stage VALIDATION_COMPLETE --option quick_probes=true --option skip_pluginval=true
+          ab-cli --workspace "$WS" --text ground-truth "$JOBU" --truth fixtures/groundtruth_unseen/truth.json --phase 4 --allow-pending
       - name: export bundle → path-portability + secret scans + GIT_READY (check 4)
         run: |
           set -euo pipefail
