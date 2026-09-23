@@ -40,7 +40,7 @@ from ab_engine.jobs.runner import StageContext, StageFailed, StageImpl, StageSki
 from ab_engine.workers.run import run_worker
 from ab_engine.workspace import Workspace
 
-STAGE_VERSION = 3  # 3: Capstone pre-fingerprints before Ghidra (A3); BinaryData by name-hash immediates
+STAGE_VERSION = 4  # 4: structural Itanium RTTI + knowledge-learned vtable layouts seed processBlock on stripped builds; 3: Capstone pre-fingerprints (A3)
 SCRIPTS = ("ExportRTTI.java", "ExportCallgraph.java", "Fingerprint.java", "ExportDecompiled.java")
 
 
@@ -153,6 +153,33 @@ def stage_decompile(ctx: StageContext) -> None:
     funcs = _load(ev / "decompiler" / "functions.json") or []
     resolution = _load(ev / "decompiler" / "binarydata_resolution.json") or {}
 
+    # ---- names the knowledge base can lend by fingerprint (INFERRED, never VERIFIED) ----
+    kn = knowledge_hooks.match_ghidra_names(ctx, fps)
+    ctx.metrics["knowledge_names"] = len(kn)
+
+    # ---- vtable layouts: symbol builds teach, stripped builds are seeded (A2 knowledge, SPEC §8.4) ----
+    seeds0 = callgraph.get("seeds", {})
+    if seeds0.get("processBlock"):
+        n_learned = knowledge_hooks.learn_vtable_layouts(ctx, classes=verified, ghidra_fps=fps, stage_version=STAGE_VERSION)
+        ctx.metrics["vtable_layouts_learned"] = n_learned
+    else:
+        kl = knowledge_hooks.seed_from_vtable_layouts(ctx, classes=verified, ghidra_fps=fps, stage_version=STAGE_VERSION)
+        write_json(ev / "callgraphs" / "seeds_knowledge.json", "artifactbench.seeds_knowledge", kl)
+        ctx.output("01_evidence/callgraphs/seeds_knowledge.json")
+        ctx.metrics["vtable_layout_seeds"] = {"seeds": sorted(kl["seeds"]), "chosen_class": kl.get("chosen_class"), "ambiguous": kl.get("ambiguous"), "layouts_considered": kl.get("layouts_considered")}
+        if kl["seeds"]:
+            # the learned seeds replace the density heuristic; distances are recomputed the same way ExportCallgraph does
+            merged_seeds = {k: v for k, v in seeds0.items() if k != "processBlock_candidate"}
+            merged_seeds.update(kl["seeds"])
+            callgraph = dict(callgraph, seeds=merged_seeds, seed_basis=kl["seed_basis"], seed_detail=kl["seed_detail"],
+                             previous_seed_basis=callgraph.get("seed_basis"), previous_processBlock_candidate=seeds0.get("processBlock_candidate"))
+            from ab_engine.knowledge import vtable_layout as _vl  # noqa: PLC0415
+
+            dist = _vl.distances(callgraph.get("functions", []), kl["seeds"]["processBlock"])
+            callgraph["functions"] = [dict(f, dist_from_processBlock=dist.get(f["addr"], -1)) for f in callgraph.get("functions", [])]
+            write_json(ev / "callgraphs" / "callgraph.json", "artifactbench.callgraph", callgraph)
+            ctx.progress(f"processBlock seeded from a learned vtable layout ({kl['chosen_class']}); {len(dist)} functions reachable")
+
     # ---- classes: merge verified RTTI into the static list ---------------------
     static_classes = _load(ctx.project_dir / "01_evidence" / "rtti" / "classes.json") or []
     by_name = {c["name"]: c for c in verified}
@@ -201,10 +228,12 @@ def stage_decompile(ctx: StageContext) -> None:
         param_refs = len(consts & param_ids) if param_ids else 0
         cls = meta.get("class") or (fp or {}).get("RTTI_XREF") or ""
         fn = dict(fn)
-        fn["seed_basis"] = "symbol" if callgraph.get("seeds", {}).get("processBlock") else callgraph.get("seed_basis", "none")
+        fn["seed_basis"] = "symbol" if (callgraph.get("seeds", {}).get("processBlock") and not callgraph.get("seed_detail")) else callgraph.get("seed_basis", "none")
         s = roles_mod.score(fn, fp, class_static_role=static_roles.get(cls) or static_roles.get(leaf(cls)), is_owned=(cls in owned or leaf(cls) in owned),
                             param_refs=param_refs, noise=bool(meta.get("noise")), wrapper=bool(meta.get("wrapper")), demangled=meta.get("demangled") or fn.get("name", ""))
+        k = kn.get(fn["addr"])
         scored.append({"addr": fn["addr"], "name": meta.get("demangled") or fn.get("name"), "raw": fn.get("name"), "class": cls, "size": fn.get("size"),
+                       "knowledge_name": (k or {}).get("name"), "knowledge_role": (k or {}).get("role"), "knowledge_basis": (k or {}).get("basis"),
                        "dist_from_processBlock": fn.get("dist_from_processBlock", -1), "noise": bool(meta.get("noise")), "noise_kind": meta.get("noise_kind"),
                        "wrapper": bool(meta.get("wrapper")), "param_refs": param_refs, "vtable_slot": (fp or {}).get("VTABLE_SLOT", -1), "file": meta.get("file"), **s})
     scored.sort(key=lambda r: -r["priority"])
@@ -213,7 +242,7 @@ def stage_decompile(ctx: StageContext) -> None:
     write_json(ev / "decompiler" / "dsp_candidates.json", "artifactbench.dsp_candidates", dsp[:200])
     (ev / "decompiler" / "dsp_candidates.md").write_text(
         "# DSP candidates — priority = reachability × plugin-specific × parameter/state refs × DSP evidence (SPEC §8.6)\n\n| # | priority | role | status | dist | class | function | basis |\n|---|---|---|---|---|---|---|---|\n"
-        + "\n".join(f"| {i + 1} | {r['priority']} | {r['role']} | {r['role_status']} | {r['dist']} | {r['class']} | `{r['name']}` @ {r['addr']} | {'; '.join(r['role_basis'])} |" for i, r in enumerate(dsp[:100])) + "\n", encoding="utf-8")
+        + "\n".join(f"| {i + 1} | {r['priority']} | {r['role']} | {r['role_status']} | {r['dist']} | {r['class']} | `{r['name']}`{(' ≈ `' + r['knowledge_name'] + '` (knowledge, INFERRED)') if r.get('knowledge_name') else ''} @ {r['addr']} | {'; '.join(r['role_basis'])} |" for i, r in enumerate(dsp[:100])) + "\n", encoding="utf-8")
     for rel in ("01_evidence/decompiler/roles.json", "01_evidence/decompiler/dsp_candidates.json", "01_evidence/decompiler/dsp_candidates.md"):
         ctx.output(rel)
 
@@ -240,7 +269,7 @@ def stage_decompile(ctx: StageContext) -> None:
         nodes = [{"addr": a, "name": by_addr[a]["name"], "role": by_addr[a]["role"], "role_status": by_addr[a]["role_status"], "dist": by_addr[a]["dist"], "class": by_addr[a]["class"]}
                  for a in order if by_addr[a]["role"] in roles_mod.DSP_ROLES or a == pb]
     write_json(ctx.project_dir / "03_architecture" / "signal_flow.json", "artifactbench.signal_flow",
-               {"seed": pb, "seed_basis": callgraph.get("seed_basis"), "evidence": "INFERRED" if pb else "UNKNOWN", "nodes": nodes, "edges": [e for e in edges if e["to"] in {n["addr"] for n in nodes}]})
+               {"seed": pb, "seed_basis": callgraph.get("seed_basis"), "seed_detail": callgraph.get("seed_detail") or {}, "evidence": "INFERRED" if pb else "UNKNOWN", "nodes": nodes, "edges": [e for e in edges if e["to"] in {n["addr"] for n in nodes}]})
     ctx.output("03_architecture/signal_flow.json")
 
     # ---- BinaryData resolution (3.3) -------------------------------------------------

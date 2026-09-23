@@ -39,6 +39,7 @@ public class ExportRTTI extends GhidraScript {
         String name; String rttiKind; long typeDescriptor = -1; List<Long> vtables = new ArrayList<>();
         List<Integer> slotCounts = new ArrayList<>(); List<String> bases = new ArrayList<>();
         List<Long> methods = new ArrayList<>(); List<Long> ctorDtor = new ArrayList<>();
+        List<List<Long>> vtableSlots = new ArrayList<>(); List<List<String>> vtableSlotNames = new ArrayList<>();
     }
 
     @Override
@@ -67,7 +68,9 @@ public class ExportRTTI extends GhidraScript {
             if (td) c.typeDescriptor = s.getAddress().getOffset();
             if (vt) {
                 c.vtables.add(s.getAddress().getOffset());
-                c.slotCounts.add(countSlots(s.getAddress(), c.methods));
+                List<Long> slots = new ArrayList<>(); List<String> names = new ArrayList<>();
+                c.slotCounts.add(countSlots(s.getAddress(), c.methods, slots, names));
+                c.vtableSlots.add(slots); c.vtableSlotNames.add(names);
             }
         }
         // 1b. Stripped ELF / Mach-O: no typeinfo/vtable symbols exist. Recover the Itanium RTTI structurally
@@ -113,7 +116,8 @@ public class ExportRTTI extends GhidraScript {
                     + ",\"structure_status\":" + (c.vtables.isEmpty() ? "\"UNKNOWN\"" : "\"VERIFIED_VTABLE\"")
                     + ",\"vtables\":[" + hexList(c.vtables) + "],\"slot_counts\":" + c.slotCounts
                     + ",\"bases\":[" + strList(c.bases) + "],\"base_status\":" + (c.bases.isEmpty() ? "\"UNKNOWN\"" : "\"VERIFIED_RTTI\"")
-                    + ",\"methods\":[" + hexList(c.methods) + "],\"ctor_dtor_candidates\":[" + hexList(c.ctorDtor) + "]}");
+                    + ",\"methods\":[" + hexList(c.methods) + "],\"ctor_dtor_candidates\":[" + hexList(c.ctorDtor) + "]"
+                    + ",\"vtable_slots\":" + hexLists(c.vtableSlots) + ",\"vtable_slot_names\":" + strLists(c.vtableSlotNames) + "}");
             }
             w.println("]}");
         }
@@ -129,6 +133,7 @@ public class ExportRTTI extends GhidraScript {
         while (i < m.length()) {
             int j = i; while (j < m.length() && Character.isDigit(m.charAt(j))) j++;
             if (j == i) break;
+            if (j - i > 4) return null;   // no identifier is longer than 9999 chars; a longer digit run is data, not a name
             int len = Integer.parseInt(m.substring(i, j)); i = j;
             if (i + len > m.length()) return null;
             parts.add(m.substring(i, i + len)); i += len;
@@ -147,26 +152,35 @@ public class ExportRTTI extends GhidraScript {
     void structuralItanium(Map<String, Cls> classes, Listing listing) throws Exception {
         Memory mem = currentProgram.getMemory(); int ptr = currentProgram.getDefaultPointerSize();
         if (ptr != 8) { println("structuralItanium: only 64-bit images supported here"); return; }
-        // name strings by address
+        // name strings by address: raw scan of every initialized data block for NUL-terminated ASCII runs that
+        // parse as an Itanium nested/unqualified name (Ghidra defines only the strings something references,
+        // and nothing references a typeinfo name string by a code xref, so the defined-data view misses most)
         Map<Long, String> nameAt = new HashMap<>();
-        for (Data d : listing.getDefinedData(true)) {
-            if (!d.getDataType().getName().toLowerCase().contains("string")) continue;
-            Object v = d.getValue(); if (!(v instanceof String)) continue;
-            String m = (String) v; if (m.length() < 3 || m.length() > 400 || !itaniumWellFormed(m)) continue;
-            String name = demangleItanium(m); if (name == null) continue;
-            if (!name.contains("::") && name.length() < 3) continue;
-            nameAt.put(d.getAddress().getOffset(), name);
-        }
-        // scan pointer words in data blocks
-        Map<Long, Long> typeinfoOf = new HashMap<>();   // typeinfo object addr -> name addr
-        List<long[]> words = new ArrayList<>();          // [addr, value] for every aligned word in data blocks
+        List<Object[]> blocks = new ArrayList<>();           // {base, bytes}
         for (MemoryBlock b : mem.getBlocks()) {
             if (!b.isInitialized() || b.isExecute()) continue;
             String bn = b.getName();
             if (!(bn.contains("data") || bn.contains("rodata") || bn.contains("const") || bn.contains("got"))) continue;
             long size = b.getSize(); if (size > 256L * 1024 * 1024) continue;
             byte[] buf = new byte[(int) size]; b.getBytes(b.getStart(), buf);
-            long base = b.getStart().getOffset();
+            blocks.add(new Object[] { b.getStart().getOffset(), buf });
+            int start = -1;
+            for (int i = 0; i <= buf.length; i++) {
+                int ch = i < buf.length ? (buf[i] & 0xFF) : 0;
+                boolean ident = ch == '_' || (ch >= '0' && ch <= '9') || (ch >= 'A' && ch <= 'Z') || (ch >= 'a' && ch <= 'z');
+                if (ident) { if (start < 0) start = i; continue; }
+                if (start >= 0 && ch == 0 && i - start >= 3 && i - start <= 400) {
+                    String m = new String(buf, start, i - start, java.nio.charset.StandardCharsets.US_ASCII);
+                    if (itaniumWellFormed(m)) { String name = demangleItanium(m); if (name != null && (name.contains("::") || name.length() >= 3)) nameAt.put(((Long) blocks.get(blocks.size() - 1)[0]) + start, name); }
+                }
+                start = -1;
+            }
+        }
+        // scan pointer words in data blocks
+        Map<Long, Long> typeinfoOf = new HashMap<>();   // typeinfo object addr -> name addr
+        List<long[]> words = new ArrayList<>();          // [addr, value] for every aligned word in data blocks
+        for (Object[] blk : blocks) {
+            long base = (Long) blk[0]; byte[] buf = (byte[]) blk[1];
             for (int i = 0; i + 8 <= buf.length; i += 8) {
                 long v = 0; for (int k = 7; k >= 0; k--) v = (v << 8) | (buf[i + k] & 0xFFL);
                 if (v == 0) continue;
@@ -201,28 +215,51 @@ public class ExportRTTI extends GhidraScript {
                     long off = mem.getLong(toAddr(a - 8));
                     if (off != 0 && (off > 0 || off < -65536)) continue;
                     long slots0 = a + 8;
-                    if (listing.getFunctionAt(toAddr(mem.getLong(toAddr(slots0)))) == null) continue;   // first slot must be a function
+                    if (!isCodeSlot(mem.getLong(toAddr(slots0)))) continue;   // first slot must be code (a function, a PLT stub or an import such as __cxa_pure_virtual)
                     if (c.vtables.contains(a - 8)) continue;
                     c.vtables.add(a - 8);
-                    c.slotCounts.add(countSlots(toAddr(a - 8), c.methods));
+                    List<Long> slots = new ArrayList<>(); List<String> names = new ArrayList<>();
+                    c.slotCounts.add(countSlots(toAddr(a - 8), c.methods, slots, names));
+                    c.vtableSlots.add(slots); c.vtableSlotNames.add(names);
                     nv++;
                 } catch (MemoryAccessException ignored) {}
             }
         }
         println("structuralItanium: " + nameAt.size() + " typeinfo-name strings, " + tiValid.size() + " typeinfo objects, " + nv + " vtables");
+        if (nameAt.size() <= 64) { List<String> dbg = new ArrayList<>(); for (Map.Entry<Long, String> e : nameAt.entrySet()) dbg.add(Long.toHexString(e.getKey()) + "=" + e.getValue()); println("structuralItanium names: " + dbg); }
     }
 
-    int countSlots(Address vt, List<Long> methods) {
+    /** A vtable slot holds code: a defined function, or a pointer into an executable block / the EXTERNAL block
+        (pure virtuals point at the imported __cxa_pure_virtual, which Ghidra keeps in EXTERNAL). Data pointers
+        (the next table's typeinfo, a string) end the table. */
+    boolean isCodeSlot(long v) {
+        if (v == 0) return false;
+        try {
+            Address t = toAddr(v);
+            if (currentProgram.getFunctionManager().getFunctionAt(t) != null) return true;
+            MemoryBlock b = currentProgram.getMemory().getBlock(t);
+            return b != null && (b.isExecute() || b.getName().toUpperCase().contains("EXTERNAL"));
+        } catch (RuntimeException e) { return false; }   // offset_to_top of a secondary table is negative
+    }
+
+    String slotName(long v) {
+        Address t = toAddr(v);
+        Function f = currentProgram.getFunctionManager().getFunctionAt(t);
+        if (f != null) { if (f.isThunk() && f.getThunkedFunction(true) != null) return f.getThunkedFunction(true).getName(); return f.getName(); }
+        Symbol s = currentProgram.getSymbolTable().getPrimarySymbol(t);
+        return s == null ? "" : s.getName();
+    }
+
+    int countSlots(Address vt, List<Long> methods, List<Long> slotsOut, List<String> namesOut) {
         int n = 0; Address p = vt; int ptr = currentProgram.getDefaultPointerSize();
         // Itanium ABI: the vtable symbol points at {offset_to_top, typeinfo*}; the function slots start after them
         if (!currentProgram.getExecutableFormat().contains("Portable Executable")) p = p.add(2L * ptr);
         try {
             for (int i = 0; i < 4096; i++) {
                 long v = ptr == 8 ? currentProgram.getMemory().getLong(p) : (currentProgram.getMemory().getInt(p) & 0xFFFFFFFFL);
-                Address target = currentProgram.getAddressFactory().getDefaultAddressSpace().getAddress(v);
-                Function f = currentProgram.getFunctionManager().getFunctionAt(target);
-                if (f == null) break;
-                if (!methods.contains(target.getOffset())) methods.add(target.getOffset());
+                if (!isCodeSlot(v)) break;
+                if (!methods.contains(v)) methods.add(v);
+                slotsOut.add(v); namesOut.add(slotName(v));
                 n++; p = p.add(ptr);
                 // stop at the next symbol (another vtable / RTTI object) so tables do not run together
                 if (i > 0 && currentProgram.getSymbolTable().getPrimarySymbol(p) != null) break;
@@ -232,5 +269,7 @@ public class ExportRTTI extends GhidraScript {
     }
 
     static String hexList(List<Long> xs) { StringBuilder b = new StringBuilder(); for (int i = 0; i < xs.size(); i++) { if (i > 0) b.append(','); b.append("\"0x").append(Long.toHexString(xs.get(i))).append('"'); } return b.toString(); }
+    static String hexLists(List<List<Long>> xs) { StringBuilder b = new StringBuilder("["); for (int i = 0; i < xs.size(); i++) { if (i > 0) b.append(','); b.append('[').append(hexList(xs.get(i))).append(']'); } return b.append(']').toString(); }
+    static String strLists(List<List<String>> xs) { StringBuilder b = new StringBuilder("["); for (int i = 0; i < xs.size(); i++) { if (i > 0) b.append(','); b.append('[').append(strList(xs.get(i))).append(']'); } return b.append(']').toString(); }
     static String strList(List<String> xs) { StringBuilder b = new StringBuilder(); for (int i = 0; i < xs.size(); i++) { if (i > 0) b.append(','); b.append(esc(xs.get(i))); } return b.toString(); }
 }

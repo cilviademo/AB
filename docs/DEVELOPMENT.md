@@ -44,6 +44,8 @@ See `CLAUDE.md` (evidence vocabulary) and `docs/PLUGIN_RECOVERY_BENCH.md`.
 ## Known limitations
 - The four corpus regression baselines need the owner's binaries (BLOCKERS B-001).
 - Static BinaryData names shorter than three characters before `_ext` are not recognised (DECISIONS D-013).
+- Iterating on a Ghidra script: import + analyse once into a persistent project, then re-run scripts in seconds — `analyzeHeadless <projdir> <name> -import <bin> -max-cpu 2`, then `analyzeHeadless <projdir> <name> -process <bin> -noanalysis -scriptPath ghidra -postScript ExportRTTI.java <out>` (compile-check first: `javac -proc:none -cp "$(find $GHIDRA_INSTALL_DIR -name '*.jar' | tr '\n' ':')" -d /tmp/jc ghidra/*.java`).
+- Stripped ELF/Mach-O: class names, bases and vtables come from `ExportRTTI`'s structural Itanium pass (D-025); `processBlock` and the other framework entry points are seeded from vtable layouts the knowledge base learned from a symbol build of any plugin on the same framework (`ab-cli knowledge stats` → `vtable_layouts`). Run a symbol build through DECOMPILE once per framework version to teach it.
 - Ghidra runs are slow on large JUCE binaries (≈10 min analysis + decompile of the top-N functions); the DECOMPILE stage decompiles only the `max_functions` highest-scoring candidates (default 20000, fixture validated at 1500).
 - The Linux "stripped" fixture keeps its `.dynsym` (exported JUCE symbols survive `-s`); the MSVC/PE stripped build is the harder test and stays pending-windows.
 - UI `paint()`/`resized()` intent is UNRECOVERABLE; layouts are rebuilt from carved assets and layout XML.

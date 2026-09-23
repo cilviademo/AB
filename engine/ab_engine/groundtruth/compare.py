@@ -196,12 +196,14 @@ def compare(job: Job, truth: dict[str, Any], *, phase: int = 1) -> dict[str, Any
     if callgraph:
         seeds = callgraph.get("seeds", {})
         metrics["process_block_path"] = {"processBlock": bool(seeds.get("processBlock")), "prepareToPlay": bool(seeds.get("prepareToPlay")),
-                                         "state_functions": bool(seeds.get("getStateInformation") and seeds.get("setStateInformation"))}
+                                         "state_functions": bool(seeds.get("getStateInformation") and seeds.get("setStateInformation")),
+                                         "basis": "symbol" if (seeds.get("processBlock") and not callgraph.get("seed_detail")) else callgraph.get("seed_basis")}
     else:
         metrics["process_block_path"] = None
     if dsp_candidates:
-        top5 = [c.get("class") or c.get("name") for c in dsp_candidates[:5]]
-        metrics["dsp_function_identification"] = {"top5": top5, "waveshaper_in_top5": any("TanhShaper" in str(x) for x in top5), "filter_in_top5": any("TptLowpass" in str(x) for x in top5)}
+        top5 = [(c.get("class") or c.get("name") or "") + ((" ≈ " + c["knowledge_name"] + " (knowledge)") if c.get("knowledge_name") else "") for c in dsp_candidates[:5]]
+        metrics["dsp_function_identification"] = {"top5": top5, "waveshaper_in_top5": any("TanhShaper" in str(x) for x in top5), "filter_in_top5": any("TptLowpass" in str(x) for x in top5),
+                                                  "via_knowledge": any(c.get("knowledge_name") for c in dsp_candidates[:5])}
     else:
         metrics["dsp_function_identification"] = None
     metrics["rtti_verified"] = {"classes": len(verified)} if verified else None
@@ -237,7 +239,7 @@ def compare(job: Job, truth: dict[str, Any], *, phase: int = 1) -> dict[str, Any
         {"phase": 2, "name": "identity VERIFIED_RUNTIME", "ok": None if metrics["identity"] is None else (metrics["identity"]["vendor_ok"] and metrics["identity"]["product_ok"]), "detail": "runtime stage not run" if metrics["identity"] is None else json.dumps(metrics["identity"])},
         {"phase": 2, "name": "100 % parameters (ids, titles, steps, defaults, units)", "ok": None if metrics["parameters"] is None else all(metrics["parameters"][k] == metrics["parameters"]["expected"] for k in ("found", "defaults_ok", "steps_ok", "units_ok", "types_ok")), "detail": "runtime stage not run" if metrics["parameters"] is None else json.dumps({k: v for k, v in metrics["parameters"].items() if k != "detail"})},
         {"phase": 2, "name": "100 % state fields mapped; decoy classified from runtime", "ok": None if metrics["state_fields_mapped"] is None else (metrics["state_fields_mapped"]["correct"] == metrics["state_fields_mapped"]["expected"] and metrics["state_fields_mapped"]["decoy_classified_from_runtime"]), "detail": "correlation not run" if metrics["state_fields_mapped"] is None else json.dumps(metrics["state_fields_mapped"])},
-        {"phase": 3, "name": "processBlock, prepareToPlay, state functions located", "ok": None if metrics["process_block_path"] is None else all(metrics["process_block_path"].values()), "detail": "decompiler stage not run" if metrics["process_block_path"] is None else json.dumps(metrics["process_block_path"])},
+        {"phase": 3, "name": "processBlock, prepareToPlay, state functions located", "ok": None if metrics["process_block_path"] is None else all(v for k, v in metrics["process_block_path"].items() if k != "basis"), "detail": "decompiler stage not run" if metrics["process_block_path"] is None else json.dumps(metrics["process_block_path"])},
         {"phase": 3, "name": "waveshaper and filter in top-5 DSP candidates", "ok": None if metrics["dsp_function_identification"] is None else (metrics["dsp_function_identification"]["waveshaper_in_top5"] and metrics["dsp_function_identification"]["filter_in_top5"]), "detail": "decompiler stage not run" if metrics["dsp_function_identification"] is None else json.dumps(metrics["dsp_function_identification"]["top5"])},
         {"phase": 3, "name": "fingerprints stable across Release+PDB and stripped", "ok": None if metrics["fingerprint_stability"] is None else bool(metrics["fingerprint_stability"].get("ok")), "detail": "needs the three builds" if metrics["fingerprint_stability"] is None else json.dumps(metrics["fingerprint_stability"])},
         {"phase": 4, "name": "waveshaper family recovered (tanh_normalized) and compiled into Active", "ok": None if metrics["waveshaper_fit"] is None else (metrics["waveshaper_fit"]["family"] in ("tanh_normalized", "tanh") and bool(metrics["waveshaper_fit"]["compiled"])), "detail": "reconstruction not run" if metrics["waveshaper_fit"] is None else json.dumps(metrics["waveshaper_fit"])},

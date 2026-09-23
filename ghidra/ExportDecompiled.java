@@ -179,6 +179,9 @@ public class ExportDecompiled extends GhidraScript {
             Function f = listing.getFunctionAt(currentProgram.getAddressFactory().getDefaultAddressSpace().getAddress(addr)); if (f == null) continue;
             DecompileResults res = ifc.decompileFunction(f, 60, monitor); if (res == null || !res.decompileCompleted()) continue;
             String c = res.getDecompiledFunction().getC();
+            // every candidate's pseudo-C is kept as evidence (also what a person needs to check a 0-resolved run)
+            File cdir = new File(dec, "binarydata_candidates"); cdir.mkdirs();
+            try (PrintWriter cw = new PrintWriter(new FileWriter(new File(cdir, "0x" + Long.toHexString(addr) + ".c")))) { cw.print(c); } catch (IOException ignored) {}
             Matcher m = pair.matcher(c);
             while (m.find()) {
                 long size = m.group(1).startsWith("0x") ? Long.parseLong(m.group(1).substring(2), 16) : Long.parseLong(m.group(1));

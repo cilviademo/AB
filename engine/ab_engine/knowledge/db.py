@@ -52,6 +52,7 @@ CREATE TABLE IF NOT EXISTS parameter (artifact_sha256 TEXT, param_id INTEGER, ti
 CREATE TABLE IF NOT EXISTS state_field (artifact_sha256 TEXT, key TEXT, representation TEXT, mapped_param_id INTEGER, relation TEXT, PRIMARY KEY (artifact_sha256, key));
 CREATE TABLE IF NOT EXISTS behavior (behavior_id TEXT PRIMARY KEY, impl_id TEXT, probe_set_hash TEXT, metrics_ref TEXT, result_state TEXT, artifact_sha256 TEXT, recorded TEXT);
 CREATE TABLE IF NOT EXISTS reconstruction (impl_id TEXT PRIMARY KEY, evidence_source_ref TEXT, human_source_ref TEXT, validation_state TEXT, rmse REAL, recorded TEXT);
+CREATE TABLE IF NOT EXISTS vtable_layout (layout_id TEXT PRIMARY KEY, rtti_name TEXT, slot_count INTEGER, slots TEXT, state TEXT, first_seen TEXT, last_verified TEXT, source_hashes TEXT, verifications INTEGER DEFAULT 1, tool_version TEXT, evidence_version TEXT);
 CREATE TABLE IF NOT EXISTS classification_history (id INTEGER PRIMARY KEY AUTOINCREMENT, entity_type TEXT, entity_id TEXT, previous TEXT, current TEXT, changed_at TEXT, tool_version TEXT, evidence_version TEXT, reason TEXT);
 """
 
@@ -207,6 +208,53 @@ class KnowledgeDB:
             n += 1
         return n
 
+    # ---- vtable layouts (slot -> method name), learned from symbol builds only ------------------
+    def record_vtable_layouts(self, artifact_sha256: str, rows: list[dict[str, Any]], *, tool_version: str = "", evidence_version: str = "") -> int:
+        """``rows`` come from :func:`ab_engine.knowledge.vtable_layout.learn_rows`. A layout is keyed by the
+        RTTI name and slot count; every slot carries the method's leaf name and the fingerprint ids observed
+        for the function in that slot. A second symbol build that names a slot differently blanks that
+        slot's name with a history row (never silently overwritten); fingerprints accumulate (max 8)."""
+        n = 0
+        for r in rows:
+            lid = hashlib.sha256(f"{r['rtti_name']}|{r['slot_count']}".encode()).hexdigest()[:32]
+            prev = self.db.execute("SELECT slots, source_hashes, verifications FROM vtable_layout WHERE layout_id=?", (lid,)).fetchone()
+            slots = [dict(e) for e in r["slots"]]
+            hashes = {artifact_sha256}
+            ver = 1
+            if prev:
+                old = {e["slot"]: e for e in json.loads(prev["slots"])}
+                hashes |= set(json.loads(prev["source_hashes"]))
+                ver = int(prev["verifications"]) + (0 if artifact_sha256 in set(json.loads(prev["source_hashes"])) else 1)
+                for e in slots:
+                    o = old.get(e["slot"])
+                    if not o:
+                        continue
+                    if o.get("name") and e.get("name") and o["name"] != e["name"]:
+                        self.history("vtable_layout", lid, o["name"], "", f"slot {e['slot']} named {o['name']!r} before and {e['name']!r} in {artifact_sha256[:12]}: name blanked",
+                                     tool_version=tool_version, evidence_version=evidence_version)
+                        e["name"] = ""
+                    elif not e.get("name"):
+                        e["name"] = o.get("name", "")
+                    fps = list(dict.fromkeys(list(o.get("fps", [])) + list(e.get("fps", []))))
+                    e["fps"] = fps[:8]
+            self.db.execute("INSERT OR REPLACE INTO vtable_layout VALUES (?,?,?,?,?,COALESCE((SELECT first_seen FROM vtable_layout WHERE layout_id=?),?),?,?,?,?,?)",
+                            (lid, r["rtti_name"], int(r["slot_count"]), json.dumps(slots), "STATIC_SUPPORTED", lid, _now(), _now(), json.dumps(sorted(hashes)), ver, tool_version, evidence_version))
+            n += 1
+        return n
+
+    def layouts_for(self, rtti_names: list[str]) -> list[dict[str, Any]]:
+        if not rtti_names:
+            return []
+        q = ",".join("?" * len(rtti_names))
+        rows = self.db.execute(f"SELECT * FROM vtable_layout WHERE rtti_name IN ({q})", tuple(rtti_names)).fetchall()
+        out = []
+        for r in rows:
+            d = dict(r)
+            d["slots"] = json.loads(d["slots"])
+            d["source_hashes"] = json.loads(d["source_hashes"])
+            out.append(d)
+        return out
+
     # ---- matching with provenance ----------------------------------------------------------
     def match(self, fp: dict[str, Any], *, artifact_sha256: str | None = None) -> dict[str, Any]:
         fid = fp_id(fp)
@@ -314,7 +362,8 @@ class KnowledgeDB:
                 "function_states": {r["state"]: r["n"] for r in q("SELECT state, COUNT(*) AS n FROM function GROUP BY state")},
                 "classes": q("SELECT COUNT(*) AS n FROM class")[0]["n"], "resources": q("SELECT COUNT(*) AS n FROM resource")[0]["n"],
                 "implementations": {r["state"]: r["n"] for r in q("SELECT state, COUNT(*) AS n FROM implementation GROUP BY state")},
-                "behaviors": q("SELECT COUNT(*) AS n FROM behavior")[0]["n"], "history_rows": q("SELECT COUNT(*) AS n FROM classification_history")[0]["n"]}
+                "behaviors": q("SELECT COUNT(*) AS n FROM behavior")[0]["n"], "vtable_layouts": q("SELECT COUNT(*) AS n FROM vtable_layout")[0]["n"],
+                "history_rows": q("SELECT COUNT(*) AS n FROM classification_history")[0]["n"]}
 
     def history_rows(self, entity_id: str | None = None, limit: int = 200) -> list[dict[str, Any]]:
         if entity_id:

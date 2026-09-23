@@ -51,6 +51,7 @@ PREFIX = {
     "BUILD_COMPLETE": "build: validated VST3 reconstruction",
     "VALIDATION_COMPLETE": "validation: {module} matched original ({state}, rmse={rmse})",
     "EXPORT_COMPLETE": "export: repo-ready bundle",
+    "HANDOFF": "validation: agent handoff regenerated (HANDOFF, TODO, UNRECOVERABLE)",
 }
 
 

@@ -77,7 +77,7 @@ def match_prefingerprints(ctx: StageContext, pre: dict[str, Any]) -> dict[str, A
         rep = db.match_all(fps, artifact_sha256=ctx.job.artifact_sha256)
         out = {"delta": rep["delta"], "counts": rep["counts"], "kinds": rep["kinds"], "reusable": rep["reusable"], "suppressed_deep_work": rep["suppressed_deep_work"],
                "deep_analysis_first": rep["deep_analysis_first"][:200],
-               "matches": {a: {k: v for k, v in r.items() if k in ("verdict", "state", "kind", "agree", "disagree", "tlsh_distance", "prior_binaries", "behavior_confirmations", "implementation", "implementation_state", "reusable", "fp_id")} for a, r in rep["results"].items() if r.get("matched")},
+               "matches": {a: {k: v for k, v in r.items() if k in ("verdict", "state", "kind", "agree", "disagree", "tlsh_distance", "prior_binaries", "behavior_confirmations", "implementation", "implementation_state", "reusable", "fp_id", "name_hint", "role")} for a, r in rep["results"].items() if r.get("matched")},
                "basis": "Capstone signature set matched by fingerprint tuple (normalized hash + CFG); near_match = CFG+constants or normalized stream with a contradiction; names are never a reason"}
         write_json(ctx.project_dir / "01_evidence" / "decompiler" / "knowledge_match.json", "artifactbench.knowledge_match", out)
         ctx.output("01_evidence/decompiler/knowledge_match.json")
@@ -109,6 +109,54 @@ def after_decompile(ctx: StageContext, *, pre: dict[str, Any], ghidra_fps: list[
                       tool_versions=ctx.tool_versions, stage_version=stage_version, config_hash="", started="", ended="", status="OK")
         ctx.metrics["knowledge"] = {"capstone": a, "ghidra": b, "classes": c}
     _safe(ctx, "after_decompile", go)
+
+
+def match_ghidra_names(ctx: StageContext, ghidra_fps: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
+    """Exact (``known``) knowledge matches for the Ghidra fingerprints, by address: the name hint and role a
+    symbol build recorded for the same fingerprint. Names obtained this way are ``INFERRED`` (fingerprint
+    identity, not a symbol) and are labelled so wherever they surface."""
+    out: dict[str, dict[str, Any]] = {}
+
+    def go():
+        db = _db(ctx)
+        for fp in ghidra_fps:
+            if int(fp.get("size", 0)) < 32:
+                continue
+            r = db.match(fp, artifact_sha256=ctx.job.artifact_sha256)
+            if r.get("verdict") == "known" and r.get("name_hint") and not str(r["name_hint"]).startswith(("FUN_", "thunk_FUN_")):
+                out[fp["addr"]] = {"name": r["name_hint"], "role": r.get("role"), "kind": r.get("kind"), "state": r.get("state"), "prior_binaries": r.get("prior_binaries"), "evidence": "INFERRED", "basis": "knowledge fingerprint match (normalized instruction hash + CFG)"}
+    _safe(ctx, "match_ghidra_names", go)
+    return out
+
+
+def learn_vtable_layouts(ctx: StageContext, *, classes: list[dict[str, Any]], ghidra_fps: list[dict[str, Any]], stage_version: int) -> int:
+    """Symbol builds teach slot → method-name layouts (see ``knowledge.vtable_layout``). Called only when
+    the callgraph seed came from a symbol, i.e. the build carries names worth learning."""
+    from ab_engine.knowledge import vtable_layout  # noqa: PLC0415
+
+    out = {"n": 0}
+
+    def go():
+        db = _db(ctx)
+        rows = vtable_layout.learn_rows(classes, {f["addr"]: f for f in ghidra_fps})
+        out["n"] = db.record_vtable_layouts(ctx.job.artifact_sha256, rows, tool_version="ghidra/ExportRTTI.java", evidence_version=f"decompile-stage-v{stage_version}")
+    _safe(ctx, "learn_vtable_layouts", go)
+    return out["n"]
+
+
+def seed_from_vtable_layouts(ctx: StageContext, *, classes: list[dict[str, Any]], ghidra_fps: list[dict[str, Any]], stage_version: int) -> dict[str, Any]:
+    """Stripped builds: apply learned layouts to the structurally recovered vtables. Returns the report from
+    ``vtable_layout.apply`` (empty seeds when nothing is fingerprint-confirmed)."""
+    from ab_engine.knowledge import vtable_layout  # noqa: PLC0415
+
+    out: dict[str, Any] = {"seeds": {}, "seed_detail": {}, "seed_basis": "none", "classes": [], "layouts_considered": 0, "chosen_class": None, "ambiguous": []}
+
+    def go():
+        db = _db(ctx)
+        out.update(vtable_layout.apply(db, classes, {f["addr"]: f for f in ghidra_fps}, artifact_sha256=ctx.job.artifact_sha256,
+                                       tool_version="ghidra/ExportRTTI.java", evidence_version=f"decompile-stage-v{stage_version}"))
+    _safe(ctx, "seed_from_vtable_layouts", go)
+    return out
 
 
 def after_validation(ctx: StageContext, *, modules: list[dict[str, Any]], index: list[dict[str, Any]], measurements_hash: str) -> None:
@@ -153,4 +201,4 @@ def knowledge_used(ctx: StageContext) -> dict[str, Any]:
             "rule": "only BEHAVIOR_MATCHED / IMPLEMENTATION_VERIFIED implementations are reused; KNOWN_FRAMEWORK / KNOWN_THIRD_PARTY matches suppress deep work; CANDIDATE / STATIC_SUPPORTED only prioritise"}
 
 
-__all__ = ["after_static", "after_runtime", "match_prefingerprints", "after_decompile", "after_validation", "knowledge_used", "kind_from_name"]
+__all__ = ["after_static", "after_runtime", "match_prefingerprints", "after_decompile", "match_ghidra_names", "learn_vtable_layouts", "seed_from_vtable_layouts", "after_validation", "knowledge_used", "kind_from_name"]

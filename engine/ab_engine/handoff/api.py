@@ -42,6 +42,16 @@ def h_loop_run(params: dict[str, Any], ws: Workspace) -> dict[str, Any]:
     job, outcomes = runner.run_job(ws, conn, job, options=options, only=stages)
     written = writer.write_all(job)
     ev = writer.gather(job)
+    if not options.get("no_checkpoint"):
+        # ADDENDUM A6: the regenerated handoff belongs to the validation boundary — leave the project clean
+        from pathlib import Path  # noqa: PLC0415
+
+        from ab_engine import checkpoint  # noqa: PLC0415
+
+        try:
+            checkpoint.commit(Path(job.project_dir), "HANDOFF", metrics={"overall": (ev["diff"] or {}).get("overall")}, job_id=job.job_id)
+        except Exception:  # noqa: BLE001 — a checkpoint problem never fails the loop
+            pass
     diff = ev["diff"] or {}
     return {"stages": {s: {"status": (job.stage(s).status if job.stage(s) else "PENDING"), "outcome": outcomes.get(s)} for s in stages},
             "overall": diff.get("overall"), "cross_load": diff.get("cross_load"),
