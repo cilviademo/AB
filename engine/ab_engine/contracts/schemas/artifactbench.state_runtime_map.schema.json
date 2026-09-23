@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "artifactbench.state_runtime_map",
+  "type": "array",
+  "items": {
+    "type": "object",
+    "required": [
+      "key",
+      "relationship",
+      "value_representation",
+      "basis",
+      "tier"
+    ],
+    "properties": {
+      "relationship": {
+        "enum": [
+          "SAME_ID",
+          "MAPPED",
+          "STATE_ONLY",
+          "RUNTIME_ONLY",
+          "UNKNOWN"
+        ]
+      },
+      "value_representation": {
+        "enum": [
+          "NORMALIZED",
+          "PLAIN",
+          "ENUM",
+          "BOOLEAN",
+          "OTHER",
+          "UNKNOWN"
+        ]
+      },
+      "tier": {
+        "enum": [
+          "VST3_EXPORTED_PARAMETER",
+          "STATE_SCHEMA_FIELD",
+          "PRESET_FIELD",
+          "UI_ONLY_CONTROL",
+          "UNKNOWN_PROPERTY"
+        ]
+      }
+    }
+  }
+}

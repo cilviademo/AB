@@ -1,0 +1,12 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "artifactbench.ground_truth_report",
+  "type": "object",
+  "required": ["job_id", "truth_spec_sha256", "phase_thresholds", "metrics", "gates", "false_positives", "false_negatives"],
+  "properties": {
+    "metrics": {"type": "object"},
+    "gates": {"type": "array", "items": {"type": "object", "required": ["phase", "name", "ok", "detail"], "properties": {"ok": {"type": ["boolean", "null"]}}}},
+    "false_positives": {"type": "array"},
+    "false_negatives": {"type": "array"}
+  }
+}

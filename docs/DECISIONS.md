@@ -111,3 +111,27 @@ root prefix (`<Name>_RECOVERED/`) — the engine names project folders.
 v2's BinaryData-name rule needs ≥ 3 characters before the `_ext` suffix, so a
 resource named `bg_png` is not recognised statically. Kept as-is (frozen);
 Phase 3's `namedResourceList` decompile recovers such names from the binary.
+
+## D-014 JUCE plugin/manufacturer codes are read from the FUID, with the rule recorded
+JUCE's VST3 wrapper builds its class IDs as `FUID(0xABCDEF01, 0x9182FAEB,
+ManufacturerCode, PluginCode)` (component) and `FUID(0xABCDEF01, 0x1234ABCD,
+…)` (controller). When a factory reports IDs of that shape, the two
+four-character codes are present in the bytes and are reported as
+`VERIFIED_RUNTIME (JUCE FUID derivation)` with the derivation string beside
+them — never as a guess. Both FUID byte layouts (COM and inline) are tried and
+the one reproducing the magic words wins. Non-JUCE FUIDs leave the codes
+`UNKNOWN`; FIDELITY builds then need them from the owner.
+
+## D-015 The JUCE wrapper's own bypass parameter is reported, not hidden
+JUCE's VST3 wrapper adds a `Bypass` parameter (`kIsBypass`) that does not
+live in the APVTS state. It is a real exported parameter, so it stays in
+`runtime_parameters.json` and maps as `RUNTIME_ONLY`; the ground-truth
+comparator ignores it for false-positive counting and never lets it shadow a
+plugin parameter of the same title.
+
+## D-016 State-only ValueTree properties are found by the runtime stage
+JUCE serialises non-parameter ValueTree properties as root attributes. The
+frozen v2 extractor reads `<PARAM>` entries only, so those properties appear
+in `03_architecture/serialized_properties.json` (runtime `getState`) rather
+than in the static `serialized_keys.json`. The Phase 1 gate counts `<PARAM>`
+keys; a Phase 2 gate counts all fields from static ∪ runtime.

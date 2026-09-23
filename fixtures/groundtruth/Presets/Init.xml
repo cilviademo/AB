@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<PARAMETERS waveShapers_0_1="0.25" uiScale="1.0">
+  <PARAM id="bypass" value="0.0"/>
+  <PARAM id="mode" value="1.0"/>
+  <PARAM id="inputGain" value="0.0"/>
+  <PARAM id="cutoff" value="8000.0"/>
+  <PARAM id="drive" value="4.0"/>
+  <PARAM id="oversample" value="1.0"/>
+  <PARAM id="outputGain" value="-6.0"/>
+</PARAMETERS>

@@ -2,7 +2,7 @@
   "schema": "recovery.classes",
   "schema_version": 2,
   "tool": "static-recovery-v2",
-  "generated": "2026-09-23T01:08:44.729Z",
+  "generated": "2026-09-23T01:25:24.968Z",
   "data": [
     {
       "name": "SerialScreen",

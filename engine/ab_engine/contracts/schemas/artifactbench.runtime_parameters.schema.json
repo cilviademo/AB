@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "artifactbench.runtime_parameters",
+  "type": "array",
+  "items": {
+    "type": "object",
+    "required": [
+      "param_id",
+      "title",
+      "step_count",
+      "default_normalized",
+      "flags",
+      "unit_id",
+      "evidence"
+    ],
+    "properties": {
+      "evidence": {
+        "const": "VERIFIED_RUNTIME"
+      }
+    }
+  }
+}

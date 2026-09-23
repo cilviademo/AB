@@ -2,7 +2,7 @@
   "schema": "recovery.parameters",
   "schema_version": 2,
   "tool": "static-recovery-v2",
-  "generated": "2026-09-23T01:08:44.730Z",
+  "generated": "2026-09-23T01:25:24.968Z",
   "data": {
     "note": "EXPORTED_VST_PARAMETER records are produced only by the standalone runtime host (IEditController). This static stage contributes serialized keys; see serialized_keys.json.",
     "runtime_parameters": [],

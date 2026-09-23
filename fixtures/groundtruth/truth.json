@@ -1,0 +1,215 @@
+{
+  "schema": "artifactbench.ground_truth",
+  "schema_version": 1,
+  "tool": "fixtures/groundtruth/gen.py",
+  "generated": "fixed",
+  "data": {
+    "product": "ABGroundTruth",
+    "company": "Multibanded",
+    "manufacturer_code": "Mbnd",
+    "plugin_code": "Abgt",
+    "version": "1.0.0",
+    "parameters": [
+      {
+        "id": "bypass",
+        "name": "Bypass",
+        "type": "bool",
+        "default": false,
+        "default_normalized": 0.0,
+        "units": "",
+        "min": null,
+        "max": null,
+        "choices": null,
+        "step_count": 1,
+        "tier": "VST3_EXPORTED_PARAMETER"
+      },
+      {
+        "id": "mode",
+        "name": "Mode",
+        "type": "choice",
+        "default": "Warm",
+        "default_normalized": 0.5,
+        "units": "",
+        "min": null,
+        "max": null,
+        "choices": [
+          "Clean",
+          "Warm",
+          "Hot"
+        ],
+        "step_count": 2,
+        "tier": "VST3_EXPORTED_PARAMETER"
+      },
+      {
+        "id": "inputGain",
+        "name": "Input Gain",
+        "type": "float",
+        "default": 0.0,
+        "default_normalized": null,
+        "units": "dB",
+        "min": -24.0,
+        "max": 24.0,
+        "choices": null,
+        "step_count": 0,
+        "tier": "VST3_EXPORTED_PARAMETER"
+      },
+      {
+        "id": "cutoff",
+        "name": "Cutoff",
+        "type": "float",
+        "default": 8000.0,
+        "default_normalized": null,
+        "units": "Hz",
+        "min": 20.0,
+        "max": 20000.0,
+        "choices": null,
+        "step_count": 0,
+        "tier": "VST3_EXPORTED_PARAMETER"
+      },
+      {
+        "id": "drive",
+        "name": "Drive",
+        "type": "float",
+        "default": 4.0,
+        "default_normalized": null,
+        "units": "",
+        "min": 1.0,
+        "max": 20.0,
+        "choices": null,
+        "step_count": 0,
+        "tier": "VST3_EXPORTED_PARAMETER"
+      },
+      {
+        "id": "oversample",
+        "name": "Oversample",
+        "type": "bool",
+        "default": true,
+        "default_normalized": 1.0,
+        "units": "",
+        "min": null,
+        "max": null,
+        "choices": null,
+        "step_count": 1,
+        "tier": "VST3_EXPORTED_PARAMETER"
+      },
+      {
+        "id": "outputGain",
+        "name": "Output Gain",
+        "type": "float",
+        "default": -6.0,
+        "default_normalized": null,
+        "units": "dB",
+        "min": -24.0,
+        "max": 24.0,
+        "choices": null,
+        "step_count": 0,
+        "tier": "VST3_EXPORTED_PARAMETER"
+      }
+    ],
+    "state_fields": [
+      {
+        "id": "bypass",
+        "tier": "VST3_EXPORTED_PARAMETER"
+      },
+      {
+        "id": "mode",
+        "tier": "VST3_EXPORTED_PARAMETER"
+      },
+      {
+        "id": "inputGain",
+        "tier": "VST3_EXPORTED_PARAMETER"
+      },
+      {
+        "id": "cutoff",
+        "tier": "VST3_EXPORTED_PARAMETER"
+      },
+      {
+        "id": "drive",
+        "tier": "VST3_EXPORTED_PARAMETER"
+      },
+      {
+        "id": "oversample",
+        "tier": "VST3_EXPORTED_PARAMETER"
+      },
+      {
+        "id": "outputGain",
+        "tier": "VST3_EXPORTED_PARAMETER"
+      },
+      {
+        "id": "waveShapers_0_1",
+        "tier": "STATE_SCHEMA_FIELD",
+        "note": "indexed decoy: serialized in the ValueTree but NOT an exported parameter (EXECUTE 2.2 gate)"
+      },
+      {
+        "id": "uiScale",
+        "tier": "UI_ONLY_CONTROL",
+        "note": "UI_ONLY_CONTROL stored in state, never exported"
+      }
+    ],
+    "state_tree_type": "PARAMETERS",
+    "classes": [
+      "abgt::TptLowpass",
+      "abgt::TanhShaper",
+      "abgt::LicenseStub",
+      "ABGroundTruthAudioProcessor",
+      "ABGroundTruthAudioProcessorEditor"
+    ],
+    "dsp": {
+      "filter": {
+        "class": "abgt::TptLowpass",
+        "kind": "TPT one-pole low-pass (Zavalishin), cutoff from 'cutoff'"
+      },
+      "waveshaper": {
+        "class": "abgt::TanhShaper",
+        "kind": "y = tanh(drive * x) / tanh(drive)",
+        "params": [
+          "drive",
+          "mode"
+        ]
+      },
+      "oversampling": {
+        "class": "juce::dsp::Oversampling<float>",
+        "factor": 2,
+        "when": "oversample == true"
+      },
+      "signal_flow": [
+        "inputGain",
+        "TptLowpass",
+        "TanhShaper (oversampled when enabled)",
+        "outputGain"
+      ],
+      "mode_effect": "Clean: shaper bypassed \u00b7 Warm: tanh \u00b7 Hot: tanh with 2x drive"
+    },
+    "protected_subsystem": {
+      "class": "abgt::LicenseStub",
+      "note": "deliberate PROTECTED_SUBSYSTEM-style stub: strings 'isLicensed', 'serial_number'; always returns true; must be mapped, never reimplemented"
+    },
+    "resources": [
+      {
+        "binarydata_name": "knob_png",
+        "file": "Resources/knob.png",
+        "sha256": "e2fb2e6237d74f311d75d1f3e58e1ffbb8fe74c66631d834a5d71c7238faa407"
+      },
+      {
+        "binarydata_name": "ABMono_ttf",
+        "file": "Resources/ABMono.ttf",
+        "sha256": "4eaf5c8b18c6bf178aa72a0e5f700786039a5c49e1b705c7235877cfb336c110"
+      },
+      {
+        "binarydata_name": "Init_xml",
+        "file": "Presets/Init.xml",
+        "sha256": "6381033eed64d0e5957dddba5c951f0b8bd2aff7c18b33d9e9b96910c41b722a"
+      }
+    ],
+    "buses": {
+      "input": "stereo",
+      "output": "stereo"
+    },
+    "latency": {
+      "oversample_off": 0,
+      "oversample_on": "juce::dsp::Oversampling<float> 2x FIR latency (reported by getLatencySamples)"
+    },
+    "generated_from": "spec.json",
+    "spec_sha256": "4c54637ea4873d549804683a04e024a72260ed193796f2cd2ec48312985221a5"
+  }
+}

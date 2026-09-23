@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "artifactbench.identity",
+  "type": "object",
+  "required": [
+    "vendor",
+    "product",
+    "processor_fuid",
+    "manufacturer_code",
+    "plugin_code",
+    "codes_status",
+    "evidence"
+  ]
+}

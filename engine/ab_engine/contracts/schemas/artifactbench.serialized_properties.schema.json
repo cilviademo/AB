@@ -1,0 +1,6 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "artifactbench.serialized_properties",
+  "description": "Runtime-stage contract written from vst3host output or the correlation step (SPEC §7). Payload shape is documented in native/vst3host/README.md and ab_engine/runtime/api.py.",
+  "type": ["object", "array"]
+}

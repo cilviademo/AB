@@ -1,0 +1,12 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "artifactbench.ground_truth",
+  "type": "object",
+  "required": ["product", "company", "parameters", "state_fields", "classes", "resources"],
+  "properties": {
+    "parameters": {"type": "array", "items": {"type": "object", "required": ["id", "name", "type"]}},
+    "state_fields": {"type": "array", "items": {"type": "object", "required": ["id", "tier"]}},
+    "classes": {"type": "array", "items": {"type": "string"}},
+    "resources": {"type": "array", "items": {"type": "object", "required": ["binarydata_name", "file"]}}
+  }
+}
