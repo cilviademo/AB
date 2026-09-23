@@ -1,0 +1,184 @@
+{
+  "schema": "artifactbench.ground_truth",
+  "schema_version": 1,
+  "tool": "fixtures/groundtruth_unseen/gen.py",
+  "generated": "fixed",
+  "data": {
+    "product": "ABUnseen",
+    "company": "Multibanded",
+    "manufacturer_code": "Mbnd",
+    "plugin_code": "Abus",
+    "version": "0.3.1",
+    "parameters": [
+      {
+        "id": "bypass",
+        "name": "Bypass",
+        "type": "bool",
+        "default": false,
+        "default_normalized": 0.0,
+        "units": "",
+        "min": null,
+        "max": null,
+        "choices": null,
+        "step_count": 1,
+        "tier": "VST3_EXPORTED_PARAMETER"
+      },
+      {
+        "id": "mode",
+        "name": "Shape",
+        "type": "choice",
+        "default": "Soft",
+        "default_normalized": 0.0,
+        "units": "",
+        "min": null,
+        "max": null,
+        "choices": [
+          "Soft",
+          "Hard"
+        ],
+        "step_count": 1,
+        "tier": "VST3_EXPORTED_PARAMETER"
+      },
+      {
+        "id": "trim",
+        "name": "Trim",
+        "type": "float",
+        "default": 0.0,
+        "default_normalized": null,
+        "units": "dB",
+        "min": -12.0,
+        "max": 12.0,
+        "choices": null,
+        "step_count": 0,
+        "tier": "VST3_EXPORTED_PARAMETER"
+      },
+      {
+        "id": "tone",
+        "name": "Tone",
+        "type": "float",
+        "default": 12000.0,
+        "default_normalized": null,
+        "units": "Hz",
+        "min": 500.0,
+        "max": 18000.0,
+        "choices": null,
+        "step_count": 0,
+        "tier": "VST3_EXPORTED_PARAMETER"
+      },
+      {
+        "id": "amount",
+        "name": "Amount",
+        "type": "float",
+        "default": 3.0,
+        "default_normalized": null,
+        "units": "",
+        "min": 1.0,
+        "max": 10.0,
+        "choices": null,
+        "step_count": 0,
+        "tier": "VST3_EXPORTED_PARAMETER"
+      },
+      {
+        "id": "level",
+        "name": "Level",
+        "type": "float",
+        "default": -3.0,
+        "default_normalized": null,
+        "units": "dB",
+        "min": -24.0,
+        "max": 0.0,
+        "choices": null,
+        "step_count": 0,
+        "tier": "VST3_EXPORTED_PARAMETER"
+      }
+    ],
+    "state_fields": [
+      {
+        "id": "bypass",
+        "tier": "VST3_EXPORTED_PARAMETER"
+      },
+      {
+        "id": "mode",
+        "tier": "VST3_EXPORTED_PARAMETER"
+      },
+      {
+        "id": "trim",
+        "tier": "VST3_EXPORTED_PARAMETER"
+      },
+      {
+        "id": "tone",
+        "tier": "VST3_EXPORTED_PARAMETER"
+      },
+      {
+        "id": "amount",
+        "tier": "VST3_EXPORTED_PARAMETER"
+      },
+      {
+        "id": "level",
+        "tier": "VST3_EXPORTED_PARAMETER"
+      },
+      {
+        "id": "curves_0_2",
+        "tier": "STATE_SCHEMA_FIELD",
+        "note": "indexed decoy: serialized in the ValueTree but NOT an exported parameter",
+        "decoy": true
+      },
+      {
+        "id": "lastTab",
+        "tier": "UI_ONLY_CONTROL",
+        "note": "UI_ONLY_CONTROL stored in state, never exported"
+      }
+    ],
+    "state_tree_type": "ABUNSEEN",
+    "classes": [
+      "abus::OnePoleLP",
+      "abus::AtanShaper",
+      "ABUnseenAudioProcessor",
+      "ABUnseenAudioProcessorEditor"
+    ],
+    "dsp": {
+      "filter": {
+        "class": "abus::OnePoleLP",
+        "kind": "RC one-pole low-pass y += g (x - y), cutoff from 'tone'"
+      },
+      "waveshaper": {
+        "class": "abus::AtanShaper",
+        "kind": "y = (2/pi) * atan(amount * x)",
+        "family": "atan",
+        "params": [
+          "amount",
+          "mode"
+        ]
+      },
+      "signal_flow": [
+        "trim",
+        "OnePoleLP",
+        "AtanShaper (Soft) | hard clip (Hard)",
+        "level"
+      ],
+      "mode_effect": "Soft: (2/pi) atan(amount x) \u00b7 Hard: clamp(amount x, -1, 1)"
+    },
+    "licensing": {},
+    "resources": [
+      {
+        "binarydata_name": "dial_png",
+        "file": "Resources/dial.png",
+        "sha256": "bd05dba2db1f298c8a315ced713b525c20d88118a6ed8092cc40a8a3741c3a33"
+      },
+      {
+        "binarydata_name": "Default_xml",
+        "file": "Presets/Default.xml",
+        "sha256": "82f60c6f40b64aba81e1562f9cb84d60a5d58b5d58cdb6f0c22331a2dbac6dbb"
+      }
+    ],
+    "buses": {
+      "input": "stereo",
+      "output": "stereo"
+    },
+    "latency": {
+      "always": 0
+    },
+    "generated_from": "spec.json",
+    "spec_sha256": "2c56e72597bfda1b4db6a2aa24d620e3e2493bc5382e4bc810c103b1ec997990"
+  }
+}

@@ -1,0 +1,29 @@
+{
+  "schema": "artifactbench.fixture_manifest",
+  "schema_version": 1,
+  "tool": "fixtures/groundtruth_unseen",
+  "generated": "2026-09-23",
+  "data": {
+    "fixture_id": "abus-juce-1",
+    "name": "ABUnseen",
+    "source_type": "hand-written C++ (JUCE 8.0.9), ADDENDUM B8 acceptance test 1 (unseen)",
+    "license": "repository licence (owner: Multibanded LLC) — fixture source in fixtures/groundtruth_unseen/Source",
+    "license_class": "PROPRIETARY",
+    "source_repository": "this repository",
+    "source_commit": "HEAD (fixtures/groundtruth_unseen)",
+    "build_configuration": "Release (-O2, -fvisibility=hidden, -s) — stripped only; Debug / Release+symbols via AB_VARIANTS",
+    "compiler": "g++ 13 / GNU make (Linux); MSVC via build_all.ps1 (Windows, pending)",
+    "binary_sha256": {
+      "stripped": "1045319e087c46c9d052b09404f1373cc4fa87e81c573352b6bb1c7883c96aa6"
+    },
+    "binary_size": {
+      "stripped": 8179216
+    },
+    "algorithms": [
+      "RC one-pole low-pass y += g (x - y), cutoff from 'tone'",
+      "y = (2/pi) * atan(amount * x)"
+    ],
+    "unseen": "written after the pipeline was built; never used to tune it; first blind run recorded in docs/STATUS.md (B8 test 1)",
+    "truth": "truth.json (generated from spec.json by gen.py)"
+  }
+}

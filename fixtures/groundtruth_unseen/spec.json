@@ -1,0 +1,37 @@
+{
+  "note": "ADDENDUM B8 acceptance test 1 — an UNSEEN known-source fixture: written after the pipeline was built, never used to tune it. Binary only → full pipeline → reveal source → metrics. gen.py derives Source/GeneratedParams.h and truth.json from this file.",
+  "product": "ABUnseen",
+  "company": "Multibanded",
+  "manufacturer_code": "Mbnd",
+  "plugin_code": "Abus",
+  "version": "0.3.1",
+  "vst3_processor_uid_seed": "ABUnseen-processor",
+  "namespace": "abus",
+  "state_tree_type": "ABUNSEEN",
+  "parameters": [
+    {"id": "bypass", "name": "Bypass", "type": "bool", "default": false},
+    {"id": "mode", "name": "Shape", "type": "choice", "choices": ["Soft", "Hard"], "default": 0},
+    {"id": "trim", "name": "Trim", "type": "float", "min": -12.0, "max": 12.0, "default": 0.0, "units": "dB", "skew": 1.0},
+    {"id": "tone", "name": "Tone", "type": "float", "min": 500.0, "max": 18000.0, "default": 12000.0, "units": "Hz", "skew": 0.4},
+    {"id": "amount", "name": "Amount", "type": "float", "min": 1.0, "max": 10.0, "default": 3.0, "units": "", "skew": 0.6},
+    {"id": "level", "name": "Level", "type": "float", "min": -24.0, "max": 0.0, "default": -3.0, "units": "dB", "skew": 1.0}
+  ],
+  "state_only_fields": [
+    {"id": "curves_0_2", "note": "indexed decoy: serialized in the ValueTree but NOT an exported parameter", "value": 0.5, "tier": "STATE_SCHEMA_FIELD", "decoy": true},
+    {"id": "lastTab", "note": "UI_ONLY_CONTROL stored in state, never exported", "value": 2.0, "tier": "UI_ONLY_CONTROL"}
+  ],
+  "classes_expected": ["abus::OnePoleLP", "abus::AtanShaper", "ABUnseenAudioProcessor", "ABUnseenAudioProcessorEditor"],
+  "dsp": {
+    "filter": {"class": "abus::OnePoleLP", "kind": "RC one-pole low-pass y += g (x - y), cutoff from 'tone'"},
+    "waveshaper": {"class": "abus::AtanShaper", "kind": "y = (2/pi) * atan(amount * x)", "family": "atan", "params": ["amount", "mode"]},
+    "signal_flow": ["trim", "OnePoleLP", "AtanShaper (Soft) | hard clip (Hard)", "level"],
+    "mode_effect": "Soft: (2/pi) atan(amount x) · Hard: clamp(amount x, -1, 1)"
+  },
+  "licensing": null,
+  "resources": [
+    {"name": "dial_png", "file": "Resources/dial.png"},
+    {"name": "Default_xml", "file": "Presets/Default.xml"}
+  ],
+  "buses": {"input": "stereo", "output": "stereo"},
+  "latency_samples": {"always": 0}
+}

@@ -138,7 +138,8 @@
       {
         "id": "waveShapers_0_1",
         "tier": "STATE_SCHEMA_FIELD",
-        "note": "indexed decoy: serialized in the ValueTree but NOT an exported parameter (EXECUTE 2.2 gate)"
+        "note": "indexed decoy: serialized in the ValueTree but NOT an exported parameter (EXECUTE 2.2 gate)",
+        "decoy": true
       },
       {
         "id": "uiScale",
@@ -242,6 +243,6 @@
       "oversample_on": "juce::dsp::Oversampling<float> 2x FIR latency (reported by getLatencySamples)"
     },
     "generated_from": "spec.json",
-    "spec_sha256": "aff0e69f447a839c776439a3934830dc180dc8691b4e0a79640698554ec6bef4"
+    "spec_sha256": "3f5477fb68ba9adea1dae1dd80ad7a61d651e01a19b949ddba6f84339c792fb6"
   }
 }

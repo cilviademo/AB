@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ABUNSEEN curves_0_2="0.5" lastTab="2.0">
+  <PARAM id="bypass" value="0.0"/>
+  <PARAM id="mode" value="0.0"/>
+  <PARAM id="trim" value="0.0"/>
+  <PARAM id="tone" value="12000.0"/>
+  <PARAM id="amount" value="3.0"/>
+  <PARAM id="level" value="-3.0"/>
+</ABUNSEEN>

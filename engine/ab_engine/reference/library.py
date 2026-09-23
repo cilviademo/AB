@@ -72,7 +72,7 @@ def fixture_dirs() -> list[Path]:
     if override:
         return [Path(x) for x in override.split(os.pathsep) if x]
     fx = repo_root() / "fixtures"
-    return [p for p in (fx / "groundtruth", fx / "groundtruth_iplug2") if p.is_dir()]
+    return [p for p in (fx / "groundtruth", fx / "groundtruth_unseen", fx / "groundtruth_iplug2") if p.is_dir()]
 
 
 def load_fixture_manifests(dirs: list[Path] | None = None) -> list[dict[str, Any]]:

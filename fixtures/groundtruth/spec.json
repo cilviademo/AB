@@ -1,5 +1,5 @@
 {
-  "note": "Single source of truth for the ground-truth fixture (SPEC \u00a712). gen.py derives Source/GeneratedParams.h and truth.json from it, so the answer key and the plugin cannot drift.",
+  "note": "Single source of truth for the ground-truth fixture (SPEC §12). gen.py derives Source/GeneratedParams.h and truth.json from it, so the answer key and the plugin cannot drift.",
   "product": "ABGroundTruth",
   "company": "Multibanded",
   "manufacturer_code": "Mbnd",
@@ -77,7 +77,8 @@
     {
       "id": "waveShapers_0_1",
       "note": "indexed decoy: serialized in the ValueTree but NOT an exported parameter (EXECUTE 2.2 gate)",
-      "value": 0.25
+      "value": 0.25,
+      "decoy": true
     },
     {
       "id": "uiScale",
@@ -92,7 +93,7 @@
     },
     {
       "id": "serialChecksum",
-      "note": "LICENSING_AND_ENTITLEMENT_SUBSYSTEM state: checksum LicenseStub computed for the last serial checked (ABGT-0000-0000-0000 \u2192 0x180)",
+      "note": "LICENSING_AND_ENTITLEMENT_SUBSYSTEM state: checksum LicenseStub computed for the last serial checked (ABGT-0000-0000-0000 → 0x180)",
       "value": 384.0,
       "subsystem": "LICENSING_AND_ENTITLEMENT_SUBSYSTEM"
     }
@@ -121,7 +122,7 @@
       "TanhShaper (oversampled when enabled)",
       "outputGain"
     ],
-    "mode_effect": "Clean: shaper bypassed \u00b7 Warm: tanh \u00b7 Hot: tanh with 2x drive"
+    "mode_effect": "Clean: shaper bypassed · Warm: tanh · Hot: tanh with 2x drive"
   },
   "resources": [
     {
@@ -170,10 +171,10 @@
       "serialChecksum"
     ],
     "serial_format": "ABGT-XXXX-XXXX-CCCC; CCCC = hex16(sum of the 8 middle characters' ASCII codes)",
-    "demo_state": "not licensed \u2192 demoRenders counts down from 100000 per processBlock (no audible effect)",
+    "demo_state": "not licensed → demoRenders counts down from 100000 per processBlock (no audible effect)",
     "processBlock_calls": [
       "LicenseStub::noteRender"
     ],
-    "note": "deliberate licensing stub (ADDENDUM C2): strings 'isLicensed', 'serial_number', 'demo'; recovered, reconstructed and validated like the DSP; a checkSerial \u2192 true edit is TRANSFORMED_BREAKING"
+    "note": "deliberate licensing stub (ADDENDUM C2): strings 'isLicensed', 'serial_number', 'demo'; recovered, reconstructed and validated like the DSP; a checkSerial → true edit is TRANSFORMED_BREAKING"
   }
 }

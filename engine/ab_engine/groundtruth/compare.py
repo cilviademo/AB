@@ -82,13 +82,21 @@ def compare(job: Job, truth: dict[str, Any], *, phase: int = 1) -> dict[str, Any
     for r in _load(pd, "03_architecture/classes.json") or []:
         if isinstance(r, dict) and r.get("recovered_name") and _norm_class(r["recovered_name"]) not in roles:
             roles[_norm_class(r["recovered_name"])] = r.get("role")
-    dsp_expect = {"TptLowpass": "FILTER", "TanhShaper": "WAVESHAPER"}
+    # expectations come from truth.json (fixtures differ: ADDENDUM B8 test 1 uses an unseen one), defaults are the first fixture's
+    dsp_truth = truth.get("dsp") or {}
+    filter_leaf = _norm_class((dsp_truth.get("filter") or {}).get("class") or "abgt::TptLowpass")
+    shaper_leaf = _norm_class((dsp_truth.get("waveshaper") or {}).get("class") or "abgt::TanhShaper")
+    expected_family = (dsp_truth.get("waveshaper") or {}).get("family") or "tanh_normalized"
+    dsp_expect = {filter_leaf: "FILTER", shaper_leaf: "WAVESHAPER"}
     role_hits = sum(1 for k, v in dsp_expect.items() if roles.get(k) == v)
     metrics["dsp_role_candidates"] = {"expected": len(dsp_expect), "matched": role_hits, "basis": "name tokens (CANDIDATE)"}
-    lic = roles.get("LicenseStub")
     # ADDENDUM C2: the licensing stub is classified LICENSING_AND_ENTITLEMENT_SUBSYSTEM (v2 still says PROTECTED_SUBSYSTEM: alias)
     lic_truth = truth.get("licensing") or {}
-    metrics["licensing_subsystem_classified"] = {"class": lic_truth.get("class", "abgt::LicenseStub"), "role": lic, "classified": lic in ("LICENSING_AND_ENTITLEMENT_SUBSYSTEM", "PROTECTED_SUBSYSTEM")}
+    if lic_truth.get("class"):
+        lic = roles.get(_norm_class(lic_truth["class"]))
+        metrics["licensing_subsystem_classified"] = {"class": lic_truth["class"], "role": lic, "classified": lic in ("LICENSING_AND_ENTITLEMENT_SUBSYSTEM", "PROTECTED_SUBSYSTEM")}
+    else:
+        metrics["licensing_subsystem_classified"] = None   # this fixture has no licensing subsystem: nothing to classify, nothing invented
 
     # ---- static: serialized keys and state fields ---------------------------
     # The frozen v2 extractor reads <PARAM id= value=> entries; JUCE stores non-parameter
@@ -189,7 +197,8 @@ def compare(job: Job, truth: dict[str, Any], *, phase: int = 1) -> dict[str, Any
                 ok += 1
             elif tier != "VST3_EXPORTED_PARAMETER" and m.get("relationship") == "STATE_ONLY":
                 ok += 1
-        decoy = rel.get("waveShapers_0_1", {})
+        decoy_key = next((f["id"] for f in truth["state_fields"] if f.get("decoy")), "waveShapers_0_1")
+        decoy = rel.get(decoy_key, {})
         metrics["state_fields_mapped"] = {"expected": len(exp_map), "correct": ok, "decoy_classified_from_runtime": decoy.get("relationship") == "STATE_ONLY" and str(decoy.get("basis", "")).startswith("runtime")}
     else:
         metrics["state_fields_mapped"] = None
@@ -208,7 +217,7 @@ def compare(job: Job, truth: dict[str, Any], *, phase: int = 1) -> dict[str, Any
         metrics["process_block_path"] = None
     if dsp_candidates:
         top5 = [(c.get("class") or c.get("name") or "") + ((" ≈ " + c["knowledge_name"] + " (knowledge)") if c.get("knowledge_name") else "") + ((" ⊃ " + ", ".join(c["inlined_classes"]) + " (inlined, INFERRED)") if c.get("inlined_classes") else "") for c in dsp_candidates[:5]]
-        metrics["dsp_function_identification"] = {"top5": top5, "waveshaper_in_top5": any("TanhShaper" in str(x) for x in top5), "filter_in_top5": any("TptLowpass" in str(x) for x in top5),
+        metrics["dsp_function_identification"] = {"top5": top5, "waveshaper_in_top5": any(shaper_leaf in str(x) for x in top5), "filter_in_top5": any(filter_leaf in str(x) for x in top5),
                                                   "via_knowledge": any(c.get("knowledge_name") for c in dsp_candidates[:5]), "via_inlining": any(c.get("inlined_classes") for c in dsp_candidates[:5])}
     else:
         metrics["dsp_function_identification"] = None
@@ -231,7 +240,7 @@ def compare(job: Job, truth: dict[str, Any], *, phase: int = 1) -> dict[str, Any
     metrics["cross_load"] = None if not cross else cross.get("classification")
     ridx = _load(pd, "07_agent_handoff/reconstruction_index.json")
     fam = next((e for e in (ridx or []) if isinstance(e, dict) and e.get("role") == "WAVESHAPER"), None)
-    metrics["waveshaper_fit"] = None if fam is None else {"family": fam.get("family"), "rmse": fam.get("rmse"), "compiled": fam.get("compiled"), "expected_family": "tanh_normalized"}
+    metrics["waveshaper_fit"] = None if fam is None else {"family": fam.get("family"), "rmse": fam.get("rmse"), "compiled": fam.get("compiled"), "expected_family": expected_family}
 
     # ---- gates per phase (EXECUTE) --------------------------------------------
     gates = [
@@ -248,7 +257,7 @@ def compare(job: Job, truth: dict[str, Any], *, phase: int = 1) -> dict[str, Any
         {"phase": 3, "name": "processBlock, prepareToPlay, state functions located", "ok": None if metrics["process_block_path"] is None else all(v for k, v in metrics["process_block_path"].items() if k != "basis"), "detail": "decompiler stage not run" if metrics["process_block_path"] is None else json.dumps(metrics["process_block_path"])},
         {"phase": 3, "name": "waveshaper and filter in top-5 DSP candidates", "ok": None if metrics["dsp_function_identification"] is None else (metrics["dsp_function_identification"]["waveshaper_in_top5"] and metrics["dsp_function_identification"]["filter_in_top5"]), "detail": "decompiler stage not run" if metrics["dsp_function_identification"] is None else json.dumps(metrics["dsp_function_identification"]["top5"])},
         {"phase": 3, "name": "fingerprints stable across Release+PDB and stripped", "ok": None if metrics["fingerprint_stability"] is None else bool(metrics["fingerprint_stability"].get("ok")), "detail": "needs the three builds" if metrics["fingerprint_stability"] is None else json.dumps(metrics["fingerprint_stability"])},
-        {"phase": 4, "name": "waveshaper family recovered (tanh_normalized) and compiled into Active", "ok": None if metrics["waveshaper_fit"] is None else (metrics["waveshaper_fit"]["family"] in ("tanh_normalized", "tanh") and bool(metrics["waveshaper_fit"]["compiled"])), "detail": "reconstruction not run" if metrics["waveshaper_fit"] is None else json.dumps(metrics["waveshaper_fit"])},
+        {"phase": 4, "name": f"waveshaper family recovered ({expected_family}) and compiled into Active", "ok": None if metrics["waveshaper_fit"] is None else (metrics["waveshaper_fit"]["family"] in ({"tanh_normalized": ("tanh_normalized", "tanh")}.get(expected_family, (expected_family,))) and bool(metrics["waveshaper_fit"]["compiled"])), "detail": "reconstruction not run" if metrics["waveshaper_fit"] is None else json.dumps(metrics["waveshaper_fit"])},
         {"phase": 4, "name": "SURROGATE build green", "ok": None if metrics["build"] is None else metrics["build"]["status"] == "BUILT", "detail": "build stage not run" if metrics["build"] is None else json.dumps(metrics["build"])},
         {"phase": 4, "name": "pluginval strictness ≥ 5 green", "ok": None if metrics["pluginval"] is None or metrics["pluginval"]["status"] == "NOT_RUN" else metrics["pluginval"]["status"] == "PASSED", "detail": "pluginval not run" if metrics["pluginval"] is None else json.dumps(metrics["pluginval"])},
         {"phase": 4, "name": "waveshaper BEHAVIORALLY_EQUIVALENT (differential, ramp probes: RMSE ≤ 1e-4, spectrum ≤ 0.1 dB)", "ok": None if metrics["waveshaper_differential"] is None else metrics["waveshaper_differential"]["classification"] in ("BIT_EXACT", "NUMERICALLY_EQUIVALENT", "BEHAVIORALLY_EQUIVALENT"), "detail": "differential harness not run" if metrics["waveshaper_differential"] is None else json.dumps(metrics["waveshaper_differential"])},
