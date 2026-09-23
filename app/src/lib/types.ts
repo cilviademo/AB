@@ -108,3 +108,73 @@ export interface IngestResult {
 }
 
 export interface BundleEntry { path: string; size: number; kind: "file" | "dir"; schema?: string }
+
+// ADDENDUM B6 — reference library: typed entries with provenance; actions are explicit, never inferred from a co-drop
+export type ReferenceEntryType = "USER_ARTIFACT" | "KNOWN_SOURCE_FIXTURE" | "BLACK_BOX_REFERENCE" | "FRAMEWORK_REFERENCE" | "DSP_REFERENCE";
+export const REFERENCE_TYPE_LABEL: Record<ReferenceEntryType, string> = {
+  KNOWN_SOURCE_FIXTURE: "Known-source fixtures", BLACK_BOX_REFERENCE: "Black-box references", USER_ARTIFACT: "User artifacts",
+  FRAMEWORK_REFERENCE: "Framework signatures & shared implementations", DSP_REFERENCE: "DSP references (clean-room)",
+};
+export interface ReferenceAction { id: string; label: string; rpc: string; needs: string; job_id?: string }
+export interface ReferenceEntry {
+  entry_type: ReferenceEntryType;
+  id: string;
+  name: string;
+  origin: string;
+  source_artifact: unknown;
+  hash: string | null;
+  license: { class?: string | null; text?: string | null } | null;
+  analysis_version: Record<string, string | null | undefined>;
+  evidence_state: string | Record<string, string | number>;
+  verification_date: string | null;
+  relationships: { kind?: string; count?: number; a?: string; b?: string; confidence?: number }[];
+  actions: ReferenceAction[];
+  usage_context?: UsageContext;
+  source_availability?: SourceAvailability;
+  project_dir?: string;
+  purpose?: string;
+  functions?: number;
+  tier?: string;
+  kind?: string;
+  knowledge_learned?: Record<string, number>;
+  fixture?: { fixture_id: string | null; source_type?: string; source_repository?: string; source_commit?: string; build_configuration?: string; compiler?: string; variant?: string | null; algorithms?: string[]; source_dir?: string; note?: string } | null;
+  verification?: { known_source: { integrity_ok: boolean | null; failure_classes: unknown } | null; ground_truth: { gates_ok: number; gates: number; false_positives: number; false_negatives: number } | null; behavioral: Record<string, string> | null };
+}
+export interface ReferenceLibrary {
+  entries: ReferenceEntry[];
+  counts: Record<ReferenceEntryType, number>;
+  types: ReferenceEntryType[];
+  isolation: { ok: boolean; checked_projects: number; fixture_files: number; violations: { job_id: string; file: string; matches_fixture_file: string }[]; rule: string };
+  rule: string;
+  written?: { markdown: string; json: string };
+}
+export interface ProvenanceHit {
+  entity_type: "function" | "class" | "vtable_layout" | "implementation";
+  entity_id: string;
+  name: string | null;
+  state: string | null;
+  kind?: string | null;
+  tier?: string | null;
+  first_seen?: string | null;
+  last_verified?: string | null;
+  verifications?: number;
+  tool_version?: string | null;
+  evidence_version?: string | null;
+  learned_from: { sha256: string; name: string | null; usage_context: string | null; entry_type: ReferenceEntryType; first_seen?: string }[];
+  history: { previous: string | null; current: string; changed_at: string; reason: string }[];
+}
+export interface GroundTruthCount { n: number | null; of: number | null }
+export interface GroundTruthDashboard {
+  parameter_recall: GroundTruthCount | null;
+  state_mapping: GroundTruthCount | null;
+  classes: GroundTruthCount | null;
+  dsp_entry_points: GroundTruthCount | null;
+  resources: GroundTruthCount | null;
+  implementation_matches_verified: number;
+  false_positives: number;
+  false_negatives: number;
+  behavioral_rmse: number | null;
+  behavioral_classification: string | null;
+  gates: { ok: number; failed: number; pending: number };
+  rule: string;
+}

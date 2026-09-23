@@ -6,6 +6,7 @@ import { runStaticInWorker } from "./lib/staticWorker";
 import { Recover } from "./views/Recover";
 import { Bench, type BenchScreen } from "./views/Bench";
 import { Corpus } from "./views/Corpus";
+import { Reference } from "./views/Reference";
 import { SettingsView } from "./views/Settings";
 import { Diagnostics } from "./views/Diagnostics";
 import { Help } from "./views/Help";
@@ -19,7 +20,7 @@ const Mark = () => (
   </svg>
 );
 
-type Tab = "recover" | "bench" | "corpus" | "settings" | "help";
+type Tab = "recover" | "bench" | "corpus" | "reference" | "settings" | "help";
 
 export default function App() {
   const [tab, setTab] = useState<Tab>("recover");
@@ -169,7 +170,7 @@ export default function App() {
       <header className="titlebar">
         <span className="wordmark"><Mark />AB · Artifact Bench</span>
         <nav className="nav">
-          {(["recover", "bench", "corpus", "settings", "help"] as Tab[]).map((t) => (
+          {(["recover", "bench", "corpus", "reference", "settings", "help"] as Tab[]).map((t) => (
             <button
               key={t}
               type="button"
@@ -221,6 +222,7 @@ export default function App() {
           />
         )}
         {tab === "corpus" && <Corpus jobs={jobs} onOpen={openJob} />}
+        {tab === "reference" && <Reference onOpen={openJob} onChanged={refreshJobs} />}
         {tab === "settings" && <SettingsView env={env} status={status} />}
         {tab === "help" && <Help />}
       </div>

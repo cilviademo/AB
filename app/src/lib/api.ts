@@ -4,6 +4,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import type {
   BackendStatus, BundleEntry, Doctor, Env, IngestResult, Job, RecoveryContext, ProgressEvent,
+  GroundTruthDashboard, ProvenanceHit, ReferenceLibrary, SourceAvailability, UsageContext,
 } from "./types";
 
 export class BackendError extends Error {
@@ -63,6 +64,13 @@ export const api = {
   lineage: (jobId: string) => call<LineageReport>("lineage.report", { job_id: jobId }),
   corpusRun: () => call<{ out_dir: string; plugins: number; report: string }>("corpus.run"),
   knowledgeStats: () => call<Record<string, unknown>>("knowledge.stats"),
+  // ADDENDUM B6 — reference library; every action is an explicit call, nothing is inferred from a co-drop
+  referenceList: () => call<ReferenceLibrary>("reference.list"),
+  referenceProvenance: (query: string) => call<{ query: string; hits: ProvenanceHit[]; fixture_derived?: number; rule: string }>("reference.provenance", { query }),
+  referenceDashboard: (jobId: string) => call<{ job_id: string; dashboard: GroundTruthDashboard | null; source: string | null; note: string | null }>("reference.dashboard", { job_id: jobId }),
+  referenceSetContext: (jobId: string, usage_context: UsageContext, source_availability?: SourceAvailability) =>
+    call<{ job_id: string; before: Record<string, string>; after: Record<string, string>; entry_type: string }>("reference.set_context", { job_id: jobId, usage_context, source_availability }),
+  groundTruth: (jobId: string, phase = 4) => call<{ ok_for_phase: boolean; gates: { phase: number; name: string; ok: boolean | null; detail: string }[]; pending: string[] }>("groundtruth.compare", { job_id: jobId, phase }),
   handoff: (jobId: string) => call<{ written: string[]; tasks: { task: string; evidence: string; priority: string }[] }>("handoff.write", { job_id: jobId }),
   exportBundle: (jobId: string, zip: boolean) => call<{ out_dir: string; zip_path: string | null; git_ready: { ok: boolean; checks: { name: string; ok: boolean | null; detail: string }[] } }>("bundle.export", { job_id: jobId, zip }),
 };

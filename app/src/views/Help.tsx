@@ -58,6 +58,18 @@ export function Help() {
           </p>
         </Section>
       </div>
+      <div style={{ marginTop: "var(--s8)" }}>
+        <Section title="Reference library">
+          <p className="copy">
+            Every entry AB can learn from is typed — user artifact, known-source fixture, black-box reference, framework
+            signature, clean-room DSP reference — and records its origin, source artifact, licence, hash, analysis
+            version, evidence state, verification date and relationships, so "where did AB learn this?" always has an
+            answer. Actions (Compare Against Reference, Add as Fixture, Use as Black-Box Reference, Validate Recovery
+            Against Source) are buttons you press; dropping two plugins together never implies any of them. Fixture
+            source is checked byte-for-byte against every user project and reported if it ever leaks.
+          </p>
+        </Section>
+      </div>
     </div>
   );
 }
