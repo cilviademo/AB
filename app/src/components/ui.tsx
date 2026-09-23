@@ -256,9 +256,20 @@ export type EvidenceState =
 
 /** Evidence-state badge. The only coloured element in the product (SPEC §14);
  *  the state is also in the text, so colour is never the sole carrier. */
+/** Validation / promotion vocabulary (SPEC §1) rendered with the evidence hues: equivalence reads as
+ *  verified, PERCEPTUALLY_CLOSE / STRUCTURALLY_PLAUSIBLE as inferred, scaffolds as generated, FAILED as unrecoverable. */
+const EV_ALIASES: Record<string, EvidenceState> = {
+  BIT_EXACT: "VERIFIED", NUMERICALLY_EQUIVALENT: "VERIFIED", BEHAVIORALLY_EQUIVALENT: "VERIFIED", CROSS_LOAD_VALIDATED: "VERIFIED",
+  BEHAVIOR_MATCHED: "VERIFIED", STATIC_RECONSTRUCTED: "VERIFIED", BUILT: "VERIFIED", PASSED: "VERIFIED",
+  PERCEPTUALLY_CLOSE: "INFERRED", STRUCTURALLY_PLAUSIBLE: "INFERRED", SCAFFOLD_ONLY: "GENERATED", PENDING: "UNKNOWN", NOT_VALIDATED: "UNKNOWN", NOT_RUN: "UNKNOWN",
+  FAILED: "UNRECOVERABLE", BUILD_FAILED: "UNRECOVERABLE", CONFIGURE_FAILED: "UNRECOVERABLE", TIMEOUT: "UNRECOVERABLE",
+};
+
 export function Ev({ state, title }: { state: string; title?: string }) {
-  const known: EvidenceState = (["VERIFIED", "INFERRED", "CANDIDATE", "GENERATED", "UNRECOVERABLE"] as const)
-    .find((s) => state.toUpperCase().startsWith(s)) ?? "UNKNOWN";
+  const up = state.toUpperCase();
+  const alias = Object.keys(EV_ALIASES).find((k) => up.startsWith(k));
+  const known: EvidenceState = alias ? EV_ALIASES[alias]
+    : (["VERIFIED", "INFERRED", "CANDIDATE", "GENERATED", "UNRECOVERABLE"] as const).find((s) => up.startsWith(s)) ?? "UNKNOWN";
   return <span className="ev" data-ev={known} title={title ?? state}>{state}</span>;
 }
 

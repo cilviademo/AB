@@ -21,13 +21,22 @@ build() { # name, build-type, strip
   cp -R "build/$name/ABGroundTruth_artefacts/$type/VST3/ABGroundTruth.vst3" "out/$name/"
   echo "built out/$name/ABGroundTruth.vst3 ($type, strip=$strip)"
 }
-build debug Debug OFF
-build release Release OFF
-build stripped Release ON
+# AB_VARIANTS selects a subset (CI builds only "release stripped"); default is all three.
+VARIANTS="${AB_VARIANTS:-debug release stripped}"
+for v in $VARIANTS; do
+  case "$v" in
+    debug)    build debug Debug OFF ;;
+    release)  build release Release OFF ;;
+    stripped) build stripped Release ON ;;
+    *) echo "unknown variant $v" >&2; exit 2 ;;
+  esac
+done
 python3 - <<'PY'
 import hashlib, json, pathlib
 out = {}
 for v in ("debug", "release", "stripped"):
+    if not pathlib.Path(f"out/{v}").is_dir():
+        continue
     for p in pathlib.Path(f"out/{v}").rglob("*"):
         if p.is_file() and p.suffix in (".so", ".vst3", ".dll", ".dylib") and p.stat().st_size > 32768:
             out[v] = {"path": str(p), "size": p.stat().st_size, "sha256": hashlib.sha256(p.read_bytes()).hexdigest()}

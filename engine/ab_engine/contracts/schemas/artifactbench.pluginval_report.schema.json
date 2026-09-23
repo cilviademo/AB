@@ -1,0 +1,1 @@
+{"$schema": "https://json-schema.org/draft/2020-12/schema", "title": "artifactbench.pluginval_report", "description": "pluginval outcome at strictness \u2265 5 (PASSED | FAILED | TIMEOUT | NOT_RUN).", "type": "object"}

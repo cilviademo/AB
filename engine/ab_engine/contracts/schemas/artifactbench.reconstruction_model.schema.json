@@ -1,0 +1,1 @@
+{"$schema": "https://json-schema.org/draft/2020-12/schema", "title": "artifactbench.reconstruction_model", "description": "Evidence model behind 04_reconstruction (ab_engine/reconstruct/model.py).", "type": "object"}

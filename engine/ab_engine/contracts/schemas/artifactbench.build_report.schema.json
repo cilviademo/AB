@@ -1,0 +1,1 @@
+{"$schema": "https://json-schema.org/draft/2020-12/schema", "title": "artifactbench.build_report", "description": "BUILD_COMPLETE report: configure/build outcome, errors, bundle, binary hash.", "type": "object"}

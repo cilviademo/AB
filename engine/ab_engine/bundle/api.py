@@ -124,7 +124,9 @@ def scorecard(job: Job) -> list[dict[str, str]]:
     signal = _load(pd, "03_architecture/signal_flow.json")
     recon = _load(pd, "07_agent_handoff/reconstruction_index.json") or []
     validation = _load(pd, "06_validation/differential_results.json")
-    build = _load(pd, "06_validation/build.json")
+    build = _load(pd, "06_validation/build_report.json")
+    pluginval = _load(pd, "06_validation/pluginval.json")
+    cross = _load(pd, "06_validation/cross_load.json")
     static_ok = job.stage("STATIC_COMPLETE") and job.stage("STATIC_COMPLETE").status == "OK"
 
     def cell(key: str, value: str, evidence: str, detail: str = "") -> dict[str, str]:
@@ -154,17 +156,25 @@ def scorecard(job: Job) -> list[dict[str, str]]:
     dsp_roles = sum(1 for c in classes if c.get("role") in ("WAVESHAPER", "FILTER", "OVERSAMPLER", "COMPRESSOR", "LIMITER", "GATE", "DELAY_REVERB", "ENVELOPE"))
     cells.append(cell("DSP structure", f"{dsp_roles} role candidate(s)", "CANDIDATE" if dsp_roles else "UNKNOWN", "roles from name tokens until the callgraph confirms"))
     if validation:
-        mods = validation.get("modules", [])
+        mods = [m for m in validation.get("modules", []) if not str(m.get("module", "")).startswith(("Law:", "Unmodeled:")) and m.get("module") not in ("Plugin", "WaveshaperSweeps")]
         eq = sum(1 for m in mods if m.get("classification") in ("BIT_EXACT", "NUMERICALLY_EQUIVALENT", "BEHAVIORALLY_EQUIVALENT"))
-        cells.append(cell("DSP behavioral match", f"{eq} / {len(mods)} modules", "MEASURED", "differential harness"))
+        ws_mod = next((m for m in validation.get("modules", []) if m.get("module") == "Waveshaper"), None)
+        sweeps = next((m for m in validation.get("modules", []) if m.get("module") == "WaveshaperSweeps"), None)
+        detail = f"overall {validation.get('overall')}" + (f" · waveshaper {ws_mod['classification']}" if ws_mod else "") + (f" · sweeps {sweeps['classification']}" if sweeps else "")
+        cells.append(cell("DSP behavioral match", f"{eq} / {len(mods)} modules", ws_mod["classification"] if ws_mod else "MEASURED", detail))
     else:
         cells.append(cell("DSP behavioral match", "not measured", "SCAFFOLD_ONLY" if recon else "UNKNOWN", "probes + fits (Phase 4)"))
     if build:
-        cells.append(cell("Build readiness", build.get("mode", "?") + (" OK" if build.get("ok") else " FAILED"), "MEASURED", build.get("detail", "")))
+        pv = (pluginval or {}).get("status", "NOT_RUN")
+        cells.append(cell("Build readiness", f"{build.get('build_kind', '?')} {build.get('status', '?')}", "VERIFIED_RUNTIME" if build.get("status") == "BUILT" else "FAILED",
+                          f"pluginval {pv}" + (f" strictness {pluginval.get('strictness')}" if pluginval and pluginval.get("strictness") else "")))
     else:
         cells.append(cell("Build readiness", "FIDELITY needs identity" if job.reconstruction_allowed else "analysis only", "GENERATED" if recon and job.reconstruction_allowed else "UNKNOWN",
                           "SURROGATE build available for DSP work" if job.reconstruction_allowed else "third-party: no reconstruction"))
-    cells.append(cell("State compatibility", "not validated", "UNKNOWN", "CROSS_LOAD_VALIDATED needs original ⇄ rebuild"))
+    if cross:
+        cells.append(cell("State compatibility", cross.get("classification", "?"), "VERIFIED_RUNTIME" if cross.get("classification") == "CROSS_LOAD_VALIDATED" else cross.get("classification", "UNKNOWN"), "original ⇄ rebuild, every exported parameter"))
+    else:
+        cells.append(cell("State compatibility", "not validated", "UNKNOWN", "CROSS_LOAD_VALIDATED needs original ⇄ rebuild"))
     exported = job.stage("EXPORT_COMPLETE")
     cells.append(cell("Repo readiness", "GIT_READY" if exported and exported.status == "OK" and exported.metrics.get("git_ready") else "not exported", "MEASURED" if exported and exported.status == "OK" else "UNKNOWN", "checklist runs on export"))
     cells.append(cell("Original source", "0 %", "UNRECOVERABLE", "comments, names, formatting, history are gone"))
@@ -224,6 +234,10 @@ def export_job(ws: Workspace, conn: Any, job: Job, *, zip_it: bool, ctx: StageCo
     if not (pd / "00_manifest" / "input_manifest.json").is_file():
         raise StageFailed("NOT_INGESTED", "nothing to export: the job has no manifest yet")
     name = pd.name
+    # regenerate the agent handoff from every stage's evidence before the copy (Phase 5)
+    from ab_engine.handoff import writer as handoff_writer  # noqa: PLC0415
+
+    handoff_writer.write_all(job)
     out = ws.exports / name
     if out.exists():
         shutil.rmtree(out)

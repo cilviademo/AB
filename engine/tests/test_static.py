@@ -116,7 +116,12 @@ def test_static_skips_without_node(ws, tmp_path, fixture_binary, monkeypatch):
 def test_diff_baseline_on_synthetic(ws):
     from ab_engine.static import baseline  # noqa: PLC0415
 
-    baseline.init_baseline(ws, "synthetic")
+    # diff against the COMMITTED baseline (the repo fixture is regression data; tests never rewrite it)
+    from ab_engine import tools as tools_mod  # noqa: PLC0415
+
+    root = tools_mod.repo_root()
+    if root is None or not (root / "fixtures" / "static_v2" / "synthetic" / "baseline").is_dir():
+        baseline.init_baseline(ws, "synthetic")
     r = baseline.diff_fixture(ws, "synthetic")
     assert r["ok"], r["rows"]
     assert all(row["ok"] for row in r["rows"] if row["check"] != "timing variance ≤ 20 %")

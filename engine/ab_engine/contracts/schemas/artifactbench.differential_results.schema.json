@@ -1,0 +1,1 @@
+{"$schema": "https://json-schema.org/draft/2020-12/schema", "title": "artifactbench.differential_results", "description": "Differential harness: per-render and per-module classification original vs rebuild (SPEC \u00a711).", "type": "object"}

@@ -93,9 +93,11 @@ export function Bench({
         {screen === "evidence" && <EvidenceBrowser job={job} />}
         {screen === "resources" && <Resources job={job} />}
         {screen === "export" && <Export job={job} />}
-        {(screen === "params" || screen === "architecture" || screen === "dsp" || screen === "compare" || screen === "build") && (
-          <Pending screen={screen} job={job} />
-        )}
+        {screen === "params" && <ParamsState job={job} />}
+        {screen === "architecture" && <Architecture job={job} />}
+        {screen === "dsp" && <Dsp job={job} />}
+        {screen === "build" && <Build job={job} />}
+        {screen === "compare" && <Compare job={job} />}
       </div>
     </div>
   );
@@ -330,18 +332,319 @@ function Export({ job }: { job: Job }) {
   );
 }
 
-/* -------------------------------------------------------------- pending -- */
+/* -------------------------------------------------------- params & state -- */
 
-function Pending({ screen, job }: { screen: BenchScreen; job: Job }) {
-  const meta = SCREENS.find((s) => s.key === screen)!;
-  const rec = job.stages.find((s) => STAGE_OF[s.stage] === meta.stage);
+function useDoc<T>(job: Job, rel: string): T | null | undefined {
+  const [doc, setDoc] = useState<T | null | undefined>(undefined);
+  useEffect(() => {
+    setDoc(undefined);
+    api.bundleRead(job.job_id, rel).then((r) => setDoc(r.text ? (JSON.parse(r.text).data as T) : null)).catch(() => setDoc(null));
+  }, [job, rel]);
+  return doc;
+}
+
+interface MapRow { param_id: number | null; title: string | null; key: string | null; relationship: string; value_representation: string; tier: string; basis: string }
+interface RtParam { param_id: number; title: string; units: string; step_count: number; default_normalized: number; is_bypass?: boolean; samples: { normalized: number; string: string | null }[] }
+
+function ParamsState({ job }: { job: Job }) {
+  const map = useDoc<MapRow[]>(job, "03_architecture/state_runtime_map.json");
+  const params = useDoc<RtParam[]>(job, "01_evidence/vst3/runtime_parameters.json");
+  const keys = useDoc<{ name: string; serialized_key_status: string; key_kind_candidate: string; observed_serialized_values: number[]; type_status: string }[]>(job, "03_architecture/serialized_keys.json");
+  if (map === undefined) return <Note>Loading…</Note>;
   return (
-    <div className="empty">
-      <div className="t">{meta.label}</div>
-      <div className="d">
-        Populated by the {meta.stage} stage — {meta.phase}.
-        {rec ? ` Current state: ${rec.status}${rec.skip_reason ? ` (${rec.skip_reason})` : ""}.` : " Not run yet."}
+    <>
+      <Section title="Runtime parameters" meta={params ? `${params.length} · VERIFIED_RUNTIME` : "RUNTIME stage not run"}>
+        {params ? (
+          <table className="grid">
+            <thead><tr><th>ParamID</th><th>Title</th><th>Units</th><th>Steps</th><th>Default</th><th>0 · ½ · 1</th><th>State field</th><th>Representation</th></tr></thead>
+            <tbody>
+              {params.map((p) => { const m = map?.find((r) => r.param_id === p.param_id); return (
+                <tr key={p.param_id}>
+                  <td className="mono">{p.param_id}</td><td>{p.title}{p.is_bypass ? <span className="faint"> (wrapper bypass)</span> : null}</td><td>{p.units}</td>
+                  <td className="mono">{p.step_count}</td><td className="mono">{p.default_normalized.toFixed(4)}</td>
+                  <td className="mono">{[0, 2, 4].map((i) => p.samples[i]?.string ?? "—").join(" · ")}</td>
+                  <td className="mono">{m?.key ?? <span className="faint">—</span>} {m && <Ev state={m.relationship} />}</td>
+                  <td>{m ? <Ev state={m.value_representation} /> : null}</td>
+                </tr>); })}
+            </tbody>
+          </table>
+        ) : <Note>Only vst3host can create a VST3_EXPORTED_PARAMETER. Static keys below are serialized state, not parameters.</Note>}
+      </Section>
+      <div style={{ marginTop: "var(--s8)" }}>
+        <Section title="Serialized state" meta={keys ? `${keys.length} keys · representation UNKNOWN until the differential` : ""}>
+          {keys && keys.length > 0 ? (
+            <table className="grid">
+              <thead><tr><th>Key</th><th>Status</th><th>Kind</th><th>Observed values</th><th>Tier</th></tr></thead>
+              <tbody>
+                {keys.map((k) => { const m = map?.find((r) => r.key === k.name); return (
+                  <tr key={k.name}>
+                    <td className="mono">{k.name}</td><td><Ev state={k.serialized_key_status.split(" ")[0]} title={k.serialized_key_status} /></td>
+                    <td className="faint">{k.key_kind_candidate.split(" (")[0]}</td>
+                    <td className="mono">{k.observed_serialized_values.slice(0, 6).join(", ")}</td>
+                    <td>{m ? <span className="mono">{m.tier}</span> : <span className="faint">STATE_FIELD_CANDIDATE</span>}</td>
+                  </tr>); })}
+              </tbody>
+            </table>
+          ) : <Note>No serialized keys: no embedded preset XML. Drop presets or sessions, or run the runtime stage.</Note>}
+        </Section>
       </div>
-    </div>
+    </>
+  );
+}
+
+/* ---------------------------------------------------------- architecture -- */
+
+interface ClassRow { recovered_name: string; kind: string; role: string | null; role_status: string; name_status: string; structure_status?: string; vtables?: string[]; slot_counts?: number[]; bases?: string[]; base_status?: string }
+interface FlowNode { addr: string; name: string; role: string; role_status: string; dist: number; class: string }
+
+function Architecture({ job }: { job: Job }) {
+  const classes = useDoc<ClassRow[]>(job, "03_architecture/classes.json");
+  const flow = useDoc<{ seed: string | null; seed_basis: string; evidence: string; nodes: FlowNode[]; edges: { from: string; to: string }[] }>(job, "03_architecture/signal_flow.json");
+  const lineage = useDoc<unknown>(job, "LINEAGE_REPORT.md");
+  void lineage;
+  if (classes === undefined) return <Note>Loading…</Note>;
+  const rows = (classes ?? []).filter((c) => c.kind === "PLUGIN_OWNED_CANDIDATE" || c.kind === "PLUGIN_OWNED");
+  return (
+    <>
+      <Section title="Plugin-owned classes" meta={`${rows.length} · names VERIFIED_RTTI · structure ${rows.some((c) => c.structure_status === "VERIFIED_VTABLE") ? "VERIFIED_VTABLE where located" : "needs the decompiler stage"}`}>
+        <table className="grid">
+          <thead><tr><th>Class</th><th>Name</th><th>Structure</th><th>Vtables · slots</th><th>Bases</th><th>Role</th></tr></thead>
+          <tbody>
+            {rows.map((c) => (
+              <tr key={c.recovered_name}>
+                <td className="mono">{c.recovered_name}</td>
+                <td><Ev state={c.name_status ?? "VERIFIED_RTTI_NAME"} /></td>
+                <td><Ev state={c.structure_status ?? "UNKNOWN"} /></td>
+                <td className="mono">{c.vtables?.length ? `${c.vtables.join(" ")} · ${c.slot_counts?.join("/")}` : "—"}</td>
+                <td className="mono">{c.bases?.length ? c.bases.join(", ") : <span className="faint">UNKNOWN</span>}</td>
+                <td>{c.role ?? "—"} {c.role && c.role !== "UNKNOWN" ? <Ev state={c.role_status ?? "CANDIDATE"} /> : null}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </Section>
+      <div style={{ marginTop: "var(--s8)" }}>
+        <Section title="Signal flow" meta={flow ? `${flow.evidence} · seed ${flow.seed_basis}` : "DECOMPILE stage not run"}>
+          {flow && flow.nodes.length > 0 ? (
+            <div className="stages">
+              {flow.nodes.map((n) => (
+                <div key={n.addr} className="stage" data-status="ok">
+                  <span className="g mono">{n.dist}</span>
+                  <span className="nm mono">{n.addr}</span>
+                  <span className="dt">{n.role} <Ev state={n.role_status} /> · {n.class || "—"} · <span className="mono">{n.name}</span></span>
+                </div>
+              ))}
+            </div>
+          ) : <Note>processBlock-reachable DSP functions appear here after the Ghidra callgraph export.</Note>}
+        </Section>
+      </div>
+    </>
+  );
+}
+
+/* ---------------------------------------------------------------- dsp -- */
+
+interface DspRow { addr: string; name: string; class: string; role: string; role_status: string; role_basis: string[]; priority: number; dist_from_processBlock: number; file?: string | null; vtable_slot: number; param_refs: number }
+
+function Dsp({ job }: { job: Job }) {
+  const cands = useDoc<DspRow[]>(job, "01_evidence/decompiler/dsp_candidates.json");
+  const recon = useDoc<{ symbol: string; file: string; status: string; role?: string; validation?: string; rmse?: number }[]>(job, "07_agent_handoff/reconstruction_index.json");
+  if (cands === undefined) return <Note>Loading…</Note>;
+  return (
+    <>
+      <Section title="DSP candidates" meta={cands ? `${cands.length} · priority = reachability × plugin-specific × parameter refs × DSP evidence` : "DECOMPILE stage not run"}>
+        {cands && cands.length > 0 ? (
+          <table className="grid">
+            <thead><tr><th>#</th><th>Priority</th><th>Role</th><th>Dist</th><th>Class</th><th>Function</th><th>Basis</th></tr></thead>
+            <tbody>
+              {cands.slice(0, 60).map((c, i) => (
+                <tr key={c.addr}>
+                  <td className="mono">{i + 1}</td><td className="mono">{c.priority}</td>
+                  <td>{c.role} <Ev state={c.role_status} /></td><td className="mono">{c.dist_from_processBlock}</td>
+                  <td className="mono">{c.class || "—"}</td><td className="mono">{c.name} <span className="faint">@{c.addr}</span></td>
+                  <td className="faint">{c.role_basis.join("; ")}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        ) : <Note>Ranked processing functions appear here after the decompiler stage; roles stay CANDIDATE until the callgraph confirms them.</Note>}
+      </Section>
+      <div style={{ marginTop: "var(--s8)" }}>
+        <Section title="Reconstructed modules" meta={recon ? `${recon.length}` : ""}>
+          {recon && recon.length > 0 ? (
+            <table className="grid">
+              <thead><tr><th>Symbol</th><th>Status</th><th>Validation</th><th>File</th></tr></thead>
+              <tbody>
+                {recon.map((r) => (
+                  <tr key={r.symbol}><td className="mono">{r.symbol}</td><td><Ev state={r.status} /></td><td>{r.validation ? <Ev state={r.validation} /> : <span className="faint">—</span>}{r.rmse != null ? <span className="mono faint"> rmse {r.rmse}</span> : null}</td><td className="mono faint">{r.file}</td></tr>
+                ))}
+              </tbody>
+            </table>
+          ) : <Note>SCAFFOLD_ONLY → STATIC_RECONSTRUCTED → BEHAVIOR_MATCHED → ACTIVE (Phase 4).</Note>}
+        </Section>
+      </div>
+    </>
+  );
+}
+
+/* ---------------------------------------------------------------- build -- */
+
+type BuildReport = {
+  build_kind: string; status: string; generator?: string; juce_dir?: string; installed?: string;
+  configure?: { ok: boolean; elapsed_ms: number; errors: string[]; log?: string };
+  build?: { ok: boolean; elapsed_ms: number; errors: string[]; warnings?: number; log?: string };
+  binary?: { path: string; sha256: string; size: number };
+};
+type PluginvalReport = { status: string; strictness?: number; version?: string; failures?: string[]; tests_run?: number; reason?: string; log?: string; gui_tests?: string };
+type ReconModel = { build_kind: string; target?: string; identity: { verified: boolean; codes_status?: string; manufacturer_code?: string; plugin_code?: string; product?: string; fidelity_refused?: string };
+  modules: { name: string; family: string; rmse: number; active: boolean; classification_at_default: string; modulation: { key: string; law: string; knob: string; status: string; basis: string }[] }[];
+  parameters: { key?: string; kind: string; id_status?: string; range_status?: string; generate?: boolean; title?: string }[] };
+
+function Build({ job }: { job: Job }) {
+  const rep = useDoc<BuildReport>(job, "06_validation/build_report.json");
+  const pv = useDoc<PluginvalReport>(job, "06_validation/pluginval.json");
+  const model = useDoc<ReconModel>(job, "04_reconstruction/reconstruction_model.json");
+  const rec = job.stages.find((s) => STAGE_OF[s.stage] === "BUILD");
+  if (rep === undefined || model === undefined) return <Note>Loading…</Note>;
+  const kindState = model?.build_kind === "FIDELITY" ? "VERIFIED_RUNTIME" : "GENERATED";
+  return (
+    <>
+      <Section title="Reconstruction" meta={model ? `${model.target ?? ""} · ${model.build_kind}` : "RECONSTRUCT stage not run"}>
+        {model ? (
+          <KeyValues rows={[
+            ["Build kind", <><Ev state={kindState} title={model.build_kind} /> {model.build_kind === "SURROGATE" ? "temporary identity — never session-compatible" : "original identity"}</>],
+            ["Identity", <>{model.identity.manufacturer_code ?? "—"}/{model.identity.plugin_code ?? "—"} <span className="faint">{model.identity.codes_status ?? ""}</span>{model.identity.fidelity_refused ? <div className="faint">{model.identity.fidelity_refused}</div> : null}</>],
+            ["Parameters", `${model.parameters.filter((p) => p.generate).length} generated (${model.parameters.filter((p) => p.generate && (p.id_status ?? "").startsWith("VERIFIED")).length} ids VERIFIED_RUNTIME)`],
+            ["Modules", model.modules.length ? model.modules.map((m) => `${m.name}: ${m.family} · rmse ${m.rmse.toExponential(2)} · ${m.active ? "Source/Active" : "human_source only"}`).join("; ") : "none fitted"],
+          ]} />
+        ) : <Note>Run the RECONSTRUCT stage to derive Source/Active from the evidence; only VERIFIED_RUNTIME parameters and BEHAVIOR_MATCHED modules are compiled.</Note>}
+        {model?.modules.map((m) => (
+          <table className="grid" key={m.name} style={{ marginTop: "var(--s4)" }}>
+            <thead><tr><th>Parameter</th><th>Law</th><th>Knob</th><th>Status</th><th>Basis</th></tr></thead>
+            <tbody>
+              {m.modulation.map((mo) => (
+                <tr key={mo.key}><td className="mono">{mo.key}</td><td>{mo.law}</td><td className="mono">{mo.knob}</td><td><Ev state={mo.status} /></td><td className="faint">{mo.basis}</td></tr>
+              ))}
+            </tbody>
+          </table>
+        ))}
+      </Section>
+      <div style={{ marginTop: "var(--s8)" }}>
+        <Section title="Build" meta={rep ? `${rep.status} · ${rep.generator ?? ""}` : rec ? `${rec.status}${rec.skip_reason ? ` — ${rec.skip_reason}` : ""}` : "not run"}>
+          {rep ? (
+            <KeyValues rows={[
+              ["Status", <Ev state={rep.status === "BUILT" ? "VERIFIED_RUNTIME" : "FAILED"} title={rep.status} />],
+              ["Configure", rep.configure ? `${rep.configure.ok ? "ok" : "failed"} · ${ms(rep.configure.elapsed_ms)}` : "—"],
+              ["Compile + link", rep.build ? `${rep.build.ok ? "ok" : "failed"} · ${ms(rep.build.elapsed_ms)} · ${rep.build.warnings ?? 0} warnings` : "—"],
+              ["JUCE", rep.juce_dir ?? "—"],
+              ["Bundle", rep.installed ? <span className="mono">{rep.installed}{rep.binary ? ` · ${bytes(rep.binary.size)} · ${shortHash(rep.binary.sha256)}` : ""}</span> : "—"],
+            ]} />
+          ) : <Note>CMake + compiler build of 04_reconstruction runs in an isolated worker; a missing CMake, compiler or JUCE is reported here with setup instructions, never faked.</Note>}
+          {rep && (rep.build?.errors?.length || rep.configure?.errors?.length) ? (
+            <Advanced title="Errors"><pre className="mono">{[...(rep.configure?.errors ?? []), ...(rep.build?.errors ?? [])].join("\n")}</pre></Advanced>
+          ) : null}
+        </Section>
+      </div>
+      <div style={{ marginTop: "var(--s8)" }}>
+        <Section title="pluginval" meta={pv ? `${pv.status}${pv.strictness ? ` · strictness ${pv.strictness}` : ""}` : "not run"}>
+          {pv ? (
+            <KeyValues rows={[
+              ["Result", <Ev state={pv.status === "PASSED" ? "VERIFIED_RUNTIME" : pv.status === "NOT_RUN" ? "UNKNOWN" : "FAILED"} title={pv.status} />],
+              ["Tests", pv.tests_run != null ? `${pv.tests_run} · ${pv.gui_tests ?? ""}` : pv.reason ?? "—"],
+              ["Version", pv.version ?? "—"],
+            ]} />
+          ) : <Note>pluginval (strictness ≥ 5) runs on the rebuilt bundle when installed (Settings → Tools).</Note>}
+          {pv?.failures?.length ? <Advanced title="Failures"><pre className="mono">{pv.failures.join("\n")}</pre></Advanced> : null}
+        </Section>
+      </div>
+    </>
+  );
+}
+
+/* -------------------------------------------------------------- compare -- */
+
+type DiffModule = { module: string; role: string; classification: string; renders: number; worst_rmse: number | null; worst_spectrum_diff_db: number | null; worst_lead_in_rmse?: number | null; failing: string[]; latency_delta?: number[] };
+type DiffRender = { id: string; probe: string; sr: number; block: number; classification: string; rmse?: number | null; max_error?: number | null; spectrum_diff_db?: number | null; latency_delta?: number; lead_in_rmse?: number | null; kept?: string; error?: string };
+type DiffResults = { overall: string; cross_load: string; modules: DiffModule[]; renders: DiffRender[]; thresholds?: Record<string, string> };
+type CrossLoad = { classification: string; reason?: string; original_to_rebuild?: { ok: boolean; mismatches: { key: string; issue: string }[] }; rebuild_to_original?: { ok: boolean; mismatches: { key: string; issue: string }[] } };
+
+function Compare({ job }: { job: Job }) {
+  const diff = useDoc<DiffResults>(job, "06_validation/differential_results.json");
+  const cross = useDoc<CrossLoad>(job, "06_validation/cross_load.json");
+  const [filter, setFilter] = useState<string>("all");
+  const rec = job.stages.find((s) => STAGE_OF[s.stage] === "COMPARE");
+  if (diff === undefined) return <Note>Loading…</Note>;
+  if (!diff) {
+    return (
+      <div className="empty">
+        <div className="t">Compare</div>
+        <div className="d">The differential harness replays every recorded probe on the rebuild and classifies each module BIT_EXACT → FAILED. {rec ? `Current state: ${rec.status}${rec.skip_reason ? ` (${rec.skip_reason})` : ""}.` : "Not run yet."}</div>
+      </div>
+    );
+  }
+  const renders = diff.renders.filter((r) => filter === "all" || r.classification === filter || (filter === "notok" && !["BIT_EXACT", "NUMERICALLY_EQUIVALENT", "BEHAVIORALLY_EQUIVALENT"].includes(r.classification)));
+  const cells = [
+    { key: "Overall", value: diff.overall, detail: "worst module" },
+    { key: "Waveshaper (default)", value: diff.modules.find((m) => m.module === "Waveshaper")?.classification ?? "—", detail: "EXECUTE 4.3 gate" },
+    { key: "Sweeps", value: diff.modules.find((m) => m.module === "WaveshaperSweeps")?.classification ?? "—", detail: "one parameter at a time" },
+    { key: "State cross-load", value: diff.cross_load, detail: "both directions" },
+    { key: "Renders", value: String(diff.renders.length), detail: "identical probes + state" },
+  ];
+  return (
+    <>
+      <Scorecard cells={cells} />
+      <div style={{ marginTop: "var(--s8)" }}>
+        <Section title="Per module" meta="worst render decides; ramp renders are judged on the measurement window after the settle lead-in (D-018)">
+          <table className="grid">
+            <thead><tr><th>Module</th><th>Role</th><th>Class</th><th>Renders</th><th>Worst RMSE</th><th>Worst Δspectrum</th><th>Lead-in RMSE</th><th>Failing</th></tr></thead>
+            <tbody>
+              {diff.modules.map((m) => (
+                <tr key={m.module}>
+                  <td className="mono">{m.module}</td><td>{m.role}</td><td><Ev state={m.classification} /></td><td className="mono">{m.renders}</td>
+                  <td className="mono">{m.worst_rmse == null ? "—" : m.worst_rmse.toExponential(2)}</td>
+                  <td className="mono">{m.worst_spectrum_diff_db == null ? "—" : `${m.worst_spectrum_diff_db.toFixed(3)} dB`}</td>
+                  <td className="mono">{m.worst_lead_in_rmse == null ? "—" : m.worst_lead_in_rmse.toExponential(2)}</td>
+                  <td className="faint mono">{m.failing.slice(0, 4).join(", ")}{m.failing.length > 4 ? ` +${m.failing.length - 4}` : ""}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </Section>
+      </div>
+      <div style={{ marginTop: "var(--s8)" }}>
+        <Section title="State cross-load" meta={cross?.classification ?? diff.cross_load}>
+          {cross ? (
+            <KeyValues rows={[
+              ["Verdict", <Ev state={cross.classification === "CROSS_LOAD_VALIDATED" ? "VERIFIED_RUNTIME" : cross.classification} title={cross.classification} />],
+              ["Original → rebuild", cross.original_to_rebuild ? (cross.original_to_rebuild.ok ? "every exported parameter survives" : cross.original_to_rebuild.mismatches.map((x) => `${x.key}: ${x.issue}`).join("; ")) : cross.reason ?? "—"],
+              ["Rebuild → original", cross.rebuild_to_original ? (cross.rebuild_to_original.ok ? "every exported parameter survives" : cross.rebuild_to_original.mismatches.map((x) => `${x.key}: ${x.issue}`).join("; ")) : "—"],
+            ]} />
+          ) : <Note>Not measured.</Note>}
+        </Section>
+      </div>
+      <div style={{ marginTop: "var(--s8)" }}>
+        <Section title="Renders" meta={`${renders.length} of ${diff.renders.length}`}>
+          <div className="row" style={{ marginBottom: "var(--s4)" }}>
+            {["all", "notok", "BEHAVIORALLY_EQUIVALENT", "PERCEPTUALLY_CLOSE", "FAILED"].map((f) => (
+              <Button key={f} variant={filter === f ? "primary" : "quiet"} size="sm" onClick={() => setFilter(f)}>{f === "notok" ? "not ≥ equivalent" : f}</Button>
+            ))}
+          </div>
+          <table className="grid">
+            <thead><tr><th>Render</th><th>Probe</th><th>Rate/block</th><th>Class</th><th>RMSE</th><th>Max</th><th>Δspectrum</th><th>Δlatency</th><th>Lead-in</th></tr></thead>
+            <tbody>
+              {renders.slice(0, 200).map((r) => (
+                <tr key={r.id}>
+                  <td className="mono">{r.id}{r.kept ? <span className="faint"> · kept</span> : null}</td><td>{r.probe}</td><td className="mono">{r.sr}/{r.block}</td>
+                  <td><Ev state={r.classification} />{r.error ? <span className="faint"> {r.error}</span> : null}</td>
+                  <td className="mono">{r.rmse == null ? "—" : r.rmse.toExponential(2)}</td><td className="mono">{r.max_error == null ? "—" : r.max_error.toExponential(2)}</td>
+                  <td className="mono">{r.spectrum_diff_db == null ? "—" : r.spectrum_diff_db.toFixed(3)}</td><td className="mono">{r.latency_delta ?? "—"}</td>
+                  <td className="mono">{r.lead_in_rmse == null ? "—" : r.lead_in_rmse.toExponential(2)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </Section>
+      </div>
+    </>
   );
 }

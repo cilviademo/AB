@@ -1,0 +1,1 @@
+{"$schema": "https://json-schema.org/draft/2020-12/schema", "title": "artifactbench.cross_load", "description": "State cross-load verdict (CROSS_LOAD_VALIDATED | FAILED | NOT_VALIDATED).", "type": "object"}

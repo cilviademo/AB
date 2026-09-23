@@ -1,0 +1,1 @@
+{"$schema": "https://json-schema.org/draft/2020-12/schema", "title": "artifactbench.transfer_curve", "description": "Behaviour-stage contract (SPEC §11); shape in ab_engine/behavior/api.py.", "type": "object"}

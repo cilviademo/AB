@@ -121,11 +121,10 @@ def _load_stage_modules() -> None:
     """Import stage packages so they register their methods. Missing ones are fine."""
     import importlib  # noqa: PLC0415
 
-    for mod in ("ab_engine.jobs.api", "ab_engine.ingest.api", "ab_engine.static.api", "ab_engine.static.baseline",
-                "ab_engine.bundle.api", "ab_engine.groundtruth.compare", "ab_engine.runtime.api",
-                "ab_engine.bundle.api", "ab_engine.groundtruth.compare", "ab_engine.runtime.api", "ab_engine.groundtruth.api", "ab_engine.runtime.api",
-                "ab_engine.fingerprint.api", "ab_engine.lineage.api", "ab_engine.behavior.api",
-                "ab_engine.reconstruct.api"):
+    for mod in ("ab_engine.jobs.api", "ab_engine.ingest.api", "ab_engine.static.api", "ab_engine.static.baseline", "ab_engine.bundle.api",
+                "ab_engine.groundtruth.compare", "ab_engine.runtime.api", "ab_engine.tools_download",
+                "ab_engine.decompile.api", "ab_engine.lineage.api", "ab_engine.behavior.api", "ab_engine.reconstruct.api",
+                "ab_engine.build.api", "ab_engine.validate.api", "ab_engine.handoff.api"):
         try:
             importlib.import_module(mod)
         except ModuleNotFoundError as exc:

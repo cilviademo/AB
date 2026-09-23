@@ -19,7 +19,16 @@ struct WhiteNoise { // xorshift32, seed 0x12345678 as in the reference corpus
 inline std::vector<float> silence(size_t n) { return std::vector<float>(n, 0.0f); }
 inline std::vector<float> impulse(size_t n, float amp = 1.0f) { std::vector<float> x(n, 0.0f); if (n) x[0] = amp; return x; }
 inline std::vector<float> dc(size_t n, float level = 0.5f) { return std::vector<float>(n, level); }
-inline std::vector<float> amplitudeRamp(size_t n, float lo = -4.0f, float hi = 4.0f) { std::vector<float> x(n); for (size_t i = 0; i < n; ++i) x[i] = n > 1 ? lo + (hi - lo) * (float(i) / float(n - 1)) : lo; return x; }
+// Amplitude ramp with a settle lead-in (DECISIONS D-017): the first half ramps 0 → lo so parameter
+// smoothers / oversampling filters settle, the second half is the measured lo → hi sweep. The
+// transfer curve is taken from the second half only (same rule in ab_engine.behavior.probes).
+inline size_t rampLeadIn(size_t n) { return n / 2; }
+inline std::vector<float> amplitudeRamp(size_t n, float lo = -4.0f, float hi = 4.0f) {
+    std::vector<float> x(n); size_t lead = rampLeadIn(n), main = n - lead;
+    for (size_t i = 0; i < lead; ++i) x[i] = lead > 1 ? lo * (float(i) / float(lead - 1)) : 0.0f;
+    for (size_t i = 0; i < main; ++i) x[lead + i] = main > 1 ? lo + (hi - lo) * (float(i) / float(main - 1)) : lo;
+    return x;
+}
 inline std::vector<float> sine(size_t n, double sr, double hz, float amp = 0.5f) { std::vector<float> x(n); for (size_t i = 0; i < n; ++i) x[i] = amp * (float) std::sin(2 * kPi * hz * (double) i / sr); return x; }
 inline std::vector<float> sineAmpSweep(size_t n, double sr, double hz, float lo = 0.001f, float hi = 2.0f) { std::vector<float> x(n); for (size_t i = 0; i < n; ++i) { double t = n > 1 ? double(i) / double(n - 1) : 0.0; float amp = lo * (float) std::pow(hi / lo, t); x[i] = amp * (float) std::sin(2 * kPi * hz * (double) i / sr); } return x; }
 inline std::vector<float> logSweep(size_t n, double sr, double f0 = 20.0, double f1 = 20000.0, float amp = 0.5f) { std::vector<float> x(n); double T = n / sr, K = T / std::log(f1 / f0), L = 2 * kPi * f0 * K; for (size_t i = 0; i < n; ++i) { double t = i / sr; x[i] = amp * (float) std::sin(L * (std::exp(t / K) - 1)); } return x; }

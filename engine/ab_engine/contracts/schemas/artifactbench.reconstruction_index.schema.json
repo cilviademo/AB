@@ -1,0 +1,1 @@
+{"$schema": "https://json-schema.org/draft/2020-12/schema", "title": "artifactbench.reconstruction_index", "description": "Statement-level provenance for 04_reconstruction (SPEC \u00a710); entries: symbol, file, status, compiled, evidence[], binary_addresses[], parameters[], validation, rmse, todos[].", "type": "array"}

@@ -330,8 +330,9 @@ Value renderJson(Loaded& L, const Value& req, std::string& diag, int& rc) {
     Value transfer = Value::array();
     if (probe == "ramp" && nOutCh > 0) {
         int lat = latency > 0 ? latency : std::max(0, measuredLatency);
-        size_t step = std::max<size_t>(1, frames / 512);
-        for (size_t i = 0; i + (size_t) lat < frames; i += step) { Value pt = Value::array(); pt.push((double) x[i]); pt.push((double) rendered[0][i + (size_t) lat]); transfer.push(pt); }
+        size_t lead = abprobe::rampLeadIn(frames);
+        size_t step = std::max<size_t>(1, (frames - lead) / 512);
+        for (size_t i = lead; i + (size_t) lat < frames; i += step) { Value pt = Value::array(); pt.push((double) x[i]); pt.push((double) rendered[0][i + (size_t) lat]); transfer.push(pt); }
     }
     if (!outPath.empty()) { if (!abwav::write(outPath, rendered, (int) sr)) { diag = "could not write " + outPath; rc = kBadRequest; return out; } out["wav"] = outPath; }
     out["probe"] = probe; out["sample_rate"] = sr; out["block_size"] = block; out["frames"] = (int) frames; out["channels"] = nOutCh; out["input_channels"] = nInCh;
