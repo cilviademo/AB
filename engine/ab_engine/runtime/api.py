@@ -189,6 +189,9 @@ def stage_runtime(ctx: StageContext) -> None:
                         "latency_samples": info["data"].get("latency_samples")})
     if mapped < len(params["data"]):
         ctx.warn("STATE_MAPPING_INCOMPLETE", f"{len(params['data']) - mapped} exported parameter(s) did not produce a locatable state field")
+    from ab_engine.knowledge import hooks as knowledge_hooks  # noqa: PLC0415
+
+    knowledge_hooks.after_runtime(ctx)
     ctx.completeness = "NOT_APPLICABLE"
 
 

@@ -260,6 +260,12 @@ def export_job(ws: Workspace, conn: Any, job: Job, *, zip_it: bool, ctx: StageCo
         (out / ".gitignore").write_text("build/\n*.pdb\n*.ilk\n.DS_Store\nThumbs.db\n", encoding="utf-8")
     if not job.reconstruction_allowed:
         (out / "ANALYSIS_ONLY.md").write_text("# Third-party analysis\n\nOwnership was declared THIRD_PARTY at ingest: this export holds evidence, architecture and corpus signatures only. No reconstruction source is generated or exported (SPEC §1.9, §15).\n", encoding="utf-8")
+    if ctx is not None:
+        from ab_engine.knowledge import hooks as knowledge_hooks  # noqa: PLC0415
+
+        ku = knowledge_hooks.knowledge_used(ctx)
+        (out / "evidence").mkdir(exist_ok=True)
+        write_json(out / "evidence" / "knowledge_used.json", "artifactbench.knowledge_used", ku)
     path_findings = scan_paths(out)
     secret_findings = scan_secrets(out)
     checks = git_ready_checks(out, job, path_findings, secret_findings)

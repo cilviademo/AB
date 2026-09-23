@@ -225,6 +225,15 @@ def run_job(ws: Workspace, conn: Any, job: Job, *, options: dict[str, Any] | Non
             rec.tool_versions = ctx.tool_versions
             _store(conn, job, rec, project_dir)
             log.op("STAGE_END", stage=stage, status=rec.status, elapsed_ms=rec.metrics.get("elapsed_ms"))
+            if rec.status == "OK" and not options.get("no_checkpoint"):
+                # ADDENDUM A6: local Git checkpoint at every completed stage boundary (never a push)
+                from ab_engine import checkpoint  # noqa: PLC0415
+
+                try:
+                    cp = checkpoint.commit(project_dir, stage, metrics=rec.metrics, job_id=job.job_id)
+                except Exception as exc:  # noqa: BLE001 — a checkpoint problem never fails a stage
+                    cp = {"status": "GIT_ERROR", "detail": f"{type(exc).__name__}: {exc}"[:200]}
+                log.op("CHECKPOINT", stage=stage, **{k: v for k, v in cp.items() if k in ("status", "commit", "message", "detail")})
         if stop_after == stage:
             break
 

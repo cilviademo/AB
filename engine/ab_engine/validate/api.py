@@ -15,6 +15,7 @@ stage records what the rebuild actually does, including FAILED with the failing 
 
 from __future__ import annotations
 
+import hashlib
 import json
 import shutil
 import sys
@@ -168,6 +169,9 @@ def stage_validate(ctx: StageContext) -> None:
             if e.get("symbol", "").endswith("AudioProcessor") and e.get("compiled"):
                 e["validation"] = overall
                 e["state_compatibility"] = cross["classification"]
+        from ab_engine.knowledge import hooks as knowledge_hooks  # noqa: PLC0415
+
+        knowledge_hooks.after_validation(ctx, modules=modules, index=idx, measurements_hash=hashlib.sha256(json.dumps(meas.get("probe_set")).encode()).hexdigest()[:16])
         write_json(idx_path, "artifactbench.reconstruction_index", idx)
         ctx.output("07_agent_handoff/reconstruction_index.json")
 
@@ -181,8 +185,10 @@ def stage_validate(ctx: StageContext) -> None:
     md += ["", "Renders that are not ≥ BEHAVIORALLY_EQUIVALENT are kept under rebuild_renders/ for inspection; every render's rebuild audio is in the object store.", ""]
     (val / "VALIDATION.md").write_text("\n".join(md), encoding="utf-8")
     ctx.output("06_validation/VALIDATION.md")
+    ws_mod = next((x for x in modules if x["module"] == "Waveshaper"), None)
     ctx.metrics.update({"renders": len(renders), "overall": overall, "cross_load": cross["classification"],
-                        "modules": {x["module"]: x["classification"] for x in modules}})
+                        "modules": {x["module"]: x["classification"] for x in modules},
+                        "waveshaper_rmse": (f"{ws_mod['worst_rmse']:.2e}" if ws_mod and ws_mod.get("worst_rmse") is not None else "n/a")})
     if not renders:
         raise StageFailed("VALIDATION_FAILED", "no render could be replayed on the rebuild")
     ctx.completeness = "NOT_APPLICABLE"

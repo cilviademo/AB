@@ -237,6 +237,22 @@ def _write_inventory(ctx: StageContext) -> None:
         write_json(bdir / "inventory.json", "artifactbench.binary_inventory", rows)
         ctx.output("01_evidence/binary/inventory.json")
         ctx.metrics["inventory"] = {r["file"]: r.get("v2_pe_crosscheck", {}).get("status", r.get("status")) for r in rows}
+    # YARA candidate families (ADDENDUM A4): markers only, never lineage proof
+    from ab_engine.lineage import rules as yara_rules  # noqa: PLC0415
+
+    fam: list[dict[str, Any]] = []
+    for r in rows:
+        for i in jobs_db.get_inputs(ctx.conn, ctx.job.job_id):
+            if i["kind"] == "binary" and i["sha256"] == r.get("sha256") and ctx.store.has(i["sha256"]):
+                res = yara_rules.scan(ctx.store.get_path(i["sha256"]))
+                fam.append({"file": r.get("file"), **res})
+    if fam:
+        write_json(ctx.project_dir / "01_evidence" / "lineage" / "family_candidates.json", "artifactbench.family_candidates", fam)
+        ctx.output("01_evidence/lineage/family_candidates.json")
+        ctx.metrics["family_candidates"] = {f["file"]: [c["rule"] for c in f.get("candidates", [])] if f.get("status") == "OK" else f.get("status") for f in fam}
+    from ab_engine.knowledge import hooks as knowledge_hooks  # noqa: PLC0415
+
+    knowledge_hooks.after_static(ctx, inventory=rows)
     # stripped ELF / Mach-O: Itanium typeinfo-name CANDIDATES (v2 keys on _ZTS symbols, which strip removes)
     from ab_engine.inventory import typeinfo  # noqa: PLC0415
 

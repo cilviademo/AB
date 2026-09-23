@@ -1,0 +1,1 @@
+{"$schema": "https://json-schema.org/draft/2020-12/schema", "title": "artifactbench.prefingerprints", "description": "Capstone signature set computed before Ghidra (ADDENDUM A3): per function RAW_BYTE_HASH, NORMALIZED_INSTRUCTION_HASH, TLSH, CFG_SIGNATURE, CONSTANT_SIGNATURE, STRING_XREF_SIGNATURE, CALLGRAPH_SIGNATURE.", "type": "object", "required": ["status", "functions"]}

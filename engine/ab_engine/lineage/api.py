@@ -23,7 +23,7 @@ from typing import Any
 from ab_engine import api
 from ab_engine import tools as tools_mod
 from ab_engine.jobs import db as jobs_db
-from ab_engine.lineage.knowledge import STATES, Knowledge
+from ab_engine.knowledge.db import KINDS as STATES
 from ab_engine.workers.run import run_worker
 from ab_engine.workspace import Workspace
 
@@ -98,15 +98,16 @@ def h_lineage_report(params: dict[str, Any], ws: Workspace) -> dict[str, Any]:
     schema_overlap = {names[j.job_id]: round(jaccard(keys_by_job[target.job_id], keys_by_job[j.job_id]), 3) for j in jobs if j.job_id != target.job_id and keys_by_job[j.job_id]}
     # implementation matches from the knowledge cache
     fps = (_load(Path(target.project_dir) / "01_evidence" / "decompiler" / "fingerprints.json") or {}).get("functions", [])
-    kn = Knowledge(ws.knowledge)
-    km = kn.match_all(fps) if fps else None
+    from ab_engine.knowledge.db import KnowledgeDB  # noqa: PLC0415
+
+    km = KnowledgeDB(ws.knowledge).match_all(fps, artifact_sha256=target.artifact_sha256) if fps else None
     typos = sorted(c for c in my if any(t.lower() in c.lower() for t in TYPO_HINTS))
     unique = sorted(c for c in my if all(c not in sets[k] for k in keys if k != target.job_id))
     lines = [f"# LINEAGE_REPORT — {target.name}", "",
              f"Family: {'INFERRED_CODEBASE_FAMILY of ' + str(mine['size']) + ' (medoid ' + names[mine['medoid']] + ', average link ' + str(mine['average_link']) + ')' if mine and mine['size'] > 1 else 'no family inferred (single plugin or no shared owned class names)'}",
              "Family membership is INFERRED from class-name-set similarity until implementation fingerprints reinforce it (SPEC §1.4).", "",
              "## Verified shared implementation matches (function fingerprints, knowledge cache)",
-             *([f"- {km['counts']}: {km['suppressed']} functions suppressed as known framework/third-party, {km['downgraded']} cache matches downgraded on contradiction"] if km else ["- no fingerprints yet (decompiler stage not run)"]),
+             *([f"- known {km['delta']['known_implementation_pct']} % · near_match {km['delta']['near_match_pct']} % · unknown {km['delta']['unknown_pct']} % (by function; by bytes {km['delta']['by_bytes']}); {km['suppressed_deep_work']} functions suppressed as KNOWN_FRAMEWORK / KNOWN_THIRD_PARTY; {km['reusable']} reusable (BEHAVIOR_MATCHED+); every match lists the agreeing signatures in 01_evidence/decompiler/knowledge_match.json"] if km else ["- no fingerprints yet (decompiler stage not run)"]),
              "", "## Near matches (class-name Jaccard, top 5)",
              *([f"- {names[p[0]] if p[1] == target.job_id else names[p[1]]}: {p[2]}" for p in fam["pairs"] if target.job_id in p[:2]][:5] or ["- none"]),
              "", "## Shared resources (identical SHA-256)", *([f"- {k}: {v}" for k, v in shared_res.items()] or ["- none"]),
@@ -136,21 +137,24 @@ def h_corpus_run(params: dict[str, Any], ws: Workspace) -> dict[str, Any]:
 
 
 def h_knowledge_seed(params: dict[str, Any], ws: Workspace) -> dict[str, Any]:
-    """Seed from a job's fingerprints. state defaults: framework/third-party only (EXECUTE 3.4)."""
+    """Seed the knowledge base from a job's fingerprints with an explicit kind (framework / third-party
+    seeding from a library-only artifact). Ladder state stays CANDIDATE: seeding never verifies."""
     conn = jobs_db.connect(ws.db_path)
     job = jobs_db.get_job(conn, str(params.get("job_id", "")))
     if job is None:
         raise api.ApiError("not_found", "no such job")
-    state = str(params.get("state", "KNOWN_FRAMEWORK"))
-    if state not in STATES:
-        raise api.ApiError("bad_request", f"state must be one of {STATES}")
-    prefixes = set(params.get("name_prefixes") or (["juce::", "_ZN4juce", "juce"] if state == "KNOWN_FRAMEWORK" else []))
-    fps = (_load(Path(job.project_dir) / "01_evidence" / "decompiler" / "fingerprints.json") or {}).get("functions", [])
-    kn = Knowledge(ws.knowledge)
-    n = kn.seed_functions(fps, state=state, source_hash=job.artifact_sha256, library=params.get("library"), compiler=None, tool_version="ghidra/Fingerprint.java",
-                          only_names=prefixes or None)
-    r = kn.seed_resources(_load(Path(job.project_dir) / "01_evidence" / "resources" / "index.json") or [], state=state, source_hash=job.artifact_sha256)
-    return {"seeded_functions": n, "seeded_resources": r, "stats": kn.stats()}
+    kind = str(params.get("state", params.get("kind", "KNOWN_FRAMEWORK")))
+    if kind not in STATES:
+        raise api.ApiError("bad_request", f"kind must be one of {STATES}")
+    prefixes = tuple(params.get("name_prefixes") or (["juce::", "_ZN4juce"] if kind == "KNOWN_FRAMEWORK" else []))
+    pd = Path(job.project_dir)
+    fps = (_load(pd / "01_evidence" / "decompiler" / "fingerprints.json") or {}).get("functions", []) or (_load(pd / "01_evidence" / "decompiler" / "prefingerprints.json") or {}).get("functions", [])
+    from ab_engine.knowledge.db import KnowledgeDB  # noqa: PLC0415
+
+    db = KnowledgeDB(ws.knowledge)
+    sel = [f for f in fps if not prefixes or (f.get("name") or "").startswith(prefixes)]
+    r = db.record_functions(job.artifact_sha256, sel, source="seed", tool_version="seed", evidence_version="seed", kind_of=lambda fp: kind)
+    return {"seeded_functions": r, "kind": kind, "stats": db.stats()}
 
 
 def h_knowledge_match(params: dict[str, Any], ws: Workspace) -> dict[str, Any]:
@@ -158,18 +162,29 @@ def h_knowledge_match(params: dict[str, Any], ws: Workspace) -> dict[str, Any]:
     job = jobs_db.get_job(conn, str(params.get("job_id", "")))
     if job is None:
         raise api.ApiError("not_found", "no such job")
-    fps = (_load(Path(job.project_dir) / "01_evidence" / "decompiler" / "fingerprints.json") or {}).get("functions", [])
-    r = Knowledge(ws.knowledge).match_all(fps)
+    pd = Path(job.project_dir)
+    fps = (_load(pd / "01_evidence" / "decompiler" / "prefingerprints.json") or {}).get("functions", []) or (_load(pd / "01_evidence" / "decompiler" / "fingerprints.json") or {}).get("functions", [])
+    from ab_engine.knowledge.db import KnowledgeDB  # noqa: PLC0415
+
+    r = KnowledgeDB(ws.knowledge).match_all(fps, artifact_sha256=job.artifact_sha256)
     keep = {k: v for k, v in r["results"].items() if v.get("matched")}
     r["results"] = dict(list(keep.items())[:2000])
     return r
 
 
 def h_knowledge_stats(params: dict[str, Any], ws: Workspace) -> dict[str, Any]:
-    return Knowledge(ws.knowledge).stats()
+    from ab_engine.knowledge.db import KnowledgeDB  # noqa: PLC0415
+
+    return KnowledgeDB(ws.knowledge).stats()
 
 
-for _n, _h in {"lineage.report": h_lineage_report, "corpus.run": h_corpus_run, "knowledge.seed": h_knowledge_seed, "knowledge.match": h_knowledge_match, "knowledge.stats": h_knowledge_stats}.items():
+def h_knowledge_history(params: dict[str, Any], ws: Workspace) -> dict[str, Any]:
+    from ab_engine.knowledge.db import KnowledgeDB  # noqa: PLC0415
+
+    return {"rows": KnowledgeDB(ws.knowledge).history_rows(params.get("entity_id"), int(params.get("limit", 200)))}
+
+
+for _n, _h in {"lineage.report": h_lineage_report, "corpus.run": h_corpus_run, "knowledge.seed": h_knowledge_seed, "knowledge.match": h_knowledge_match, "knowledge.stats": h_knowledge_stats, "knowledge.history": h_knowledge_history}.items():
     api.register(_n, _h)
 
 from ab_engine.cli import subcommand  # noqa: E402

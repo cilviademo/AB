@@ -59,9 +59,16 @@ struct Loaded {
     IEditController* controller = nullptr;
     IPtr<IAudioProcessor> processor;
     ~Loaded() {
+        // Teardown order matters: every interface the plugin implements must be released BEFORE the
+        // module is unloaded. `processor` is declared after `module`, so its implicit destructor would
+        // run after this body — i.e. after the .so was unmapped — and call a vtable in freed memory
+        // (SIGSEGV seen on the stripped fixture). Release it explicitly first.
+        processor = nullptr;
         if (provider && (component || controller)) provider->releasePlugIn(component, controller);
         component = nullptr; controller = nullptr;
-        provider = nullptr; module = nullptr;
+        provider = nullptr;
+        classInfo.reset();
+        module = nullptr;
     }
 };
 

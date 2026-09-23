@@ -40,7 +40,7 @@ from ab_engine.jobs.runner import StageContext, StageFailed, StageImpl, StageSki
 from ab_engine.workers.run import run_worker
 from ab_engine.workspace import Workspace
 
-STAGE_VERSION = 2  # 2: BinaryData resolution by surviving symbols, hashed class file names, Itanium vtable slots
+STAGE_VERSION = 3  # 3: Capstone pre-fingerprints before Ghidra (A3); BinaryData by name-hash immediates
 SCRIPTS = ("ExportRTTI.java", "ExportCallgraph.java", "Fingerprint.java", "ExportDecompiled.java")
 
 
@@ -100,6 +100,21 @@ def stage_decompile(ctx: StageContext) -> None:
     ctx.tool_versions["ghidra"] = ghidra.version or "ghidra"
     ctx.tool_versions["jdk"] = (jdk.version or "jdk")[:60]
     binary = _primary_file(ctx)
+    # ADDENDUM A3: the Capstone signature set is computed BEFORE Ghidra (seconds, symbol-free) so the
+    # knowledge cache can match first; Ghidra then runs on the whole image but its results are joined
+    # to these pre-fingerprints by address. (Scheduling Ghidra on the residual only lands with A2.)
+    from ab_engine.fingerprint import capstone_fp  # noqa: PLC0415
+
+    ctx.progress("capstone pre-fingerprints")
+    pre = capstone_fp.fingerprint_binary(binary, progress=lambda d: ctx.progress(f"capstone: {d}"))
+    pre_dir = ctx.project_dir / "01_evidence" / "decompiler"
+    pre_dir.mkdir(parents=True, exist_ok=True)
+    write_json(pre_dir / "prefingerprints.json", "artifactbench.prefingerprints", pre)
+    ctx.output("01_evidence/decompiler/prefingerprints.json")
+    ctx.metrics["prefingerprints"] = {"status": pre.get("status"), "functions": len(pre.get("functions", [])), "tlsh": sum(1 for f in pre.get("functions", []) if f.get("TLSH"))}
+    from ab_engine.knowledge import hooks as knowledge_hooks  # noqa: PLC0415
+
+    knowledge_hooks.match_prefingerprints(ctx, pre)
     out = Path(tempfile.mkdtemp(prefix="ab-ghidra-out-", dir=ctx.ws.tmp))
     ctx.progress("ghidra headless analysis", tool=ghidra.version)
     java_home = str(Path(jdk.path).parent.parent) if jdk.path and Path(jdk.path).name.startswith("java") else None
@@ -266,6 +281,7 @@ def stage_decompile(ctx: StageContext) -> None:
         write_json(ctx.project_dir / "06_validation" / "fingerprint_stability.json", "artifactbench.fingerprint_stability", stability.compare(fps, other))
         ctx.output("06_validation/fingerprint_stability.json")
 
+    knowledge_hooks.after_decompile(ctx, pre=pre, ghidra_fps=fps, classes=verified, roles=scored, stage_version=STAGE_VERSION)
     n_verified = sum(1 for c in merged if c.get("name_status") == "VERIFIED_RTTI")
     ctx.metrics.update({"functions": len(scored), "classes_verified": n_verified, "dsp_candidates": len(dsp), "seed_basis": callgraph.get("seed_basis"),
                         "processBlock": bool(seeds.get("processBlock") or seeds.get("processBlock_candidate")), "binarydata_verified": len(verified_rows),
@@ -297,6 +313,20 @@ def h_fingerprint_stability(params: dict[str, Any], ws: Workspace) -> dict[str, 
 api.register("decompile.stability", h_fingerprint_stability)
 
 from ab_engine.cli import subcommand  # noqa: E402
+
+
+@subcommand("fingerprint", "Capstone signature set of a binary before Ghidra (ADDENDUM A3): ab-cli fingerprint <binary> --out fp.json")
+def _cli_fp(p):
+    p.add_argument("binary")
+    p.add_argument("--out", required=True)
+
+    def run(args, ws):
+        from ab_engine.fingerprint import capstone_fp  # noqa: PLC0415
+
+        r = capstone_fp.write(Path(args.binary), Path(args.out))
+        sys.stdout.write(json.dumps({"ok": r.get("status") == "OK", "data": {k: v for k, v in r.items() if k != "functions"} | {"functions": len(r.get("functions", []))}}, indent=2) + "\n")
+        return 0 if r.get("status") == "OK" else 1
+    p.set_defaults(func=run)
 
 
 @subcommand("fingerprint-stability", "compare two fingerprints.json files (Release+PDB vs stripped)")

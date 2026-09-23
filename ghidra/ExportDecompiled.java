@@ -134,8 +134,27 @@ public class ExportDecompiled extends GhidraScript {
             if (s.matches("[A-Za-z][\\w-]{2,40}_(png|jpg|jpeg|svg|ttf|otf|xml|json|wav|aiff|txt)")) { names.add(s); nameAddrs.add(d.getAddress()); }
         }
         List<String> entries = new ArrayList<>(); int resolvedBySymbol = 0;
-        // candidate functions: reference a name string, or contain a switch with many `return` of pointers
+        // candidate functions: reference a name string, or contain a switch with many `return` of pointers,
+        // or (symbol-free, the real case) compare against the JUCE name hash of a known resource name:
+        //   getNamedResource: hash = (hash << 5) - hash + c  (== 31*hash + c, int wrap) → switch (hash) { case 0x…: }
         Set<Long> visited = new HashSet<>();
+        Set<Long> hashes = new HashSet<>();
+        for (String nm : names) { int h = 0; for (char c : nm.toCharArray()) h = 31 * h + c; hashes.add((long) h & 0xFFFFFFFFL); hashes.add((long) h); }
+        if (!hashes.isEmpty()) {
+            InstructionIterator all = listing.getInstructions(true);
+            while (all.hasNext()) {
+                Instruction ins = all.next();
+                for (int op = 0; op < ins.getNumOperands(); op++) {
+                    for (Object o : ins.getOpObjects(op)) {
+                        if (o instanceof ghidra.program.model.scalar.Scalar) {
+                            long v = ((ghidra.program.model.scalar.Scalar) o).getUnsignedValue();
+                            long sv = ((ghidra.program.model.scalar.Scalar) o).getSignedValue();
+                            if (hashes.contains(v) || hashes.contains(sv) || hashes.contains(sv & 0xFFFFFFFFL)) { Function f = listing.getFunctionContaining(ins.getAddress()); if (f != null) visited.add(f.getEntryPoint().getOffset()); }
+                        }
+                    }
+                }
+            }
+        }
         for (Address a : nameAddrs) for (Reference r : currentProgram.getReferenceManager().getReferencesTo(a)) { Function f = listing.getFunctionContaining(r.getFromAddress()); if (f != null) visited.add(f.getEntryPoint().getOffset()); }
         for (Row row : rows) if (!row.noise && row.code != null && row.code.contains("switch") && row.code.split("return").length > 3) visited.add(row.addr);
         Pattern pair = Pattern.compile("\\*\\s*(?:param_2|[A-Za-z_]\\w*)\\s*=\\s*(0x[0-9a-fA-F]+|\\d+)\\s*;\\s*(?:\\n\\s*)?(?:return\\s+|\\w+\\s*=\\s*)(?:\\(char\\s*\\*\\)\\s*)?&?\\s*(?:BinaryData::)?([A-Za-z_]\\w*|0x[0-9a-fA-F]+|DAT_[0-9a-fA-F]+|PTR_[0-9a-fA-F_]+)");
@@ -182,7 +201,7 @@ public class ExportDecompiled extends GhidraScript {
             for (int i = 0; i < nameAddrs.size(); i++) { if (i > 0) w.print(','); w.print("\"0x" + Long.toHexString(nameAddrs.get(i).getOffset()) + "\""); }
             w.print("],\"resources\":[" + String.join(",", entries) + "],\"method\":\"getNamedResource decompile → (size, pointer) → bytes hashed from program memory\"}}");
         }
-        println("BinaryData: " + names.size() + " names, " + resolvedBySymbol + " resolved by symbol, " + resolved + " (size,pointer) pairs from getNamedResource");
+        println("BinaryData: " + names.size() + " names, " + resolvedBySymbol + " resolved by symbol, " + resolved + " (size,pointer) pairs from getNamedResource; " + visited.size() + " candidate functions (hash-immediate / string-ref / switch)");
     }
 
     /** File name for a class evidence file: sanitized, and shortened with a hash when longer than 80 chars (template lambdas exceed NAME_MAX). */
