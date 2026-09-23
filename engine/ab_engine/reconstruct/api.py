@@ -25,7 +25,7 @@ from ab_engine.reconstruct import generate as gen
 from ab_engine.reconstruct import model as model_mod
 from ab_engine.workspace import Workspace
 
-STAGE_VERSION = 2  # 2: recovery goal, recovered_source/transformed_source, transformation graph, identifier map (ADDENDUM C3)
+STAGE_VERSION = 3  # 3: transformed process() binds input block by const reference (MODERNIZE build fix); 2: recovery goal, recovered_source/transformed_source, transformation graph, identifier map (ADDENDUM C3)
 
 
 def reconstruct(project: Path, *, build_kind: str = "SURROGATE", goal: str = "PRESERVE_ORIGINAL", switches: dict[str, str] | None = None,

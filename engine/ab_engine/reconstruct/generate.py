@@ -454,7 +454,7 @@ def generate(project: Path, m: dict[str, Any], *, plan: dict[str, Any] | None = 
         if tsrc is not None:
             index.append({"symbol": "ab_transformed::SaturationStage", "role": ws["role"], "variant": "TRANSFORMED", "transformation": plan["goal"], "recovered_symbol": "ab_rebuild::Waveshaper",
                           "file": "04_reconstruction/transformed_source/DSP/Saturation.h", "active_file": "04_reconstruction/Source/Active/DSP/Saturation.h" if ws["active"] else None, "compiled": ws["active"],
-                          "status": "TRANSFORMED", "transformation_status": "PENDING_VALIDATION", "family": ws["family"],
+                          "status": "TRANSFORMED", "transformation_status": "PENDING_VALIDATION", "family": ws["family"], "rmse": ws["rmse"], "classification": ws["classification_at_default"],
                           "changes": ["block-processing API (juce::dsp ProcessorBase shape)", "parameter handles cached at prepare()", "noexcept / [[nodiscard]] / constexpr", "canonical name " + active_name],
                           "evidence": ["derived from ab_rebuild::Waveshaper (same fit, same laws)"], "validation": "PENDING (differential harness: ORIGINAL ↔ TRANSFORMED)",
                           "promotion": "MODERNIZED_EQUIVALENT only at ≥ BEHAVIORALLY_EQUIVALENT on the differential harness; otherwise TRANSFORMED_COMPATIBLE / TRANSFORMED_BREAKING",
