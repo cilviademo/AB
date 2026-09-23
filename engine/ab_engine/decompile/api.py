@@ -40,7 +40,7 @@ from ab_engine.jobs.runner import StageContext, StageFailed, StageImpl, StageSki
 from ab_engine.workers.run import run_worker
 from ab_engine.workspace import Workspace
 
-STAGE_VERSION = 1
+STAGE_VERSION = 2  # 2: BinaryData resolution by surviving symbols, hashed class file names, Itanium vtable slots
 SCRIPTS = ("ExportRTTI.java", "ExportCallgraph.java", "Fingerprint.java", "ExportDecompiled.java")
 
 
@@ -288,7 +288,7 @@ def h_fingerprint_stability(params: dict[str, Any], ws: Workspace) -> dict[str, 
             raise api.ApiError("not_found", "no such job")
         out = Path(job.project_dir) / "06_validation" / "fingerprint_stability.json"
         out.parent.mkdir(parents=True, exist_ok=True)
-        write_json(out, "artifactbench.fingerprint_stability", r | {"a": str(params["a"]), "b": str(params["b"])})
+        write_json(out, "artifactbench.fingerprint_stability", r | {"a": str(params["a"]), "b": str(params["b"]), "matches": r["matches"][:200]})
         r["written"] = str(out)
     r["matches"] = r["matches"][:50]
     return r

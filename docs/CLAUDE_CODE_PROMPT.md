@@ -16,7 +16,7 @@ Working name: **Palimpsest**. Owner: Marc, Multibanded LLC. Mirror the build pat
 
 | Path | Role | How to use it |
 |---|---|---|
-| `SPEC.md`, `EXECUTE.md` | The contract | Authoritative. When this file and SPEC disagree, SPEC wins. |
+| `SPEC.md`, `EXECUTE.md`, `EXECUTE_ADDENDUM_A.md` | The contract | Authoritative. Addendum A amends EXECUTE in place (dependency stack, cumulative knowledge base, Git checkpoints, iPlug2 fixture). When this file and SPEC disagree, SPEC wins. |
 | `handoff/static-engine/plugin-recovery-bench.v2.html` | **Static Recovery v2 — frozen** | The single-file browser extractor that ran the 21-plugin corpus. The `<script>` block is the reference implementation of the static stage. Port its analysis functions to `app/static-engine/` **without behavioral changes** (EXECUTE §1.4). The UI parts (drop zone, tabs, JSZip bundle writer) are throwaway; the analysis functions are canon. |
 | `handoff/kit/vst_recover.py`, `ExportDecompiled.java`, `README.md` | v1 desktop kit | Starting point for `ghidra/ExportDecompiled.java` (upgrade per SPEC §8) and for the Python stage runner. `pedalboard` in the kit was an interim host — replaced by `vst3host.exe` in Phase 2; keep it only as a diagnostic fallback. |
 | `handoff/reference/music_reference_corpus_21.zip` | Clean-room candidate DSP library + corpus vocabulary | Unzip to `reference/music_reference_corpus_21/`. 33 reference components (C++17, builds with its own CMake, smoke test passes), `catalog/observed_symbols.json` (657 corpus symbols → candidate families/dependencies), `parameter_state_catalog.json` (946 serialized-key names), `plugin_families.json` (Gen A/B/C hypotheses marked `CORPUS_INFERENCE_NOT_IMPLEMENTATION_PROOF`), `ProbeSignals.h` (deterministic probes for Phase 4). **Never** promote anything from here into `Active/` on a name match. |
@@ -74,12 +74,12 @@ Regression fixtures and why: **Twin Panda FX** (Gen A, SoundTouch, embedded IR, 
 
 ## 5. Session protocol
 
-1. Read `SPEC.md`, `EXECUTE.md`, this file, `handoff/docs/PLUGIN_RECOVERY_BENCH.md`, and skim the `<script>` in `handoff/static-engine/plugin-recovery-bench.v2.html` (functions: `parsePE`, `extractStrings`, `classifyClass`, `classifyPath`, `roleFor`, `carve`, `pngLen/riffLen/fontLen`, `validateResources`, `fontName`, `mapBinaryData`, `extractStateXml`, `scanConstants`, `serializedKeyRecord`, `typeInfo`, `buildCorpus`, `corpusReport`, `withSchema`).
+1. Read `SPEC.md`, `EXECUTE.md`, `EXECUTE_ADDENDUM_A.md`, this file, `handoff/docs/PLUGIN_RECOVERY_BENCH.md`, and skim the `<script>` in `handoff/static-engine/plugin-recovery-bench.v2.html` (functions: `parsePE`, `extractStrings`, `classifyClass`, `classifyPath`, `roleFor`, `carve`, `pngLen/riffLen/fontLen`, `validateResources`, `fontName`, `mapBinaryData`, `extractStateXml`, `scanConstants`, `serializedKeyRecord`, `typeInfo`, `buildCorpus`, `corpusReport`, `withSchema`).
 2. Create `CLAUDE.md` at repo root containing: the standing instructions from EXECUTE.md, the evidence vocabulary, the "no invention" rule, the untrusted-plugin rule, the commit format, and a pointer to this file. Keep it under 150 lines.
 3. Create `docs/DECISIONS.md` and record every deviation from SPEC with reason.
 4. Execute EXECUTE.md top to bottom. After each numbered step, run its gate and paste the gate result into the commit message. Do not proceed on a red gate; fix or record a blocker in `docs/BLOCKERS.md` and ask.
 5. Before touching `app/static-engine/`, run `palimpsest-cli diff-baseline`. If baselines don't exist yet, generating them from the four fixtures **is** step 1.4's first task.
-6. When a decision needs the owner (VST3 SDK licence choice, Prosody repo path, fixture binaries, SP plugin location, GitHub usage), stop and ask in one message with the options listed.
+6. When a decision needs the owner (product name Palimpsest vs Artifact Bench, VST3 SDK licence choice, Prosody repo path, fixture binaries, SP plugin location, GitHub usage), stop and ask in one message with the options listed.
 
 ---
 

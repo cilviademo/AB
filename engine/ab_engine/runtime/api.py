@@ -28,7 +28,7 @@ from ab_engine.runtime.host import HostError, Vst3Host
 from ab_engine.runtime.identity import identity_from_runtime
 from ab_engine.workspace import Workspace
 
-STAGE_VERSION = 1
+STAGE_VERSION = 2  # 2: SDK validator report (ADDENDUM A1)
 
 
 def _primary_plugin(ctx: StageContext) -> Path:
@@ -111,6 +111,18 @@ def stage_runtime(ctx: StageContext) -> None:
     for rel in ("factory", "runtime_parameters", "units", "buses", "info", "state_baseline"):
         ctx.output(f"01_evidence/vst3/{rel}.json")
     class_info = params.get("class")
+    # second validation source: the SDK's own validator (ADDENDUM A1); NOT_RUN when not built, never faked
+    from ab_engine.runtime import validator as sdk_validator  # noqa: PLC0415
+
+    ctx.progress("sdk validator")
+    vrep = sdk_validator.run(ctx.ws, ctx.ws.logs / ctx.job.job_id, plugin, timeout=float(ctx.options.get("validator_timeout_s", 300)))
+    write_json(ev / "validator.json", "artifactbench.validator_report", vrep)
+    ctx.output("01_evidence/vst3/validator.json")
+    if vrep["status"] == "NOT_RUN":
+        ctx.warn("VALIDATOR_NOT_RUN", vrep.get("reason", ""))
+    elif vrep["status"] != "PASSED":
+        ctx.warn("VALIDATOR_" + vrep["status"], f"{vrep.get('failed')} failed: {', '.join(vrep.get('failing', [])[:5])}")
+    ctx.metrics["sdk_validator"] = {"status": vrep["status"], "passed": vrep.get("passed"), "failed": vrep.get("failed")}
 
     # ---- state-differential harness --------------------------------------
     base_fields = parse_state_text(baseline["data"].get("component_state_text"))

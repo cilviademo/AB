@@ -51,12 +51,16 @@ def run(ws: Workspace) -> dict:
     except OSError as exc:
         rows.append(_row("sandbox", "FAIL", str(exc)))
 
+    # -- python dependencies (ADDENDUM A1: version, licence, pinned hash) ------------
+    from ab_engine import deps  # noqa: PLC0415
+
+    rows.extend(deps.doctor_rows())
     # -- tools -------------------------------------------------------------
     for t in tools_mod.all_tools(ws):
         if t.present:
             rows.append(_row(f"tool:{t.name}", "PASS", f"{t.path}" + (f" · {t.version}" if t.version else "")))
         else:
-            optional = t.name in ("pluginval", "msvc", "compiler", "ghidra", "jdk", "vst3host", "node", "static-engine")
+            optional = t.name in ("pluginval", "msvc", "compiler", "ghidra", "jdk", "vst3host", "node", "static-engine", "juce", "validator")
             rows.append(_row(f"tool:{t.name}", "UNAVAILABLE" if optional else "FAIL", t.detail))
 
     counts = {v: sum(1 for r in rows if r["verdict"] == v) for v in ("PASS", "WARNING", "UNAVAILABLE", "FAIL")}

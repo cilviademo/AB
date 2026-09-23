@@ -2,7 +2,9 @@
 
 AB recovers an **owned** compiled audio plugin into a portable, buildable,
 evidence-backed source project. `docs/SPEC.md` is the contract, `docs/EXECUTE.md`
-the ordered directives with gates, `docs/AB_BRIEF.md` the product brief. When
+the ordered directives with gates, `docs/EXECUTE_ADDENDUM_A.md` amends them in
+place (dependency stack, cumulative knowledge base, Git checkpoints, iPlug2
+fixture), `docs/AB_BRIEF.md` is the product brief. When
 they disagree, SPEC wins; every deviation is recorded in `docs/DECISIONS.md`.
 Project history and corpus priors: `docs/CLAUDE_CODE_PROMPT.md` (read it once).
 

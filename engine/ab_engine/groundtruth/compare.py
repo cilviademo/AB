@@ -56,7 +56,17 @@ def compare(job: Job, truth: dict[str, Any], *, phase: int = 1) -> dict[str, Any
     recovered = {c["recovered_name"]: c for c in classes}
     expected = truth["classes"]
     hit = [c for c in expected if c in recovered or _norm_class(c) in {_norm_class(r) for r in recovered}]
-    metrics["rtti_classes_recovered"] = {"expected": len(expected), "recovered": len(hit), "ratio": round(len(hit) / max(1, len(expected)), 3)}
+    # a stripped ELF/Mach-O has no _ZTS symbols: typeinfo-name CANDIDATES (static, AB) and Ghidra-verified classes count too, labelled by source
+    cand_rows = _load(pd, "01_evidence/rtti/itanium_typeinfo_candidates.json") or []
+    ghidra_rows = _load(pd, "01_evidence/rtti/classes_verified.json") or []
+    cand_names = {c["recovered_name"] for c in cand_rows}
+    ghidra_names = {c["name"] for c in ghidra_rows}
+    hit_cand = [c for c in expected if c not in hit and (c in cand_names or _norm_class(c) in {_norm_class(r) for r in cand_names})]
+    hit_ghidra = [c for c in expected if c not in hit and c not in hit_cand and (c in ghidra_names or _norm_class(c) in {_norm_class(r) for r in ghidra_names})]
+    total_hit = len(hit) + len(hit_cand) + len(hit_ghidra)
+    metrics["rtti_classes_recovered"] = {"expected": len(expected), "recovered": total_hit, "ratio": round(total_hit / max(1, len(expected)), 3),
+                                         "by_source": {"static_v2_VERIFIED_RTTI_NAME": len(hit), "typeinfo_string_CANDIDATE": len(hit_cand), "ghidra_VERIFIED_RTTI": len(hit_ghidra)}}
+    hit = hit + hit_cand + hit_ghidra
     for c in expected:
         if c not in hit:
             fns.append({"kind": "rtti_class", "item": c})
@@ -195,7 +205,8 @@ def compare(job: Job, truth: dict[str, Any], *, phase: int = 1) -> dict[str, Any
     else:
         metrics["dsp_function_identification"] = None
     metrics["rtti_verified"] = {"classes": len(verified)} if verified else None
-    metrics["fingerprint_stability"] = _load(pd, "06_validation/fingerprint_stability.json") or None
+    fs = _load(pd, "06_validation/fingerprint_stability.json")
+    metrics["fingerprint_stability"] = None if not fs else {k: v for k, v in fs.items() if k != "matches"}
     metrics["fingerprints"] = {"functions": len(fingerprints)} if fingerprints else None
 
     # ---- behaviour (Phase 4) -------------------------------------------------

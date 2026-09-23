@@ -80,6 +80,20 @@ def find_vst3host(ws: Workspace) -> Tool:
     return Tool("vst3host", None, None, "not built; Phase 2 (native/vst3host)")
 
 
+def find_validator(ws: Workspace) -> Tool:
+    """Steinberg SDK validator built next to vst3host (AB_VST3VALIDATOR, bundled bin, dev build tree)."""
+    root = repo_root()
+    cands = [Path(os.environ["AB_VST3VALIDATOR"]) if os.environ.get("AB_VST3VALIDATOR") else None,
+             (bundled_bin_dir() / _exe("validator")) if bundled_bin_dir() else None, ws.tools / "vst3host" / _exe("validator")]
+    if root:
+        for sub in ("build/bin/Release", "build/bin", "build/Release", "build"):
+            cands.append(root / "native" / "vst3host" / sub / _exe("validator"))
+    for c in cands:
+        if c and c.is_file():
+            return Tool("validator", str(c), "VST3 SDK 3.7.9 validator", "second validation source (RUNTIME stage)")
+    return Tool("validator", None, None, "not built; native/vst3host/build_all.* builds it (target validator)")
+
+
 def find_node(ws: Workspace) -> Tool:
     path = shutil.which("node")
     if path:
@@ -180,4 +194,4 @@ def find_msvc() -> Tool:
 
 def all_tools(ws: Workspace) -> list[Tool]:
     return [find_node(ws), find_static_engine_cli(), find_vst3host(ws), find_jdk(ws), find_ghidra(ws),
-            find_pluginval(ws), find_cmake(), find_msvc(), find_juce(ws)]
+            find_pluginval(ws), find_cmake(), find_msvc(), find_juce(ws), find_validator(ws)]

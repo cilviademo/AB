@@ -10,11 +10,15 @@ requires-python = ">=3.11"
 license = { text = "Proprietary" }
 dependencies = [
   "jsonschema>=4.20",   # contract validation of every emitted JSON (SPEC §17)
+  "lief==1.0.0",        # binary inventory (ADDENDUM A1); Apache-2.0
+  "capstone==5.0.9",    # function fingerprints before Ghidra (A3); BSD-3
+  "yara-python==4.5.4", # candidate-family rules (A4); BSD-3
+  "numpy>=1.26",        # behaviour metrics, fits, differential harness
 ]
 
 [project.optional-dependencies]
 dev = ["pytest>=8.0", "ruff>=0.5"]
-behavior = ["numpy>=1.26"]   # Phase 4 probes/fits; imported lazily
+similarity = ["py-tlsh==5.0.0"]   # TLSH relatedness signal (A1/A3); optional native build
 
 [project.scripts]
 ab-engine = "ab_engine.server:main"

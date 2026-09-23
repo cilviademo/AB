@@ -26,14 +26,14 @@ from typing import Any
 
 from ab_engine import api
 from ab_engine import tools as tools_mod
-from ab_engine.contracts import check_envelope
+from ab_engine.contracts import write_json, check_envelope
 from ab_engine.jobs import db as jobs_db
 from ab_engine.jobs import runner
 from ab_engine.jobs.runner import StageContext, StageFailed, StageImpl, StageSkipped
 from ab_engine.workers.run import run_worker
 from ab_engine.workspace import Workspace
 
-STAGE_VERSION = 1
+STAGE_VERSION = 2  # 2: LIEF inventory + v2 cross-check + Itanium typeinfo candidates (ADDENDUM A1, D-021)
 STATIC_TOOL = "static-recovery-v2"
 #: The v2 contracts SPEC §6.1 says are preserved. Anything else the port writes is extra, never fewer.
 V2_CONTRACTS = (
@@ -203,6 +203,53 @@ def stage_static(ctx: StageContext) -> None:
     })
     (ctx.project_dir / "static_result.json").write_text(json.dumps({k: v for k, v in result.items() if not k.startswith("_") and k != "entries"}, indent=2), encoding="utf-8")
     ctx.input_hashes = sorted({i["sha256"] for i in jobs_db.get_inputs(ctx.conn, ctx.job.job_id)})
+    _write_inventory(ctx)
+
+
+def _write_inventory(ctx: StageContext) -> None:
+    """LIEF inventory beside the frozen v2 binary record (ADDENDUM A1, DECISIONS D-021): every binary
+    input gets an ``artifactbench.binary_inventory`` entry plus a cross-check of v2's ``pe`` object."""
+    from ab_engine.inventory import lief_inventory as li  # noqa: PLC0415
+
+    rows = []
+    bdir = ctx.project_dir / "01_evidence" / "binary"
+    for i in jobs_db.get_inputs(ctx.conn, ctx.job.job_id):
+        if i["kind"] != "binary" or not ctx.store.has(i["sha256"]):
+            continue
+        src = ctx.store.get_path(i["sha256"])
+        try:
+            inv = li.inventory(src)
+            inv["file"] = i["path"].replace("\\", "/").split("/")[-1]
+            v2_file = bdir / (inv["file"] + ".json")
+            check: dict[str, Any] = {"status": "NO_V2_RECORD"}
+            if v2_file.is_file():
+                v2 = json.loads(v2_file.read_text(encoding="utf-8")).get("data", {}).get("pe", {})
+                mine = li.v2_pe_dict(src)
+                diff = sorted(k for k in set(v2) | set(mine) if v2.get(k) != mine.get(k) and k != "error")
+                check = {"status": "MATCH" if not diff else "MISMATCH", "differing_keys": diff}
+            inv["v2_pe_crosscheck"] = check
+            if check.get("status") == "MISMATCH":
+                ctx.warn("INVENTORY_MISMATCH", f"{inv['file']}: LIEF and v2 parsePE disagree on {check['differing_keys']}")
+        except Exception as exc:  # noqa: BLE001 — a parser failure is evidence, not a stage failure
+            inv = {"file": i["path"], "sha256": i["sha256"], "status": "PARSE_ERROR", "detail": f"{exc.__class__.__name__}: {exc}"[:300]}
+        rows.append(inv)
+    if rows:
+        write_json(bdir / "inventory.json", "artifactbench.binary_inventory", rows)
+        ctx.output("01_evidence/binary/inventory.json")
+        ctx.metrics["inventory"] = {r["file"]: r.get("v2_pe_crosscheck", {}).get("status", r.get("status")) for r in rows}
+    # stripped ELF / Mach-O: Itanium typeinfo-name CANDIDATES (v2 keys on _ZTS symbols, which strip removes)
+    from ab_engine.inventory import typeinfo  # noqa: PLC0415
+
+    cands: list[dict[str, Any]] = []
+    for r in rows:
+        if r.get("format") in ("ELF", "Mach-O") and r.get("status") == "PARSED":
+            for i in jobs_db.get_inputs(ctx.conn, ctx.job.job_id):
+                if i["kind"] == "binary" and i["sha256"] == r.get("sha256") and ctx.store.has(i["sha256"]):
+                    cands += typeinfo.scan(ctx.store.get_path(i["sha256"]))
+    if cands:
+        write_json(ctx.project_dir / "01_evidence" / "rtti" / "itanium_typeinfo_candidates.json", "artifactbench.rtti_candidates", cands)
+        ctx.output("01_evidence/rtti/itanium_typeinfo_candidates.json")
+        ctx.metrics["typeinfo_candidates"] = {"total": len(cands), "plugin_owned_candidates": sum(1 for c in cands if c["kind"] == "PLUGIN_OWNED_CANDIDATE")}
 
 
 runner.register_stage(StageImpl("STATIC_COMPLETE", version=STAGE_VERSION, run=stage_static, tool_version=STATIC_TOOL,
