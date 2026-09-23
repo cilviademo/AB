@@ -89,6 +89,12 @@ class KnowledgeDB:
         self.db.row_factory = sqlite3.Row
         self.db.executescript(SCHEMA)
         self.db.execute("INSERT OR IGNORE INTO meta VALUES ('schema_version', ?)", (str(SCHEMA_VERSION),))
+        found = self.db.execute("SELECT value FROM meta WHERE key='schema_version'").fetchone()
+        if found is not None and int(found["value"]) > SCHEMA_VERSION:   # never reinterpret a newer schema (ADDENDUM B7 migration rule)
+            self.db.close()
+            raise RuntimeError(f"knowledge.db schema {found['value']} is newer than this engine ({SCHEMA_VERSION}); refusing to reinterpret")
+        if found is not None and int(found["value"]) < SCHEMA_VERSION:   # older database: migrate in place, keep every row
+            self.db.execute("UPDATE meta SET value=? WHERE key='schema_version'", (str(SCHEMA_VERSION),))
         # ADDENDUM C3 tiers on databases created before them (old evidence never discarded)
         if "tier" not in {r[1] for r in self.db.execute("PRAGMA table_info(implementation)")}:
             self.db.execute("ALTER TABLE implementation ADD COLUMN tier TEXT DEFAULT 'RECOVERED_IMPLEMENTATION_KNOWLEDGE'")

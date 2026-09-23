@@ -51,7 +51,22 @@ class Dep:
     detail: str = ""
 
     def as_dict(self) -> dict[str, Any]:
-        return self.__dict__.copy()
+        return {**self.__dict__, "status": self.status, "guidance": self.guidance}
+
+    @property
+    def status(self) -> str:
+        """ADDENDUM B7: ``AVAILABLE | MISSING | WRONG_VERSION | UNSUPPORTED`` — what a fresh machine needs to hear."""
+        if not self.available:
+            return "MISSING"
+        return "WRONG_VERSION" if self.detail.startswith("version ") else "AVAILABLE"
+
+    @property
+    def guidance(self) -> str:
+        if self.status == "AVAILABLE":
+            return ""
+        spec = PINNED[self.name]
+        pin = spec["version"] if spec["version"].startswith(">=") else f"=={spec['version']}"
+        return f"pip install \"{spec['dist']}{pin}\" (or reinstall the engine: pip install -e engine[dev]); slot: {self.slot}"
 
 
 def check(name: str) -> Dep:
@@ -80,7 +95,7 @@ def doctor_rows() -> list[dict[str, str]]:
     rows = []
     for d in all_deps():
         verdict = "PASS" if d.available and not d.detail else ("WARNING" if d.available else "UNAVAILABLE")
-        rows.append({"name": f"dep:{d.name}", "verdict": verdict,
+        rows.append({"name": f"dep:{d.name}", "verdict": verdict, "status": d.status, "guidance": d.guidance,
                      "detail": f"{d.version or 'missing'} · pinned {d.pinned} · {d.license}" + (f" · sha256 {d.sha256[:12]}…" if d.sha256 else "") + (f" · {d.detail}" if d.detail else "")})
     return rows
 

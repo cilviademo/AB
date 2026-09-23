@@ -284,6 +284,14 @@ def h_ground_truth(params: dict[str, Any], ws: Workspace) -> dict[str, Any]:
     write_json(pd / "06_validation" / "known_source_metrics.json", "artifactbench.known_source_metrics", ks)
     (pd / "06_validation" / "KNOWN_SOURCE_VALIDATION_REPORT.md").write_text(ks_mod.to_markdown(ks, integ, fx), encoding="utf-8")
     report["known_source"] = {"metrics": "06_validation/known_source_metrics.json", "report": "06_validation/KNOWN_SOURCE_VALIDATION_REPORT.md", "integrity_ok": integ["ok"], "failure_classes": ks["failure_classes"]}
+    # ADDENDUM A6/B7: the evaluator's reports are checkpointed like every other project artefact (no dirty tree after a run)
+    try:
+        from ab_engine import checkpoint  # noqa: PLC0415
+
+        if (pd / ".git").is_dir():
+            report["checkpoint"] = checkpoint.commit(pd, "GROUND_TRUTH", job_id=job.job_id)
+    except Exception as exc:  # noqa: BLE001 — a checkpoint problem never fails the evaluation
+        report["checkpoint"] = {"status": "GIT_ERROR", "detail": f"{type(exc).__name__}: {exc}"[:200]}
     return report
 
 

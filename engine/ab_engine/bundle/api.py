@@ -13,6 +13,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 import os
@@ -26,11 +27,12 @@ from typing import Any
 
 from ab_engine import TOOL, api
 from ab_engine.bundle.scan import scan_paths, scan_secrets, scrub_machine_paths
-from ab_engine.contracts import write_json
+from ab_engine.contracts import read_json, write_json
 from ab_engine.jobs import db as jobs_db
 from ab_engine.jobs import runner
 from ab_engine.jobs.model import Job
 from ab_engine.jobs.runner import StageContext, StageFailed, StageImpl
+from ab_engine.jobs.model import normalize_context
 from ab_engine.workspace import Workspace
 
 TEXT_SUFFIXES = {".json", ".md", ".txt", ".cpp", ".h", ".hpp", ".cmake", ".xml", ".svg", ".gitignore", ".log", ".ps1", ".sh", ".jsonl"}
@@ -326,6 +328,10 @@ def export_job(ws: Workspace, conn: Any, job: Job, *, zip_it: bool, ctx: StageCo
     on_disk = dict(report, out_dir=(f"<WORKSPACE>/{out.relative_to(ws.home).as_posix()}" if str(out).startswith(str(ws.home)) else "<EXPORT>"),
                    zip_path=(f"<WORKSPACE>/{zip_path.relative_to(ws.home).as_posix()}" if zip_path is not None and str(zip_path).startswith(str(ws.home)) else ("<EXPORT>.zip" if zip_path else None)))
     write_json(out / "evidence" / "00_manifest" / "export_report.json", "artifactbench.export_report", on_disk)
+    # ADDENDUM B7 round-trip: the stage records travel with the export so `bundle.import` restores the identical state
+    write_json(out / "evidence" / "00_manifest" / "stages.json", "artifactbench.stages",
+               {"job_id": job.job_id, "name": job.name, "created": job.created, "primary": job.primary, "artifact_sha256": job.artifact_sha256, **job.context,
+                "stages": [s.as_dict() for s in job.stages if s.stage != "EXPORT_COMPLETE"]})
     if zip_path is not None:
         with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
             for p in sorted(out.rglob("*")):
@@ -340,6 +346,134 @@ def export_job(ws: Workspace, conn: Any, job: Job, *, zip_it: bool, ctx: StageCo
         ctx.output(f"export:{out}")
     return {"out_dir": str(out), "zip_path": str(zip_path) if zip_path else None, "git_ready": {"ok": git_ready, "checks": checks},
             "path_findings": path_findings, "secret_findings": secret_findings, "files": copied}
+
+
+EVIDENCE_DIRS = ("00_manifest", "01_evidence", "02_recovered_assets", "03_architecture", "05_reference_behavior")
+RECON_DIRS = ("Source", "Resources", "recovered_source", "transformed_source", "evidence_source")
+RECON_FILES = ("CMakeLists.txt", "identity.cmake", "RECONSTRUCTION.md", "reconstruction_model.json", "identifier_map.json", "IDENTIFIER_MAP.md", "transformation_graph.json")
+HANDOFF_FILES = ("HANDOFF.md", "TODO.md", "agent_prompt.md", "reconstruction_index.json", "UNRECOVERABLE.md", "binary_symbol_map.json")
+
+
+def tree_digest(root: Path, *, skip: tuple[str, ...] = ()) -> dict[str, str]:
+    """{relative posix path: sha256} for every file under root (skip = relative paths left out: files that carry timestamps)."""
+    out: dict[str, str] = {}
+    for f in sorted(root.rglob("*")):
+        if f.is_file():
+            rel = f.relative_to(root).as_posix()
+            if rel in skip:
+                continue
+            h = hashlib.sha256()
+            with f.open("rb") as fh:
+                for chunk in iter(lambda: fh.read(1 << 20), b""):
+                    h.update(chunk)
+            out[rel] = h.hexdigest()
+    return out
+
+
+def _find_export_root(path: Path, ws: Workspace) -> Path:
+    """An export folder, or a zip of one (extracted safely: no traversal, no absolute names, no symlinks)."""
+    if path.is_file() and path.suffix.lower() == ".zip":
+        from ab_engine.ingest.api import _extract_archive  # noqa: PLC0415
+        from ab_engine.jobs.store import sha256_file  # noqa: PLC0415
+
+        root = _extract_archive(path, ws.tmp / "imports", sha256_file(path)[0])
+        if root is None:
+            raise api.ApiError("bad_archive", "the zip could not be extracted safely (traversal, absolute names or symlinks refused)")
+        path = root
+    if (path / "evidence" / "00_manifest" / "input_manifest.json").is_file():
+        return path
+    hits = [p.parent.parent.parent for p in path.glob("*/evidence/00_manifest/input_manifest.json")]
+    if len(hits) == 1:
+        return hits[0]
+    raise api.ApiError("not_an_export", "no <Plugin>_RECOVERED/evidence/00_manifest/input_manifest.json under the given path")
+
+
+def import_bundle(ws: Workspace, conn: Any, path: Path, *, replace: bool = False) -> dict[str, Any]:
+    """ADDENDUM B7 round-trip: analyze → export → close → reopen/import → identical state.
+
+    Recreates the project folder from the export's evidence/, validation/, reconstruction and handoff
+    files and restores the job with its stage records (evidence/00_manifest/stages.json). Nothing is
+    re-analysed and nothing is invented: what the export did not carry stays absent and is reported.
+    """
+    from ab_engine.ingest.classify import safe_folder  # noqa: PLC0415
+    from ab_engine.jobs.model import Job, StageRecord  # noqa: PLC0415
+
+    src = _find_export_root(path, ws)
+    manifest = read_json(src / "evidence" / "00_manifest" / "input_manifest.json", expect="artifactbench.input_manifest")["data"]
+    stages_doc = read_json(src / "evidence" / "00_manifest" / "stages.json", expect="artifactbench.stages")["data"] if (src / "evidence" / "00_manifest" / "stages.json").is_file() else None
+    job_id = str(manifest["job_id"])
+    primary = manifest["primary"]
+    sha = primary["sha256"] if isinstance(primary, dict) else next(i["sha256"] for i in manifest["inputs"] if i["path"] == primary)
+    ppath = primary["path"] if isinstance(primary, dict) else str(primary)
+    existing = jobs_db.get_job(conn, job_id)
+    if existing is not None and not replace:
+        raise api.ApiError("exists", f"job {job_id} already exists in this workspace; pass replace=true to overwrite its project from the export")
+    name = (stages_doc or {}).get("name") or manifest.get("name") or src.name.removesuffix("_RECOVERED")
+    project_dir = Path(existing.project_dir) if existing is not None else ws.projects / f"{safe_folder(name)}-{sha[:8]}"
+    if project_dir.exists():
+        shutil.rmtree(project_dir)
+    project_dir.mkdir(parents=True)
+    copied = 0
+
+    def put_tree(a: Path, b: Path) -> None:
+        nonlocal copied
+        if a.is_dir():
+            shutil.copytree(a, b, dirs_exist_ok=True)
+            copied += sum(1 for _ in b.rglob("*") if _.is_file())
+
+    def put_file(a: Path, b: Path) -> None:
+        nonlocal copied
+        if a.is_file():
+            b.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(a, b)
+            copied += 1
+
+    for d in EVIDENCE_DIRS:
+        put_tree(src / "evidence" / d, project_dir / d)
+    put_file(src / "evidence" / "knowledge_used.json", project_dir / "07_agent_handoff" / "knowledge_used.json")
+    put_tree(src / "validation", project_dir / "06_validation")
+    for d in RECON_DIRS:
+        put_tree(src / d, project_dir / "04_reconstruction" / d)
+    for f in RECON_FILES:
+        put_file(src / f, project_dir / "04_reconstruction" / f)
+    for f in HANDOFF_FILES:
+        put_file(src / f, project_dir / "07_agent_handoff" / f)
+    for f in ("README_RECOVERY.md", "LINEAGE_REPORT.md", "CONTEXT.md"):
+        put_file(src / f, project_dir / f)
+    (project_dir / "ingest.json").write_text(json.dumps({"imported_from": str(path), "imported": datetime.now(UTC).isoformat(), "job_id": job_id}, indent=2), encoding="utf-8")
+    uc, sa = normalize_context(manifest.get("usage_context"), manifest.get("source_availability"), None)
+    job = Job(job_id, str(name), sha, uc, str((stages_doc or {}).get("created") or manifest.get("created") or datetime.now(UTC).isoformat()), str(ppath), str(project_dir), source_availability=sa)
+    known = set(StageRecord.__dataclass_fields__)
+    restored = []
+    for rec in (stages_doc or {}).get("stages", []):
+        r = StageRecord(**{k: v for k, v in rec.items() if k in known})
+        r.job_id = job_id
+        job.stages.append(r)
+        restored.append({"stage": r.stage, "status": r.status})
+    jobs_db.upsert_job(conn, job)
+    for r in job.stages:
+        jobs_db.put_stage(conn, r)
+    try:
+        jobs_db.put_inputs(conn, job_id, [i for i in manifest.get("inputs", []) if all(k in i for k in ("path", "size", "sha256", "kind"))])
+    except (KeyError, TypeError, ValueError):
+        pass
+    missing = [d for d in EVIDENCE_DIRS if not (project_dir / d).is_dir()]
+    digest_export = tree_digest(src / "evidence", skip=("00_manifest/export_report.json", "knowledge_used.json"))
+    digest_project = {}
+    for rel, h in tree_digest(project_dir).items():
+        digest_project[rel] = h
+    identical = all(digest_project.get(rel) == h for rel, h in digest_export.items())
+    return {"job_id": job_id, "name": str(name), "project_dir": str(project_dir), "files": copied, "restored_stages": restored, "stage_records_found": stages_doc is not None,
+            "evidence_identical": identical, "evidence_files": len(digest_export), "missing_evidence_dirs": missing,
+            "note": "imported state is the export's state: no stage was re-run, nothing was invented" + ("; stages.json absent — stage records not restored (older export)" if stages_doc is None else "")}
+
+
+def h_bundle_import(params: dict[str, Any], ws: Workspace) -> dict[str, Any]:
+    conn = jobs_db.connect(ws.db_path)
+    return import_bundle(ws, conn, Path(str(params.get("path", ""))), replace=bool(params.get("replace", False)))
+
+
+api.register("bundle.import", h_bundle_import)
 
 
 def stage_export(ctx: StageContext) -> None:
@@ -380,6 +514,18 @@ def _cli_export(p):
         result = api.dispatch("bundle.export", {"job_id": args.job_id, "zip": args.zip}, ws)
         sys.stdout.write(json.dumps({"ok": True, "data": result}, indent=2) + "\n")
         return 0 if result["git_ready"]["ok"] or all(c["ok"] is not False for c in result["git_ready"]["checks"]) else 1
+    p.set_defaults(func=run)
+
+
+@subcommand("import", "reopen an exported <Plugin>_RECOVERED folder or zip as a project (ADDENDUM B7 round-trip): ab-cli import <path> [--replace]")
+def _cli_import(p):
+    p.add_argument("path")
+    p.add_argument("--replace", action="store_true", help="overwrite an existing project with the same job id")
+
+    def run(args, ws):
+        result = api.dispatch("bundle.import", {"path": args.path, "replace": args.replace}, ws)
+        sys.stdout.write(json.dumps({"ok": True, "data": result}, indent=2) + "\n")
+        return 0 if result["evidence_identical"] else 1
     p.set_defaults(func=run)
 
 
