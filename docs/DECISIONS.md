@@ -1,0 +1,98 @@
+# DECISIONS
+
+Every deviation from `SPEC.md` / `EXECUTE.md` / `AB_BRIEF.md`, with the reason.
+Architecture is never changed silently: a reversed decision is edited here.
+
+## D-001 Product name: AB — Artifact Bench
+SPEC uses the working name Palimpsest and says "rename freely; nothing depends
+on it". The owner's brief (`docs/AB_BRIEF.md`) fixes the name as **AB —
+Artifact Bench**, tagline *Recover. Reconstruct. Rebuild.* Top-level branding
+never says "Plugin Recovery Bench"; that phrase survives only as a functional
+description. Consequences: executable `AB.exe`, Tauri identifier
+`com.multibanded.ab`, Python package `ab_engine`, CLI `ab-cli` (EXECUTE's
+`palimpsest-cli` commands exist verbatim under `ab-cli`), app-data folder
+`%LOCALAPPDATA%\AB`.
+
+## D-002 Repository layout is SPEC §3 at the repository root
+The repo *is* the product, so `palimpsest/` in SPEC §3 maps to the repo root:
+`app/`, `engine/`, `native/`, `ghidra/`, `reference/`, `fixtures/`, `tools/`,
+`docs/`. `handoff/` holds the frozen originals (v2 HTML, v1 kit) read-only.
+
+## D-003 Prosody is a UX/UI and packaging pattern, not a code fork
+The owner said Prosody is a separate repo; AB lives here and mimics Prosody's
+UX/UI. Prosody was cloned read-only and its design tokens, base/component CSS,
+UI primitives, titlebar/nav shell, stdio JSON-lines supervisor, path policy,
+WebView2 check, PE runnability check and portable-ZIP packaging were re-created
+here under AB names (same owner, same licence). FL-specific code was not
+copied. SPEC §14 adds one thing Prosody's monochrome system lacks: fixed
+evidence-state colours (VERIFIED green, INFERRED amber, CANDIDATE grey,
+GENERATED blue, UNRECOVERABLE red-strike). They are the only hues in the
+product and are defined once in `app/src/styles/tokens.css`.
+
+## D-004 Schema naming: frozen v2 keeps `recovery.*` v2; new contracts are `artifactbench.*` v1
+SPEC §6.1 preserves all v2 contracts as `schema_version: 2` under `recovery.*`
+and §17 lists every contract under `recovery.*`. The brief asks for
+`artifactbench.<name>` with `schema_version: 1`. Both are honoured: files the
+frozen static engine emits keep their exact v2 identity (baselines diff on
+them), and every contract introduced by AB (runtime, correlation, fingerprints,
+callgraph, lineage, validation, ground truth, manifests, stage records) is
+`artifactbench.<name>` v1. The contract validator knows both prefixes; an
+unknown major version is rejected.
+
+## D-005 Static engine runs in two hosts: webview Worker (GUI) and Node (CLI/CI)
+SPEC §2 puts the frozen TS engine in a Web Worker. `ab-cli run --stage static`
+and `diff-baseline` must run headlessly and in CI, and PyInstaller cannot run
+JavaScript, so the same pure-TS modules are also bundled as a Node entry
+(`app/static-engine/dist/cli.mjs`). The Python engine spawns Node when present
+and reports `STATIC_ENGINE_UNAVAILABLE` (with the GUI as the alternative) when
+not. Analysis code is identical in both hosts; only the transport differs.
+
+## D-006 Browser-only validation replaced by structural parsers, same verdicts
+v2's `validateResources` used `Image`, `DOMParser` and `crypto.subtle`. The
+port rules forbid DOM. Replacements return the same fields and states:
+PNG dimensions from IHDR; JPEG dimensions from the SOF marker; a full-document
+XML/SVG well-formedness parser (balanced tags, quoted attributes) for
+`CARVED_PARTIAL` vs `VALID_EXACT`; SHA-256 via WebCrypto in the worker and
+`node:crypto` under Node. The sprite-sheet rule (h ≥ 4w, frame heights w, 1.5w,
+2w) is unchanged. These are recorded as the one intentional behavioural delta
+of the port and are covered by unit tests.
+
+## D-007 Regression baselines are generated from the owner's four binaries; a synthetic PE fixture covers the port meanwhile
+The four corpus binaries are not in the handoff. `fixtures/static_v2/` is
+populated the first time they are dropped (EXECUTE 1.4 first task). Until then
+the port is verified against a deterministic synthetic PE fixture built by
+`fixtures/synthetic/make_fixture.py` (a real PE layout with RTTI descriptors, an
+embedded APVTS XML, PNG, TTF, WAV and BinaryData names). It is test data, never
+evidence, and is labelled as such in every output. See BLOCKERS B-001.
+
+## D-008 Windows-only gates run on the studio PC; Linux runs everything else
+This session runs on Linux. The Tauri shell is type-checked for
+`x86_64-pc-windows-msvc`; `vst3host` and the ground-truth fixture are also
+built for Linux here so the runtime, correlation and behavioural stages can be
+exercised end to end against a real plugin build. PE-specific gates (stripped
+MSVC build, MSVC RTTI in Ghidra, pluginval on Windows, `AB.exe` launch from a
+clean ZIP) are scripted (`fixtures/groundtruth/build_all.ps1`,
+`scripts/build-release.ps1`) and marked pending in `docs/STATUS.md` until run
+on Windows. Nothing is reported green that was not run.
+
+## D-009 UI stage rail includes INGEST; screens follow the brief
+SPEC §14 rail starts at STATIC. The brief adds `INGEST`. Rail: `INGEST · STATIC
+· RUNTIME · DECOMPILE · PROBE · RECONSTRUCT · BUILD · COMPARE · EXPORT`. Screens
+are the brief's superset of SPEC's: Recover, Overview, Evidence, Parameters &
+State, Architecture, DSP, Resources, Compare, Build, Corpus, Export. Screens
+whose stage is not yet implemented show the stage that populates them and
+nothing else; no placeholder data.
+
+## D-010 Role vocabulary is the union of SPEC §8.2 and the brief
+`PITCH_TIME` and `MODULATION` (brief) join SPEC's list; v2's static role names
+(`DELAY_REVERB`, `ENVELOPE`, `STATE_CONTROL`) are preserved unchanged inside
+the frozen engine and mapped to the final vocabulary in the engine when the
+callgraph stage promotes a role. `STRUCTURALLY_PLAUSIBLE` (brief, help doc) is
+part of the validation vocabulary.
+
+## D-011 Python 3.11 in the engine, pydantic-free contracts
+SPEC fixes Python 3.11. Contracts are JSON Schema files under
+`engine/ab_engine/contracts/` validated with `jsonschema`; dataclasses carry
+them in code. Prosody's pydantic pattern was not adopted because the contracts
+are shared with the TS engine and Ghidra scripts, which read the schema files
+directly.

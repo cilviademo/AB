@@ -1,0 +1,15 @@
+{
+  "package": "music_reference_corpus_21",
+  "version": "1.0.0",
+  "source_corpus": "corpus_21_plugins.zip",
+  "source_corpus_sha256": "d43cd8fe98403820b1142541d37d8e481aa90e99c63c5dcbd95f5789834528e9",
+  "observed_symbol_count": 657,
+  "observed_static_id_count": 946,
+  "reference_component_count": 33,
+  "code_provenance": "clean-room generic DSP generated for reference; no decompiled vendor function bodies copied",
+  "warnings": [
+    "symbol-to-reference mappings are hypotheses",
+    "static XML/state IDs are not automatically VST3 exported parameters",
+    "family labels are corpus inferences until implementation fingerprints verify lineage"
+  ]
+}

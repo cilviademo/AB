@@ -1,0 +1,44 @@
+# --- build outputs
+node_modules/
+app/dist/
+app/static-engine/dist/
+app/src-tauri/target/
+app/src-tauri/gen/schemas/
+app/src-tauri/resources/ab-engine/*
+!app/src-tauri/resources/ab-engine/PLACEHOLDER.txt
+engine/dist/
+engine/build/
+engine/*.egg-info/
+engine/.venv/
+native/vst3host/build/
+native/vst3host/third_party/vst3sdk/
+fixtures/groundtruth/build/
+fixtures/groundtruth/third_party/JUCE/
+fixtures/groundtruth/out/
+reference/music_reference_corpus_21/build/
+release/
+dist/
+
+# --- python
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+.coverage
+
+# --- local state / tools (never committed)
+.ab/
+tools/cache/
+*.log
+*.pdb
+*.ilk
+
+# --- fixture binaries are CI artifacts, never git
+fixtures/groundtruth/bin/
+fixtures/static_v2/binaries/
+*.vst3
+*.dll
+*.vst
+*.component
+*.dylib
+!fixtures/**/*.json

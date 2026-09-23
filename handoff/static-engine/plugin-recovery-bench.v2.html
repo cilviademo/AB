@@ -1,0 +1,1773 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Plugin Recovery Bench</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<style>
+:root{--bg:#182430;--panel:#20303f;--panel2:#293c4d;--line:#3b526a;--ink:#e6eef5;--ink2:#9fb3c4;--amber:#f4b342;--phosphor:#9be59b;--warn:#ff7b6b;
+  --font:'Sora',system-ui,sans-serif;--mono:'JetBrains Mono',ui-monospace,Menlo,monospace;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme: light){:root:not([data-theme="dark"]){--bg:#eef1f4;--panel:#fff;--panel2:#f2f5f8;--line:#cfd8e1;--ink:#182430;--ink2:#4d6072;--amber:#b7731a;--phosphor:#2f8a3a;--warn:#c0392b}}
+:root[data-theme="light"]{--bg:#eef1f4;--panel:#fff;--panel2:#f2f5f8;--line:#cfd8e1;--ink:#182430;--ink2:#4d6072;--amber:#b7731a;--phosphor:#2f8a3a;--warn:#c0392b}
+:root[data-theme="dark"]{--bg:#182430;--panel:#20303f;--panel2:#293c4d;--line:#3b526a;--ink:#e6eef5;--ink2:#9fb3c4;--amber:#f4b342;--phosphor:#9be59b;--warn:#ff7b6b}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}*{box-sizing:inherit}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font);line-height:1.5;-webkit-font-smoothing:antialiased}
+main{max-width:1060px;margin:0 auto;padding:20px 16px 60px}
+h1{font-size:clamp(1.5rem,4vw,2.2rem);font-weight:700;margin:0 0 4px;letter-spacing:-.02em}
+.lede{color:var(--ink2);margin:0 0 16px;max-width:66ch}
+.drop{display:block;width:100%;border:2px dashed var(--line);border-radius:14px;padding:26px 16px;text-align:center;background:var(--panel);cursor:pointer;transition:border-color .15s,background .15s;outline:none}
+html,body{max-width:100%;overflow-x:hidden}
+img,svg,pre,.card{max-width:100%}
+.pick{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-top:12px}
+.pick .btn{pointer-events:auto}
+@media (max-width:600px){
+  main{padding:14px 12px 48px}
+  h1{font-size:1.45rem}
+  .lede{font-size:.92rem;margin-bottom:12px}
+  .drop{padding:18px 12px}.drop strong{font-size:.95rem}.drop span{font-size:.78rem}
+  .grid{grid-template-columns:1fr;gap:10px;margin-top:14px}
+  .card{padding:12px}
+  .kv{grid-template-columns:1fr;gap:1px 0;font-size:.82rem}.kv dt{margin-top:6px}
+  .tabs{flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:4px;scrollbar-width:thin}
+  .tabs button{flex:0 0 auto;white-space:nowrap;padding:8px 12px;font-size:.8rem}
+  pre{font-size:.7rem;max-height:260px}
+  .btn{padding:10px 14px;font-size:.88rem;flex:1 1 auto}
+  .steps{padding-left:18px;font-size:.86rem}
+  .res img{max-width:90px;max-height:64px}
+}
+.drop:focus-visible,.drop.over{border-color:var(--amber);background:var(--panel2)}
+.drop strong{display:block;font-size:1.05rem}.drop span{color:var(--ink2);font-size:.88rem;display:block;max-width:60ch;margin:4px auto 0}
+.drop input{display:none}
+.intake{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.chip{font:.75rem var(--mono);border:1px solid var(--line);border-radius:999px;padding:3px 10px;background:var(--panel)}
+.chip.b{border-color:var(--amber)}.chip.p{border-color:var(--phosphor)}.chip.s{border-color:var(--phosphor);background:var(--panel2)}.chip.d{border-color:var(--warn)}
+.status{font:.85rem var(--mono);color:var(--ink2);margin-top:10px;min-height:1.2em}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:12px;margin-top:18px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px 16px;min-width:0}
+.card h2{font-size:.95rem;margin:0 0 8px;font-weight:600}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;font-size:.86rem;margin:0}.kv dt{color:var(--ink2)}.kv dd{margin:0;font-family:var(--mono);word-break:break-all}
+.ok{color:var(--phosphor)}.bad{color:var(--warn)}.hi{color:var(--amber)}
+.wide{grid-column:1/-1}
+pre{margin:0;background:var(--panel2);border-radius:8px;padding:10px;font:.76rem/1.45 var(--mono);max-height:340px;overflow:auto;white-space:pre}
+.tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
+.tabs button,.btn{font:600 .84rem var(--font);border:1px solid var(--line);background:var(--panel2);color:var(--ink);padding:7px 12px;border-radius:8px;cursor:pointer}
+.tabs button[aria-selected="true"],.btn.primary{background:var(--amber);color:#1a1200;border-color:var(--amber)}
+.btn:focus-visible,.tabs button:focus-visible{outline:2px solid var(--phosphor);outline-offset:2px}
+.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.res{display:flex;flex-wrap:wrap;gap:8px}.res a{display:block;border:1px solid var(--line);border-radius:8px;padding:6px;background:var(--panel2);text-decoration:none;color:var(--ink);font:.74rem var(--mono)}
+.res img{display:block;max-width:120px;max-height:80px;object-fit:contain;margin-bottom:4px}
+.steps{padding-left:20px;margin:0;font-size:.9rem}.steps li{margin:6px 0}
+.bar{height:8px;border-radius:4px;background:var(--panel2);overflow:hidden;margin:4px 0 8px}.bar i{display:block;height:100%;background:var(--phosphor)}
+.meter{font-size:.85rem}.meter b{font-family:var(--mono)}
+#results{display:none}
+@media (prefers-reduced-motion:reduce){.drop{transition:none}}
+</style>
+</head>
+<body>
+<main>
+  <h1>Plugin Recovery Bench</h1>
+  <p class="lede">Drop the compiled plugin, then keep dropping anything else you have: presets, DAW sessions, old build folders, a .pdb. Each drop fills in more of the repo. Nothing leaves your device.</p>
+  <label class="drop" id="drop" tabindex="0" role="button">
+    <strong>Drop plugin binaries, presets, sessions, or whole folders</strong>
+    <span>.dll .vst3 .vst .component .dylib · .vstpreset .fxp .fxb .aupreset · .RPP .als .flp .cpr · .pdb · any folder with .cpp/.h · drop many plugins or a .zip of them for a corpus report</span>
+    <input type="file" id="file" multiple>
+    <input type="file" id="folder" webkitdirectory multiple>
+    <div class="pick" aria-hidden="true">
+      <span class="btn primary" id="pickFiles">Choose files</span>
+      <span class="btn" id="pickFolder">Choose a folder</span>
+    </div>
+  </label>
+  <div class="intake" id="intake"></div>
+  <div class="status" id="status">On a phone, tap Choose files and multi-select from Files or iCloud. Results and the zip work here too.</div>
+
+  <section id="results">
+    <div class="grid">
+      <div class="card wide">
+        <h2>How much of the repo is back</h2>
+        <div id="meters"></div>
+      </div>
+      <div class="card"><h2>Binary</h2><dl class="kv" id="bin"></dl></div>
+      <div class="card"><h2>Build fingerprints</h2><dl class="kv" id="fp"></dl></div>
+      <div class="card"><h2>Recovered</h2><dl class="kv" id="counts"></dl></div>
+      <div class="card wide">
+        <h2>Recovered content</h2>
+        <div class="tabs" role="tablist" id="tabs"></div>
+        <pre id="view"></pre>
+      </div>
+      <div class="card wide"><h2>Carved resources</h2><div class="res" id="res"></div></div>
+      <div class="card wide">
+        <h2>What to do next</h2>
+        <ol class="steps" id="steps"></ol>
+        <div class="actions">
+          <button class="btn primary" id="zip">Download repo zip</button>
+          <button class="btn" id="copyFindings">Copy findings for chat</button>
+          <button class="btn" id="copyScaffold">Copy PluginProcessor.cpp</button>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+<script>
+const KIT_PY = `#!/usr/bin/env python3
+"""
+vst_recover.py — recover as much source-level content as possible from a compiled
+VST2 (.dll) / VST3 (.vst3) plugin you own the rights to.
+
+Subcommands (run in this order):
+  inventory  Unpack the bundle, find a .pdb, dump strings, carve embedded resources
+             (PNG/JPEG/SVG/XML/TTF/OTF/JSON) from JUCE BinaryData, detect JUCE version.
+  params     Load the plugin in-process (pedalboard) and dump every parameter:
+             id, name, range, default, units, choices  ->  params.json
+  ghidra     Run Ghidra headless with ExportDecompiled.java -> per-class .cpp files,
+             demangled symbol map, float-heavy "DSP candidate" ranking.
+  retdec     Fallback decompiler (single big .c file) if Ghidra is unavailable.
+  scaffold   Generate a JUCE PluginProcessor/PluginEditor skeleton whose APVTS
+             layout is rebuilt from params.json, with recovered DSP pseudo-code
+             dropped in as TODO blocks next to the matching function names.
+  all        inventory -> params -> ghidra -> scaffold
+
+Everything lands under ./recovered/<PluginName>/.
+"""
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import platform
+import re
+import shutil
+import struct
+import subprocess
+import sys
+from pathlib import Path
+
+# --------------------------------------------------------------------------- utils
+
+MAGIC = {
+    "png":  (b"\\x89PNG\\r\\n\\x1a\\n", b"IEND\\xaeB\`\\x82", 8),
+    "jpg":  (b"\\xff\\xd8\\xff", b"\\xff\\xd9", 2),
+    "gif":  (b"GIF89a", b"\\x00;", 2),
+    "ttf":  (b"\\x00\\x01\\x00\\x00\\x00", None, 0),
+    "otf":  (b"OTTO", None, 0),
+    "svg":  (b"<svg", b"</svg>", 6),
+    "xml":  (b"<?xml", None, 0),
+}
+
+
+def run(cmd: list[str], cwd: Path | None = None, check: bool = True) -> subprocess.CompletedProcess:
+    print("  $", " ".join(str(c) for c in cmd))
+    return subprocess.run(cmd, cwd=cwd, check=check, text=True, capture_output=False)
+
+
+def which(name: str) -> str | None:
+    return shutil.which(name)
+
+
+def out_dir(plugin: Path, root: Path) -> Path:
+    d = root / plugin.stem
+    d.mkdir(parents=True, exist_ok=True)
+    return d
+
+
+def find_binaries(plugin: Path) -> list[Path]:
+    """A .vst3 on Windows/mac is a folder bundle; return every real PE/Mach-O inside."""
+    if plugin.is_file():
+        return [plugin]
+    exts = {".vst3", ".dll", ".dylib", ".so", ""}
+    hits = []
+    for p in plugin.rglob("*"):
+        if p.is_file() and p.suffix.lower() in exts and p.stat().st_size > 64 * 1024:
+            with open(p, "rb") as f:
+                head = f.read(4)
+            if head[:2] == b"MZ" or head in (b"\\xcf\\xfa\\xed\\xfe", b"\\xca\\xfe\\xba\\xbe", b"\\x7fELF"):
+                hits.append(p)
+    return hits
+
+
+# ----------------------------------------------------------------------- inventory
+
+def carve_resources(data: bytes, dest: Path) -> dict[str, int]:
+    """Carve JUCE BinaryData blobs by magic number. Crude but effective: JUCE stores
+    resources verbatim as const char arrays, so signatures survive intact."""
+    dest.mkdir(exist_ok=True)
+    counts: dict[str, int] = {}
+    for ext, (start, end, _) in MAGIC.items():
+        idx = 0
+        n = 0
+        while True:
+            s = data.find(start, idx)
+            if s < 0:
+                break
+            if end:
+                e = data.find(end, s)
+                if e < 0:
+                    break
+                blob = data[s : e + len(end)]
+            else:
+                # no terminator: take up to next NUL run or 2 MB, whichever first
+                e = data.find(b"\\x00\\x00\\x00\\x00", s + 64)
+                blob = data[s : (e if e > 0 else s + 2_000_000)]
+            if len(blob) > 64:
+                (dest / f"{ext}_{n:03d}.{ext}").write_bytes(blob)
+                n += 1
+            idx = s + len(start)
+        if n:
+            counts[ext] = n
+    return counts
+
+
+def dump_strings(data: bytes, dest: Path, min_len: int = 6) -> Path:
+    ascii_re = re.compile(rb"[\\x20-\\x7e]{%d,}" % min_len)
+    utf16_re = re.compile(rb"(?:[\\x20-\\x7e]\\x00){%d,}" % min_len)
+    lines = set()
+    for m in ascii_re.finditer(data):
+        lines.add(m.group().decode("ascii", "ignore"))
+    for m in utf16_re.finditer(data):
+        lines.add(m.group().decode("utf-16le", "ignore"))
+    p = dest / "strings.txt"
+    p.write_text("\\n".join(sorted(lines)), encoding="utf-8")
+    return p
+
+
+def classify_strings(strings_file: Path, dest: Path) -> None:
+    """Sort strings into buckets that map onto source files you'll rebuild."""
+    buckets = {
+        "param_ids": re.compile(r"^[a-z][A-Za-z0-9_]{2,40}$"),
+        "juce_classes": re.compile(r"^(juce::|JUCE|Component|Slider|Look)"),
+        "source_paths": re.compile(r"\\.(cpp|h|hpp|mm)$|[\\\\/](Source|JuceLibraryCode|modules)[\\\\/]"),
+        "xml_state": re.compile(r"^<|/>$|ValueTree|APVTS|state"),
+        "presets": re.compile(r"(?i)preset|program|bank"),
+        "license_security": re.compile(r"(?i)licen|serial|activat|trial|expire|hwid|machine.?id|hmac|sha|aes|rsa|obfus"),
+        "dsp_terms": re.compile(r"(?i)oversampl|adaa|tanh|limiter|lookahead|sidechain|crossover|biquad|svf|lufs|true.?peak|saturat|drive|glue|comp|eq|hpf|lpf|shelf"),
+        "ui_terms": re.compile(r"(?i)knob|meter|panel|drawer|halo|thermal|font|colour|color|theme|page|tab"),
+    }
+    out = {k: [] for k in buckets}
+    for line in strings_file.read_text(encoding="utf-8").splitlines():
+        for k, rx in buckets.items():
+            if rx.search(line):
+                out[k].append(line)
+    (dest / "strings_classified.json").write_text(json.dumps(out, indent=2))
+    # source_paths is gold: it tells you the original file tree
+    if out["source_paths"]:
+        (dest / "ORIGINAL_FILE_TREE.txt").write_text("\\n".join(sorted(set(out["source_paths"]))))
+
+
+def detect_juce(strings_file: Path) -> str | None:
+    txt = strings_file.read_text(encoding="utf-8")
+    m = re.search(r"JUCE v?(\\d+\\.\\d+\\.\\d+)", txt)
+    return m.group(1) if m else None
+
+
+def pe_has_pdb(data: bytes) -> str | None:
+    m = re.search(rb"RSDS.{20}([\\x20-\\x7e]+\\.pdb)", data, re.S)
+    return m.group(1).decode() if m else None
+
+
+def cmd_inventory(args) -> None:
+    plugin = Path(args.plugin).resolve()
+    dest = out_dir(plugin, Path(args.out))
+    bins = find_binaries(plugin)
+    if not bins:
+        sys.exit("No PE/Mach-O/ELF binary found in " + str(plugin))
+    report = {"plugin": str(plugin), "binaries": []}
+    for b in bins:
+        data = b.read_bytes()
+        bdir = dest / "inventory" / b.stem
+        bdir.mkdir(parents=True, exist_ok=True)
+        strings = dump_strings(data, bdir)
+        classify_strings(strings, bdir)
+        carved = carve_resources(data, bdir / "resources")
+        pdb = pe_has_pdb(data)
+        entry = {
+            "path": str(b),
+            "size": len(data),
+            "juce_version": detect_juce(strings),
+            "pdb_reference": pdb,
+            "pdb_present_next_to_binary": bool(pdb and (b.parent / Path(pdb).name).exists()),
+            "carved_resources": carved,
+        }
+        report["binaries"].append(entry)
+        print(json.dumps(entry, indent=2))
+    (dest / "inventory.json").write_text(json.dumps(report, indent=2))
+    print("\\nInventory written to", dest / "inventory.json")
+    if any(e["pdb_reference"] and not e["pdb_present_next_to_binary"] for e in report["binaries"]):
+        print("!! Binary references a .pdb — FIND IT. Search build/, Release/, x64/, OneDrive, "
+              "old CI artifacts. With the .pdb Ghidra restores every function/variable name.")
+
+
+# -------------------------------------------------------------------------- params
+
+def cmd_params(args) -> None:
+    plugin = Path(args.plugin).resolve()
+    dest = out_dir(plugin, Path(args.out))
+    try:
+        import pedalboard  # type: ignore
+    except ImportError:
+        sys.exit("pip install pedalboard   (must run on the OS the plugin was built for)")
+    if platform.system() == "Linux" and plugin.suffix.lower() in (".dll", ".vst3") and \\
+            not any(p.suffix == ".so" for p in plugin.rglob("*")):
+        sys.exit("A Windows/mac plugin cannot be loaded on Linux. Run \`params\` on the target OS.")
+    p = pedalboard.load_plugin(str(plugin))
+    params = {}
+    for name in p.parameters:
+        prm = getattr(p, name)
+        d = {"name": name}
+        for attr in ("label", "units", "min_value", "max_value", "step_size", "default_value",
+                     "valid_values", "type", "raw_value", "string_value"):
+            v = getattr(prm, attr, None)
+            if v is not None:
+                try:
+                    json.dumps(v)
+                    d[attr] = v
+                except TypeError:
+                    d[attr] = str(v)
+        params[name] = d
+    out = {
+        "plugin": str(plugin),
+        "name": getattr(p, "name", plugin.stem),
+        "is_instrument": getattr(p, "is_instrument", False),
+        "parameter_count": len(params),
+        "parameters": params,
+    }
+    (dest / "params.json").write_text(json.dumps(out, indent=2, default=str))
+    # Try to pull the full APVTS/plugin state blob — this is your saved ValueTree XML
+    try:
+        state = p.raw_state  # bytes in newer pedalboard
+        (dest / "state.bin").write_bytes(bytes(state))
+        txt = bytes(state).decode("utf-8", "ignore")
+        if "<" in txt:
+            (dest / "state_valuetree.xml").write_text(txt)
+    except Exception as e:  # noqa: BLE001
+        print("  (state blob not exposed by this pedalboard version:", e, ")")
+    print(f"{len(params)} parameters -> {dest / 'params.json'}")
+
+
+# -------------------------------------------------------------------------- ghidra
+
+def find_ghidra() -> Path | None:
+    env = os.environ.get("GHIDRA_INSTALL_DIR")
+    cands = [env] if env else []
+    cands += [str(p) for p in Path.home().glob("ghidra_*")]
+    cands += [str(p) for p in Path("/opt").glob("ghidra*")]
+    cands += [str(p) for p in Path("C:/").glob("ghidra*")] if platform.system() == "Windows" else []
+    for c in cands:
+        if not c:
+            continue
+        c = Path(c)
+        h = c / "support" / ("analyzeHeadless.bat" if platform.system() == "Windows" else "analyzeHeadless")
+        if h.exists():
+            return h
+    return None
+
+
+def cmd_ghidra(args) -> None:
+    plugin = Path(args.plugin).resolve()
+    dest = out_dir(plugin, Path(args.out))
+    headless = find_ghidra()
+    if not headless:
+        sys.exit("Ghidra not found. Set GHIDRA_INSTALL_DIR or install per README (GitHub releases).")
+    script_dir = Path(__file__).parent / "ghidra_scripts"
+    proj = dest / "ghidra_project"
+    proj.mkdir(exist_ok=True)
+    export = dest / "decompiled"
+    export.mkdir(exist_ok=True)
+    for b in find_binaries(plugin):
+        cmd = [str(headless), str(proj), "vst_recover",
+               "-import", str(b), "-overwrite",
+               "-scriptPath", str(script_dir),
+               "-postScript", "ExportDecompiled.java", str(export)]
+        pdb = b.parent / (b.stem + ".pdb")
+        if pdb.exists():
+            cmd += ["-loader", "PeLoader"]  # Ghidra auto-applies a sibling .pdb during analysis
+            print("  Using PDB:", pdb)
+        if args.max_mem:
+            os.environ["MAXMEM"] = args.max_mem
+        run(cmd, check=False)
+    print("\\nDecompiled output ->", export)
+    print("  Start with dsp_candidates.md, then classes/*.cpp")
+
+
+# -------------------------------------------------------------------------- retdec
+
+def cmd_retdec(args) -> None:
+    plugin = Path(args.plugin).resolve()
+    dest = out_dir(plugin, Path(args.out)) / "retdec"
+    dest.mkdir(exist_ok=True)
+    rd = which("retdec-decompiler") or which("retdec-decompiler.py")
+    if not rd:
+        sys.exit("retdec-decompiler not on PATH (https://github.com/avast/retdec/releases)")
+    for b in find_binaries(plugin):
+        run([rd, str(b), "-o", str(dest / (b.stem + ".c")), "--cleanup"], check=False)
+    print("RetDec output ->", dest)
+
+
+# ------------------------------------------------------------------------ scaffold
+
+def _cpp_ident(s: str) -> str:
+    s = re.sub(r"[^A-Za-z0-9_]", "_", s)
+    return s if not s[:1].isdigit() else "_" + s
+
+
+def cmd_scaffold(args) -> None:
+    plugin = Path(args.plugin).resolve()
+    dest = out_dir(plugin, Path(args.out))
+    pj = dest / "params.json"
+    if not pj.exists():
+        sys.exit("Run \`params\` first (params.json missing).")
+    params = json.loads(pj.read_text())
+    name = _cpp_ident(params.get("name") or plugin.stem)
+    src = dest / "scaffold" / "Source"
+    src.mkdir(parents=True, exist_ok=True)
+
+    # ---- APVTS layout rebuilt from the live parameter dump
+    layout_lines = []
+    for pid, p in params["parameters"].items():
+        cid = _cpp_ident(pid)
+        lo, hi = p.get("min_value", 0.0), p.get("max_value", 1.0)
+        dflt = p.get("default_value", lo)
+        choices = p.get("valid_values")
+        if isinstance(choices, list) and choices and all(isinstance(c, str) for c in choices):
+            if set(choices) <= {"On", "Off", "true", "false", "True", "False"}:
+                layout_lines.append(
+                    f'    layout.add (std::make_unique<juce::AudioParameterBool> ("{pid}", "{p.get("name", pid)}", '
+                    f'{str(str(dflt).lower() in ("on", "true", "1")).lower()}));')
+            else:
+                arr = ", ".join(f'"{c}"' for c in choices)
+                di = choices.index(str(dflt)) if str(dflt) in choices else 0
+                layout_lines.append(
+                    f'    layout.add (std::make_unique<juce::AudioParameterChoice> ("{pid}", "{p.get("name", pid)}", '
+                    f'juce::StringArray {{ {arr} }}, {di}));')
+        else:
+            try:
+                lo_f, hi_f, d_f = float(lo), float(hi), float(dflt)
+            except (TypeError, ValueError):
+                lo_f, hi_f, d_f = 0.0, 1.0, 0.0
+            layout_lines.append(
+                f'    layout.add (std::make_unique<juce::AudioParameterFloat> ("{pid}", "{p.get("name", pid)}", '
+                f'juce::NormalisableRange<float> ({lo_f}f, {hi_f}f), {d_f}f'
+                + (f', "{p["units"]}"' if p.get("units") else "") + "));   // TODO: skew/step from decompile")
+        _ = cid
+
+    # ---- pull decompiled DSP candidates in as TODO blocks
+    dsp_notes = ""
+    cand = dest / "decompiled" / "dsp_candidates.md"
+    if cand.exists():
+        dsp_notes = "\\n// ===== Recovered DSP candidates (from Ghidra) — port each into a clean class =====\\n"
+        dsp_notes += "".join("// " + l + "\\n" for l in cand.read_text().splitlines()[:200])
+
+    header = f"""#pragma once
+#include <juce_audio_processors/juce_audio_processors.h>
+#include <juce_dsp/juce_dsp.h>
+
+// Reconstructed from the compiled plugin by vst_recover.py. Parameter IDs, names,
+// ranges and defaults are EXACT (dumped from the live binary) — keep them so old
+// sessions/presets still load. DSP bodies are TODO: port from decompiled/.
+
+class {name}AudioProcessor : public juce::AudioProcessor
+{{
+public:
+    {name}AudioProcessor();
+    ~{name}AudioProcessor() override = default;
+
+    void prepareToPlay (double sampleRate, int samplesPerBlock) override;
+    void releaseResources() override {{}}
+    void processBlock (juce::AudioBuffer<float>&, juce::MidiBuffer&) override;
+
+    juce::AudioProcessorEditor* createEditor() override;
+    bool hasEditor() const override {{ return true; }}
+    const juce::String getName() const override {{ return "{params.get('name', plugin.stem)}"; }}
+    bool acceptsMidi() const override {{ return false; }}
+    bool producesMidi() const override {{ return false; }}
+    double getTailLengthSeconds() const override {{ return 0.0; }}
+    int getNumPrograms() override {{ return 1; }}
+    int getCurrentProgram() override {{ return 0; }}
+    void setCurrentProgram (int) override {{}}
+    const juce::String getProgramName (int) override {{ return {{}}; }}
+    void changeProgramName (int, const juce::String&) override {{}}
+    void getStateInformation (juce::MemoryBlock&) override;
+    void setStateInformation (const void*, int) override;
+
+    juce::AudioProcessorValueTreeState apvts;
+
+private:
+    static juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR ({name}AudioProcessor)
+}};
+"""
+    cpp = f"""#include "PluginProcessor.h"
+#include "PluginEditor.h"
+
+{name}AudioProcessor::{name}AudioProcessor()
+    : AudioProcessor (BusesProperties().withInput ("Input", juce::AudioChannelSet::stereo(), true)
+                                       .withOutput ("Output", juce::AudioChannelSet::stereo(), true)),
+      apvts (*this, nullptr, "PARAMETERS", createParameterLayout())
+{{
+}}
+
+juce::AudioProcessorValueTreeState::ParameterLayout {name}AudioProcessor::createParameterLayout()
+{{
+    juce::AudioProcessorValueTreeState::ParameterLayout layout;
+{chr(10).join(layout_lines)}
+    return layout;
+}}
+
+void {name}AudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
+{{
+    juce::ignoreUnused (sampleRate, samplesPerBlock);
+    // TODO: oversampling, limiter lookahead (setLatencySamples), filter prep
+}}
+
+void {name}AudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer&)
+{{
+    juce::ScopedNoDenormals noDenormals;
+    juce::ignoreUnused (buffer);
+    // TODO: port signal chain from decompiled/dsp_candidates.md
+}}
+
+void {name}AudioProcessor::getStateInformation (juce::MemoryBlock& destData)
+{{
+    if (auto xml = apvts.copyState().createXml())
+        copyXmlToBinary (*xml, destData);
+}}
+
+void {name}AudioProcessor::setStateInformation (const void* data, int sizeInBytes)
+{{
+    if (auto xml = getXmlFromBinary (data, sizeInBytes))
+        if (xml->hasTagName (apvts.state.getType()))
+            apvts.replaceState (juce::ValueTree::fromXml (*xml));
+}}
+
+juce::AudioProcessorEditor* {name}AudioProcessor::createEditor()
+{{
+    return new {name}AudioProcessorEditor (*this);
+}}
+
+juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter() {{ return new {name}AudioProcessor(); }}
+{dsp_notes}"""
+    editor_h = f"""#pragma once
+#include "PluginProcessor.h"
+
+// Attachments for every recovered parameter are generated below so the UI is
+// wired on day one. Replace the plain Sliders with your LookAndFeel/knob classes;
+// carved images/fonts live in ../inventory/*/resources/.
+class {name}AudioProcessorEditor : public juce::AudioProcessorEditor
+{{
+public:
+    explicit {name}AudioProcessorEditor ({name}AudioProcessor&);
+    void paint (juce::Graphics&) override;
+    void resized() override;
+private:
+    {name}AudioProcessor& proc;
+    juce::OwnedArray<juce::Slider> sliders;
+    juce::OwnedArray<juce::Label> labels;
+    juce::OwnedArray<juce::AudioProcessorValueTreeState::SliderAttachment> attachments;
+}};
+"""
+    editor_cpp = f"""#include "PluginEditor.h"
+
+{name}AudioProcessorEditor::{name}AudioProcessorEditor ({name}AudioProcessor& p)
+    : AudioProcessorEditor (&p), proc (p)
+{{
+    const char* ids[] = {{ {", ".join(f'"{pid}"' for pid in params["parameters"])} }};
+    for (auto* id : ids)
+    {{
+        if (proc.apvts.getParameter (id) == nullptr) continue;
+        auto* s = sliders.add (new juce::Slider (juce::Slider::RotaryHorizontalVerticalDrag, juce::Slider::TextBoxBelow));
+        auto* l = labels.add (new juce::Label ({{}}, id));
+        l->attachToComponent (s, false);
+        addAndMakeVisible (s);
+        attachments.add (new juce::AudioProcessorValueTreeState::SliderAttachment (proc.apvts, id, *s));
+    }}
+    setSize (900, 600);
+}}
+
+void {name}AudioProcessorEditor::paint (juce::Graphics& g) {{ g.fillAll (juce::Colour (0xff1a1a1a)); }}
+
+void {name}AudioProcessorEditor::resized()
+{{
+    juce::FlexBox fb; fb.flexWrap = juce::FlexBox::Wrap::wrap;
+    for (auto* s : sliders) fb.items.add (juce::FlexItem (*s).withMinWidth (110).withMinHeight (120));
+    fb.performLayout (getLocalBounds().reduced (12));
+}}
+"""
+    (src / "PluginProcessor.h").write_text(header)
+    (src / "PluginProcessor.cpp").write_text(cpp)
+    (src / "PluginEditor.h").write_text(editor_h)
+    (src / "PluginEditor.cpp").write_text(editor_cpp)
+    cmake = f"""cmake_minimum_required(VERSION 3.22)
+project({name} VERSION 1.0.0)
+add_subdirectory(JUCE)   # git clone https://github.com/juce-framework/JUCE (match inventory.json juce_version)
+juce_add_plugin({name}
+    COMPANY_NAME "Multibanded LLC"
+    PLUGIN_MANUFACTURER_CODE Mzaa
+    PLUGIN_CODE {name[:4].ljust(4,'x')}
+    FORMATS VST3 AU Standalone
+    PRODUCT_NAME "{params.get('name', plugin.stem)}")
+target_sources({name} PRIVATE Source/PluginProcessor.cpp Source/PluginEditor.cpp)
+target_compile_definitions({name} PUBLIC JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0 JUCE_VST3_CAN_REPLACE_VST2=0)
+target_link_libraries({name} PRIVATE juce::juce_audio_utils juce::juce_dsp
+    PUBLIC juce::juce_recommended_config_flags juce::juce_recommended_lto_flags juce::juce_recommended_warning_flags)
+"""
+    (dest / "scaffold" / "CMakeLists.txt").write_text(cmake)
+    print("Scaffold ->", dest / "scaffold")
+    print("  NOTE: keep PLUGIN_MANUFACTURER_CODE/PLUGIN_CODE identical to the original build so DAW sessions "
+          "re-link; find them in inventory strings (4-char codes) or the old CMake/Projucer file.")
+
+
+# ----------------------------------------------------------------------------- main
+
+def main() -> None:
+    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("plugin", help="path to .dll / .vst3 (file or bundle folder)")
+    ap.add_argument("-o", "--out", default="recovered", help="output root (default ./recovered)")
+    ap.add_argument("--max-mem", default=None, help="Ghidra heap, e.g. 8G")
+    sub = ap.add_subparsers(dest="cmd", required=True)
+    for c in ("inventory", "params", "ghidra", "retdec", "scaffold", "all"):
+        sub.add_parser(c)
+    args = ap.parse_args()
+    steps = {"inventory": cmd_inventory, "params": cmd_params, "ghidra": cmd_ghidra,
+             "retdec": cmd_retdec, "scaffold": cmd_scaffold}
+    if args.cmd == "all":
+        for s in ("inventory", "params", "ghidra", "scaffold"):
+            print(f"\\n=== {s} ===")
+            try:
+                steps[s](args)
+            except SystemExit as e:
+                print("  skipped:", e)
+    else:
+        steps[args.cmd](args)
+
+
+if __name__ == "__main__":
+    main()
+`;
+const KIT_JAVA = `// ExportDecompiled.java — Ghidra headless post-script.
+// Decompiles every function, demangles C++ names, groups output into one .cpp per
+// class/namespace, and ranks functions by "DSP likelihood" (float ops, constants,
+// calls to tanh/exp/log/sin, loop density) so you port the signal chain first.
+//
+// Usage (called by vst_recover.py):
+//   analyzeHeadless <proj> <name> -import plugin.dll -postScript ExportDecompiled.java <outDir>
+//@category VSTRecover
+
+import ghidra.app.decompiler.DecompInterface;
+import ghidra.app.decompiler.DecompileResults;
+import ghidra.app.script.GhidraScript;
+import ghidra.app.util.demangler.DemangledObject;
+import ghidra.app.util.demangler.DemanglerUtil;
+import ghidra.program.model.address.Address;
+import ghidra.program.model.listing.Function;
+import ghidra.program.model.listing.FunctionIterator;
+import ghidra.program.model.listing.Instruction;
+import ghidra.program.model.listing.InstructionIterator;
+import ghidra.program.model.symbol.Reference;
+import ghidra.program.model.symbol.Symbol;
+
+import java.io.File;
+import java.io.FileWriter;
+import java.io.PrintWriter;
+import java.util.*;
+
+public class ExportDecompiled extends GhidraScript {
+
+    static final String[] DSP_CALLS = { "tanh", "tanhf", "exp", "expf", "log", "logf", "log10", "pow", "powf",
+            "sin", "sinf", "cos", "cosf", "sqrt", "sqrtf", "atan", "fabs", "floor", "ceil" };
+
+    static class Row {
+        String name, cls; Address addr; int score; int floatOps; int calls; int size; String code;
+    }
+
+    @Override
+    protected void run() throws Exception {
+        String[] a = getScriptArgs();
+        File out = new File(a.length > 0 ? a[0] : "decompiled");
+        File classes = new File(out, "classes");
+        classes.mkdirs();
+
+        DecompInterface ifc = new DecompInterface();
+        ifc.toggleCCode(true);
+        ifc.toggleSyntaxTree(false);
+        ifc.setSimplificationStyle("decompile");
+        ifc.openProgram(currentProgram);
+
+        List<Row> rows = new ArrayList<>();
+        Map<String, List<Row>> byClass = new TreeMap<>();
+        Map<String, Integer> stringRefs = new HashMap<>();
+
+        FunctionIterator it = currentProgram.getFunctionManager().getFunctions(true);
+        int n = 0;
+        while (it.hasNext() && !monitor.isCancelled()) {
+            Function f = it.next();
+            if (f.isThunk() || f.isExternal()) continue;
+            n++;
+            monitor.setMessage("Decompiling " + n + ": " + f.getName());
+
+            Row r = new Row();
+            r.addr = f.getEntryPoint();
+            r.name = demangle(f.getName());
+            r.cls = classOf(r.name);
+            r.size = (int) f.getBody().getNumAddresses();
+
+            // score: count float/SSE instructions + libm calls
+            InstructionIterator ii = currentProgram.getListing().getInstructions(f.getBody(), true);
+            while (ii.hasNext()) {
+                Instruction ins = ii.next();
+                String m = ins.getMnemonicString().toLowerCase();
+                if (m.endsWith("ss") || m.endsWith("sd") || m.endsWith("ps") || m.endsWith("pd") || m.startsWith("f") || m.startsWith("cvt"))
+                    r.floatOps++;
+                if (m.startsWith("call")) {
+                    r.calls++;
+                    for (Reference ref : ins.getReferencesFrom()) {
+                        Symbol s = getSymbolAt(ref.getToAddress());
+                        if (s == null) continue;
+                        String sn = s.getName().toLowerCase();
+                        for (String d : DSP_CALLS) if (sn.equals(d) || sn.endsWith("::" + d)) r.score += 25;
+                    }
+                }
+                for (Reference ref : ins.getReferencesFrom()) {
+                    Object dat = getDataAt(ref.getToAddress()) == null ? null : getDataAt(ref.getToAddress()).getValue();
+                    if (dat instanceof String) stringRefs.merge(r.name, 1, Integer::sum);
+                }
+            }
+            r.score += Math.min(r.floatOps, 400);
+            if (r.name.toLowerCase().matches(".*(process|render|filter|limit|satur|drive|oversampl|compress|eq|shelf|biquad|svf|lookahead|tanh|adaa|lufs|peak|meter).*"))
+                r.score += 150;
+            if (r.name.toLowerCase().matches(".*(paint|resized|mouse|lookandfeel|draw|component|button|slider|label|timer).*"))
+                r.score -= 100; // UI: still exported, just not in the DSP list
+
+            DecompileResults res = ifc.decompileFunction(f, 60, monitor);
+            r.code = (res != null && res.decompileCompleted()) ? res.getDecompiledFunction().getC()
+                    : "// decompile failed: " + (res == null ? "null" : res.getErrorMessage());
+            rows.add(r);
+            byClass.computeIfAbsent(r.cls, k -> new ArrayList<>()).add(r);
+        }
+
+        // one .cpp per class / namespace
+        for (Map.Entry<String, List<Row>> e : byClass.entrySet()) {
+            String fn = e.getKey().replaceAll("[^A-Za-z0-9_]", "_");
+            if (fn.isEmpty()) fn = "_global";
+            try (PrintWriter w = new PrintWriter(new FileWriter(new File(classes, fn + ".cpp")))) {
+                w.println("// ===== Recovered from binary: " + e.getKey() + " =====");
+                w.println("// " + e.getValue().size() + " functions. Names are demangled where symbols survived;");
+                w.println("// FUN_xxxx names mean the symbol was stripped — infer role from body + dsp_candidates.md.");
+                w.println();
+                for (Row r : e.getValue()) {
+                    w.println("// ---- " + r.name + " @ " + r.addr + "  (size " + r.size + ", floatOps " + r.floatOps + ", dspScore " + r.score + ")");
+                    w.println(r.code);
+                    w.println();
+                }
+            }
+        }
+
+        // symbol map
+        try (PrintWriter w = new PrintWriter(new FileWriter(new File(out, "symbols.tsv")))) {
+            w.println("address\\tclass\\tfunction\\tsize\\tfloatOps\\tdspScore");
+            for (Row r : rows) w.println(r.addr + "\\t" + r.cls + "\\t" + r.name + "\\t" + r.size + "\\t" + r.floatOps + "\\t" + r.score);
+        }
+
+        // DSP ranking
+        rows.sort((x, y) -> Integer.compare(y.score, x.score));
+        try (PrintWriter w = new PrintWriter(new FileWriter(new File(out, "dsp_candidates.md")))) {
+            w.println("# DSP candidates (highest first) — port these into clean classes");
+            w.println();
+            w.println("| rank | dspScore | floatOps | size | class | function | file |");
+            w.println("|---|---|---|---|---|---|---|");
+            int k = 0;
+            for (Row r : rows) {
+                if (r.score <= 0 || k >= 150) break;
+                k++;
+                w.println("| " + k + " | " + r.score + " | " + r.floatOps + " | " + r.size + " | " + r.cls + " | \`" + r.name
+                        + "\` | classes/" + r.cls.replaceAll("[^A-Za-z0-9_]", "_") + ".cpp |");
+            }
+            w.println();
+            w.println("Tips: constants like 0.5f, 1.4142f, 6.2831853f, 20.0/20000.0 mark filter/oversampling code;");
+            w.println("look for exp(-1/(sr*t)) shapes = envelope coefficients; tanh/ADAA = saturation; ");
+            w.println("max()/abs() ladders with a delay line = true-peak limiter.");
+        }
+
+        // string-reference map (which functions touch which UI/preset/licence strings)
+        try (PrintWriter w = new PrintWriter(new FileWriter(new File(out, "string_refs.tsv")))) {
+            w.println("function\\tstringRefs");
+            stringRefs.entrySet().stream().sorted((p, q) -> q.getValue() - p.getValue())
+                    .forEach(en -> w.println(en.getKey() + "\\t" + en.getValue()));
+        }
+
+        ifc.dispose();
+        println("Exported " + rows.size() + " functions into " + byClass.size() + " class files -> " + out);
+    }
+
+    String demangle(String name) {
+        try {
+            DemangledObject d = DemanglerUtil.demangle(currentProgram, name);
+            if (d != null && d.getSignature(false) != null) return d.getSignature(false);
+        } catch (Exception ignored) { }
+        return name;
+    }
+
+    String classOf(String demangled) {
+        // "juce::Slider::mouseDrag(...)"  -> "juce::Slider" ; "BTZ::ADAATanh::process(...)" -> "BTZ::ADAATanh"
+        String s = demangled.replaceAll("\\\\(.*$", "");
+        int i = s.lastIndexOf("::");
+        if (i < 0) return demangled.startsWith("FUN_") ? "_stripped" : "_global";
+        String cls = s.substring(0, i).replaceAll("^.*\\\\s", "");
+        return cls.isEmpty() ? "_global" : cls;
+    }
+}
+`;
+(() => {
+const $ = s => document.querySelector(s);
+let DL = undefined; // downloads capability namespace, null if unavailable
+(async () => { try { DL = window.claude && window.claude.use ? await window.claude.use('downloads') : null; } catch (e) { DL = null; } })();
+async function saveFile(filename, blob) {
+  if (DL === undefined) { await new Promise(r => setTimeout(r, 400)); }
+  if (DL) { try { await DL.save({ filename, data: blob }); return 'saved'; } catch (e) { if (e && e.code === 'declined') return 'declined'; console.warn(e); } }
+  try { const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = filename; a.click(); return 'saved'; } catch (e) { return 'failed'; }
+}
+const drop = $('#drop'), input = $('#file'), status = $('#status'), intake = $('#intake');
+const uniq = a => [...new Set(a)];
+// accumulated state across drops
+const S = { bins: [], presets: [], sources: [], pdbs: [], objs: [], others: 0 };
+let R = null;
+
+// ---------------- intake
+const folderIn = $('#folder');
+drop.addEventListener('click', e => { if (e.target.id === 'pickFolder') { e.preventDefault(); folderIn.click(); return; } if (e.target.id === 'pickFiles') { e.preventDefault(); input.click(); return; } e.preventDefault(); input.click(); });
+folderIn.addEventListener('change', () => ingest([...folderIn.files].map(f => ({ f, path: f.webkitRelativePath || f.name }))));
+if (!('webkitdirectory' in document.createElement('input')) || /iPhone|iPad|Android/i.test(navigator.userAgent)) { const pf = $('#pickFolder'); if (pf) pf.textContent = 'Choose several files'; }
+drop.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); input.click(); } });
+['dragenter','dragover'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add('over'); }));
+['dragleave','drop'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.remove('over'); }));
+drop.addEventListener('drop', async e => {
+  const files = [];
+  const walk = async (entry, path) => {
+    if (entry.isFile) return new Promise(r => entry.file(f => { files.push({ f, path: path + f.name }); r(); }, r));
+    if (entry.isDirectory) { const rd = entry.createReader(); let batch; do { batch = await new Promise(r => rd.readEntries(r, () => r([]))); for (const en of batch) await walk(en, path + entry.name + '/'); } while (batch.length); }
+  };
+  for (const it of [...(e.dataTransfer.items || [])]) { const en = it.webkitGetAsEntry && it.webkitGetAsEntry(); if (en) await walk(en, ''); }
+  if (!files.length) for (const f of e.dataTransfer.files) files.push({ f, path: f.name });
+  ingest(files);
+});
+input.addEventListener('change', () => ingest([...input.files].map(f => ({ f, path: f.webkitRelativePath || f.name }))));
+
+const SRC_RX = /\.(cpp|cc|cxx|c|h|hpp|hh|mm|m|jucer|cmake|txt|json|md|xml|svg|png|jpg|ttf|otf)$/i;
+const PRESET_RX = /\.(vstpreset|fxp|fxb|aupreset|rpp|als|flp|cpr|logicx|ptx|song|bwproject|xml|json|txt)$/i;
+
+async function expandZips(files) {
+  const out = [];
+  for (const it of files) {
+    if (!/\.zip$/i.test(it.f.name) || !window.JSZip) { out.push(it); continue; }
+    status.textContent = `Unpacking ${it.f.name} (${(it.f.size/1048576).toFixed(0)} MB)…`; await new Promise(r => setTimeout(r, 20));
+    try {
+      const z = await JSZip.loadAsync(await it.f.arrayBuffer()); const entries = Object.values(z.files).filter(e => !e.dir && !/(^|\/)(__MACOSX|\.DS_Store)/.test(e.name));
+      let k = 0;
+      for (const e of entries) { k++; if (k % 25 === 0) { status.textContent = `Unpacking ${it.f.name}: ${k}/${entries.length}`; await new Promise(r => setTimeout(r, 0)); }
+        const data = await e.async('uint8array'); const name = e.name.split('/').pop();
+        out.push({ f: new File([data], name, { type: '' }), path: it.f.name.replace(/\.zip$/i, '') + '/' + e.name }); }
+      chip(it.f.name + ' (' + entries.length + ' files)', 'p');
+    } catch (err) { status.textContent = 'Could not read ' + it.f.name + ': ' + (err && err.message || err); }
+  }
+  return out;
+}
+async function ingest(files) {
+  let n = 0;
+  files = await expandZips(files);
+  for (const { f, path } of files) {
+    const low = f.name.toLowerCase();
+    if (/[\\/](node_modules|\.git|JUCE[\\/]modules|build[\\/]_deps)[\\/]/i.test(path)) continue;
+    const head = new Uint8Array(await f.slice(0, 4).arrayBuffer());
+    const isPE = head[0] === 0x4d && head[1] === 0x5a, isMacho = (head[0] === 0xcf && head[1] === 0xfa) || (head[0] === 0xca && head[1] === 0xfe), isELF = head[0] === 0x7f && head[1] === 0x45;
+    if (low.endsWith('.pdb')) { S.pdbs.push({ f, path }); chip(f.name, 'd'); n++; continue; }
+    if ((isPE || isMacho || isELF) && f.size > 32 * 1024) { S.bins.push({ f, path, kind: isPE ? 'PE' : isMacho ? 'Mach-O' : 'ELF' }); chip(f.name, 'b'); n++; continue; }
+    if (/\.(obj|o|ilk|pch)$/i.test(low)) { S.objs.push({ f, path }); n++; continue; }
+    if (SRC_RX.test(low) && /(source|src|juce|include|resources|assets|cmake|\.jucer)/i.test(path) || /\.(cpp|h|hpp|jucer|mm)$/i.test(low)) { S.sources.push({ f, path }); chip(f.name, 's'); n++; continue; }
+    if (PRESET_RX.test(low) && f.size < 200 * 1024 * 1024) { S.presets.push({ f, path }); chip(f.name, 'p'); n++; continue; }
+    S.others++;
+  }
+  status.textContent = n ? `Took in ${n} file${n>1?'s':''}. Analyzing…` : 'Nothing usable in that drop. Try the plugin file, a preset, or your old project folder.';
+  if (n) { await new Promise(r => setTimeout(r, 30)); try { await analyzeAll(); } catch (err) { console.error(err); status.textContent = 'Analysis failed: ' + (err && err.message || err) + ' — screenshot this and send it to chat.'; } }
+}
+function chip(name, cls) { const c = document.createElement('span'); c.className = 'chip ' + cls; c.textContent = name; intake.appendChild(c); }
+
+// ---------------- analysis
+let CORPUS = null;
+function pluginKeyOf(path) { const m = path.match(/([^\\/]+\.(vst3|vst|component|dll|dylib))(?=[\\/]|$)/i); return m ? m[1] : path.split(/[\\/]/).pop(); }
+async function analyzeAll() {
+  const tick = async msg => { status.textContent = msg; await new Promise(r => setTimeout(r, 20)); };
+  // group binaries by plugin bundle (path segment ending in .vst3/.dll/…); keep the largest binary per group as primary
+  const groups = new Map();
+  for (const b of S.bins) { const k = pluginKeyOf(b.path); (groups.get(k) || groups.set(k, []).get(k)).push(b); }
+  const keys = [...groups.keys()];
+  const attach = (list, key) => list.filter(x => keys.length === 1 || x.path.includes(key.replace(/\.[^.]+$/, '')));
+  const results = [];
+  let idx = 0;
+  for (const [key, bins] of groups) {
+    idx++;
+    const t0 = performance.now();
+    const r = await analyzeGroup(bins, attach(S.presets, key), attach(S.sources, key), attach(S.objs, key), S.pdbs, msg => tick(`[${idx}/${keys.length}] ${key}: ${msg}`));
+    r.key = key; r.ms = Math.round(performance.now() - t0);
+    r.heap = performance.memory ? Math.round(performance.memory.usedJSHeapSize / 1048576) : null;
+    if (keys.length > 1) { r.stringsCount = r.strings.length; r.strings = r.strings.slice(0, 5000); for (const bb of r.bins) bb.strings = null; }
+    results.push(r);
+    await tick(`[${idx}/${keys.length}] ${key}: done in ${(r.ms/1000).toFixed(1)} s`);
+  }
+  if (results.length === 1) { R = results[0]; CORPUS = null; render(); status.textContent = `Done in ${(R.ms/1000).toFixed(1)} s. Drop more files any time — presets and sessions fill parameter ranges; a .pdb unlocks names.`; }
+  else { CORPUS = buildCorpus(results); R = results[0]; renderCorpus(); status.textContent = `Corpus of ${results.length} plugins analysed in ${(CORPUS.performance.total_ms/1000).toFixed(1)} s.`; }
+}
+async function analyzeGroup(bins, presets, sources, objs, pdbs, tick) {
+  const R = { bins: [], classes: [], params: {}, tree: [], juce: null, pdb: null, pdbFound: false, resources: [], consts: [], strings: [], buckets: {}, rescued: [], presetFiles: [], inputs: [] };
+  bins = bins.slice().sort((a, b) => b.f.size - a.f.size);
+  for (const b of bins) {
+    await tick(`reading ${b.f.name} (${(b.f.size/1048576).toFixed(1)} MB)`);
+    const buf = await b.f.arrayBuffer(); const u8 = new Uint8Array(buf);
+    let sha = null; try { if (crypto.subtle) sha = hex(await crypto.subtle.digest('SHA-256', buf)); } catch (e) {}
+    R.inputs.push({ path: b.path, size: b.f.size, sha256: sha });
+    const a = await analyzeBinary(u8, b.f.name, b.kind, tick); a.sha256 = sha;
+    R.bins.push(a);
+    R.classes = R.classes.concat(a.classes); R.classesAll = (R.classesAll || []).concat(a.classesAll || []); R.pathsAll = (R.pathsAll || []).concat(a.pathsAll || []);
+    R.tree = R.tree.concat(a.tree); R.resources = R.resources.concat(a.resources.map(x => ({ ...x, from: a.name }))); R.consts = R.consts.concat(a.consts); R.strings = R.strings.concat(a.strings);
+    R.candidateStrings = uniq((R.candidateStrings || []).concat(a.candidateStrings || []));
+    R.juce = R.juce || a.juce; R.pdb = R.pdb || a.pdb;
+    for (const { id, value } of (a.embeddedParams || [])) { const e = R.params[id] || { id, values: [] }; e.values = e.values || []; e.values.push(value); e.source = 'XML embedded in binary'; e.conf = 2; R.params[id] = e; }
+    if (a.embeddedXml) R.presetFiles.push({ name: a.name + ' (embedded)', count: (a.embeddedParams || []).length, xml: a.embeddedXml });
+    for (const [k, v] of Object.entries(a.buckets)) R.buckets[k] = uniq((R.buckets[k] || []).concat(v));
+  }
+  R.classes = uniq(R.classes).sort(); R.tree = uniq(R.tree).sort();
+  R.pdbFound = pdbs.some(p => R.pdb && p.f.name.toLowerCase() === R.pdb.split(/[\\/]/).pop().toLowerCase());
+  for (const p of presets) {
+    const u8 = new Uint8Array(await p.f.arrayBuffer());
+    const found = extractStateXml(u8);
+    if (found.params.length) { R.presetFiles.push({ name: p.f.name, count: found.params.length, xml: found.xml });
+      for (const { id, value } of found.params) { const e = R.params[id] || { id, values: [] }; e.values = e.values || []; e.values.push(value); e.source = 'preset/session XML'; e.conf = 3; R.params[id] = e; } }
+    R.inputs.push({ path: p.path, size: p.f.size });
+  }
+  for (const s of sources) R.rescued.push({ path: s.path, f: s.f });
+  for (const o of objs) { const u8 = new Uint8Array(await o.f.arrayBuffer()); R.tree = R.tree.concat(extractStrings(u8, 8).filter(x => /\.(cpp|h|hpp|mm)$/i.test(x))); }
+  R.tree = uniq(R.tree).sort();
+  await tick('validating resources');
+  { const t0 = performance.now(); await validateResources(R.resources); R.stageValidate = Math.round(performance.now() - t0); }
+  R.binaryDataMap = mapBinaryData(R.resources, uniq(R.bins.flatMap(x => x.binaryDataNames || [])));
+  return R;
+}
+
+// ---------------- corpus layer (cross-plugin; never merges evidence into a single plugin's package)
+function buildCorpus(results) {
+  const N = results.length;
+  const jaccard = (A, B) => { const a = new Set(A), b = new Set(B); let i = 0; for (const x of a) if (b.has(x)) i++; const u = a.size + b.size - i; return u ? i / u : 0; };
+  const classes = {};
+  for (const r of results) for (const x of (r.classesAll || [])) { const c = classes[x.name] || (classes[x.name] = { name: x.name, kind: x.kind, plugins: [], roles: new Set() }); if (!c.plugins.includes(r.key)) c.plugins.push(r.key); c.roles.add(roleFor(x.name)); }
+  const sharedThreshold = Math.max(3, Math.ceil(N * 0.3));
+  const classList = Object.values(classes).map(c => ({ name: c.name, kind: c.kind, plugins: c.plugins, count: c.plugins.length, role_candidate: [...c.roles][0],
+    corpus_class: c.plugins.length === 1 ? 'PLUGIN_SPECIFIC_NAME' : c.plugins.length >= sharedThreshold ? 'SHARED_SYMBOL_FAMILY' : 'RECURRING_NAME',
+    implementation_status: 'SHARED_NAME (implementation identity UNVERIFIED — needs function/vtable fingerprints in the standalone stage)',
+    note: c.kind === 'PLUGIN_OWNED' && c.plugins.length >= sharedThreshold ? 'name recurs across plugins: likely shared internal code family; do not treat as plugin-specific DSP and do not assume identical machine code' : '' }))
+    .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
+  const resources = {};
+  for (const r of results) for (const x of r.resources) { if (!x.sha256) continue; const e = resources[x.sha256] || (resources[x.sha256] = { sha256: x.sha256, ext: x.ext, size: x.data.length, status: x.status, dims: x.dims || x.root || '', plugins: [], names: [] }); if (!e.plugins.includes(r.key)) e.plugins.push(r.key); if (x.candidate_name && !e.names.includes(x.candidate_name)) e.names.push(x.candidate_name); }
+  const resList = Object.values(resources).map(e => ({ ...e, count: e.plugins.length })).sort((a, b) => b.count - a.count || b.size - a.size);
+  const bdNames = {};
+  for (const r of results) for (const n of uniq(r.bins.flatMap(x => x.binaryDataNames || []))) (bdNames[n] = bdNames[n] || []).push(r.key);
+  const params = {};
+  for (const r of results) for (const id of Object.keys(r.params)) (params[id] = params[id] || []).push(r.key);
+  const consts = {};
+  for (const r of results) for (const c of r.consts) { const e = consts[c.label] || (consts[c.label] = { label: c.label, total: 0, plugins: [] }); e.total += c.count; if (!e.plugins.includes(r.key)) e.plugins.push(r.key); }
+  const xmlRoots = {};
+  for (const r of results) for (const x of r.resources) if (x.ext === 'xml' && x.root) (xmlRoots[x.root] = xmlRoots[x.root] || []).push(r.key);
+  const builds = results.map(r => { const b = r.bins[0]; return { plugin: r.key, sha256: b.sha256, size: b.size, format: b.pe.format, arch: b.pe.machine, linker: b.pe.linker, built: b.pe.timestamp, sections: b.pe.sectionNames, juce: r.juce || (b.hasJuce ? 'unversioned' : null), pdb: !!r.pdb, exports: (b.pe.exports || []).slice(0, 6) }; });
+  const ownedSets = results.map(r => ({ key: r.key, set: (r.classesAll || []).filter(x => x.kind === 'PLUGIN_OWNED').map(x => x.name) }));
+  const pairs = [];
+  for (let i = 0; i < N; i++) for (let j = i + 1; j < N; j++) pairs.push({ a: ownedSets[i].key, b: ownedSets[j].key, class_name_set_jaccard: +jaccard(ownedSets[i].set, ownedSets[j].set).toFixed(3) });
+  pairs.sort((x, y) => y.class_name_set_jaccard - x.class_name_set_jaccard);
+  const errors = [];
+  for (const c of classList) if (c.kind === 'PLUGIN_OWNED' && c.count >= sharedThreshold) errors.push({ type: 'OWNERSHIP', item: c.name, in_plugins: c.count, suggestion: 'reclassify SHARED_INTERNAL_LIBRARY (recurs in ' + c.count + '/' + N + ')' });
+  for (const c of classList) if (c.kind === 'PLUGIN_OWNED' && /^[a-z]{2,8}$/.test(c.name)) errors.push({ type: 'SUSPICIOUS_NAME', item: c.name, in_plugins: c.count, suggestion: 'short lowercase RTTI name; verify it is a real class' });
+  for (const r of results) { const unk = (r.classesAll || []).filter(x => x.kind === 'PLUGIN_OWNED' && roleFor(x.name) === 'UNKNOWN').length, own = (r.classesAll || []).filter(x => x.kind === 'PLUGIN_OWNED').length; if (own) errors.push({ type: 'ROLE_COVERAGE', item: r.key, value: `${unk}/${own} owned classes have UNKNOWN role`, suggestion: 'role classifier is name-only; callgraph needed' }); }
+  for (const r of results) { const bad = r.resources.filter(x => x.status === 'INVALID' || x.status === 'CARVED_PARTIAL').length; if (bad) errors.push({ type: 'RESOURCE_BOUNDARY', item: r.key, value: `${bad} invalid/partial carves`, suggestion: 'heuristic-ended signatures (jpg/svg/xml windows)' }); }
+  for (const r of results) { const un = (r.binaryDataMap || []).filter(m => /UNRESOLVED/.test(m.mapping_status)).length; if (un) errors.push({ type: 'BINARYDATA_UNRESOLVED', item: r.key, value: un, suggestion: 'Phase 3 getNamedResource decompile' }); }
+  for (const r of results) if (!Object.keys(r.params).length) errors.push({ type: 'PARAMS_NONE', item: r.key, suggestion: 'no embedded preset XML; needs presets/sessions or Phase 2 host' });
+  const stageNames = ['pe_parse', 'string_scan', 'classify_rtti_paths_xml', 'resource_carve', 'constant_scan', 'resource_validate'];
+  const perPlugin = results.map(r => ({ plugin: r.key, size_mb: +(r.bins[0].size/1048576).toFixed(1), ms: r.ms, mb_per_s: +((r.bins[0].size/1048576) / Math.max(0.001, r.ms/1000)).toFixed(2), strings: r.stringsCount || r.strings.length, resources: r.resources.length, heap_mb_after: r.heap, stages_ms: { ...(r.bins[0].stages || {}), resource_validate: r.stageValidate || 0 } }));
+  const q = (arr, f) => { const s = arr.slice().sort((a, b) => a - b); return s.length ? s[Math.min(s.length - 1, Math.floor(f * (s.length - 1)))] : 0; };
+  const stageStats = {}; for (const s of stageNames) { const v = perPlugin.map(p => p.stages_ms[s] || 0); stageStats[s] = { median_ms: q(v, 0.5), p90_ms: q(v, 0.9), p95_ms: q(v, 0.95), max_ms: Math.max(...v), max_plugin: perPlugin[v.indexOf(Math.max(...v))].plugin, total_ms: v.reduce((a, b) => a + b, 0) }; }
+  const totals = perPlugin.map(p => p.ms); const medianTotal = q(totals, 0.5);
+  const outliers = perPlugin.filter(p => p.ms > 3 * medianTotal).map(p => { const worst = Object.entries(p.stages_ms).sort((a, b) => b[1] - a[1])[0]; return { plugin: p.plugin, ms: p.ms, median_ms: medianTotal, dominant_stage: worst ? worst[0] : null, dominant_stage_ms: worst ? worst[1] : null }; });
+  const perf = { total_ms: results.reduce((a, r) => a + r.ms, 0), per_plugin: perPlugin, stage_stats: stageStats, outliers, user_agent: navigator.userAgent, hardware_threads: navigator.hardwareConcurrency || null, device_memory_gb: navigator.deviceMemory || null };
+  return { N, results, classList, sharedThreshold, resList, bdNames, params, consts: Object.values(consts).sort((a, b) => b.plugins.length - a.plugins.length), xmlRoots, builds, pairs, errors, performance: perf };
+}
+function corpusReport(C) {
+  const N = C.N, L = [];
+  const shared = C.classList.filter(c => c.corpus_class === 'SHARED_SYMBOL_FAMILY'), specific = C.classList.filter(c => c.corpus_class === 'PLUGIN_SPECIFIC_NAME' && c.kind === 'PLUGIN_OWNED');
+  const sharedOwned = shared.filter(c => c.kind === 'PLUGIN_OWNED');
+  const nsOf = n => n.includes('::') ? n.split('::')[0] : (n.match(/^([A-Z][a-z]+|[a-z]+)/) || ['?'])[0];
+  const nsCount = {}; sharedOwned.forEach(c => nsCount[nsOf(c.name)] = (nsCount[nsOf(c.name)] || 0) + 1);
+  const topNs = Object.entries(nsCount).sort((a, b) => b[1] - a[1]).slice(0, 12);
+  const sharedRes = C.resList.filter(r => r.count > 1);
+  const linkers = {}; C.builds.forEach(b => linkers[b.linker || '?'] = (linkers[b.linker || '?'] || 0) + 1);
+  const withParams = C.results.filter(r => Object.keys(r.params).length).length;
+  const totalMB = C.results.reduce((a, r) => a + r.bins[0].size, 0) / 1048576;
+  L.push(`# CORPUS_REPORT — ${N} plugins, static recovery v2`, '', `Total ${totalMB.toFixed(0)} MB scanned in ${(C.performance.total_ms/1000).toFixed(1)} s (${(totalMB / (C.performance.total_ms/1000)).toFixed(1)} MB/s). Evidence per plugin stays in its own folder; this report only correlates.`, '');
+  L.push('## Plugins', '| plugin | MB | format | linker | built | JUCE | owned class names | serialized keys | valid res | ms |', '|---|---|---|---|---|---|---|---|---|---|');
+  for (const r of C.results) { const b = r.bins[0]; const ids = Object.keys(r.params); const sf = ids.filter(i => /_\d+(_\d+)*$/.test(i)).length; L.push(`| ${r.key} | ${(b.size/1048576).toFixed(1)} | ${b.pe.format || '?'} ${b.pe.machine || ''} | ${b.pe.linker || '?'} | ${(b.pe.timestamp || '?').slice(0, 10)} | ${r.juce || (b.hasJuce ? 'yes' : 'no')} | ${(r.classesAll || []).filter(x => x.kind === 'PLUGIN_OWNED').length} | ${ids.length - sf}${sf ? ' (+' + sf + ' state fields)' : ''} | ${r.resources.filter(x => x.status === 'VALID_EXACT').length}/${r.resources.length} | ${r.ms} |`); }
+  L.push('', '## Shared vs plugin-specific class NAMES (name recurrence ≠ implementation identity)', `Threshold for SHARED_SYMBOL_FAMILY: present in ≥${C.sharedThreshold} of ${N}.`, `- SHARED_SYMBOL_FAMILY (any kind): ${shared.length}; of which classified PLUGIN_OWNED: ${sharedOwned.length} → likely internal shared code family (verify implementations by fingerprint in standalone)`, `- RECURRING (2..${C.sharedThreshold - 1}): ${C.classList.filter(c => c.corpus_class === 'RECURRING_NAME').length}`, `- PLUGIN_SPECIFIC owned: ${specific.length} across ${N} plugins (${(specific.length / N).toFixed(1)} per plugin) — this is where deep analysis should focus`, '', 'Shared internal namespaces/prefixes (by class count):', ...topNs.map(([k, v]) => `- ${k}: ${v}`), '', 'Top shared owned classes:', ...sharedOwned.slice(0, 40).map(c => `- ${c.name} (${c.count}/${N}) [${c.role_candidate}]`), '', 'Plugin-specific owned classes by plugin:');
+  for (const r of C.results) { const s = specific.filter(c => c.plugins[0] === r.key).map(c => c.name); L.push(`- ${r.key} (${s.length}): ${s.slice(0, 25).join(', ')}${s.length > 25 ? ' …' : ''}`); }
+  L.push('', '## Class-NAME-set similarity (owned class names, Jaccard; not code similarity) — top pairs', ...C.pairs.slice(0, 15).map(p => `- ${p.a} ↔ ${p.b}: ${p.class_name_set_jaccard}`));
+  { const parent = {}; const find = x => parent[x] === undefined ? x : (parent[x] = find(parent[x])); const union = (a, b) => { const ra = find(a), rb = find(b); if (ra !== rb) parent[ra] = rb; };
+    for (const p of C.pairs) if (p.class_name_set_jaccard >= 0.5) union(p.a, p.b);
+    const fam = {}; for (const r of C.results) (fam[find(r.key)] = fam[find(r.key)] || []).push(r.key);
+    L.push('', '## Codebase families (connected at Jaccard ≥ 0.5) — analyse shared code once per family', ...Object.values(fam).sort((a, b) => b.length - a.length).map((m, i) => `- Family ${i + 1} (${m.length}): ${m.join(', ')}`)); }
+  L.push('', '## Shared resources (identical SHA-256 across plugins)', ...(sharedRes.slice(0, 40).map(r => `- ${r.ext} ${(r.size/1024).toFixed(0)} KB ${r.dims} ${r.names.join('/')} in ${r.count}: ${r.plugins.join(', ')}`)), sharedRes.length ? '' : '- none');
+  L.push('## Recurring BinaryData names', ...Object.entries(C.bdNames).sort((a, b) => b[1].length - a[1].length).slice(0, 30).map(([n, p]) => `- ${n}: ${p.length}`));
+  L.push('', '## Serialized key names (recurrence; NOT verified VST parameters, NOT merged across plugins)', `${withParams}/${N} plugins have embedded preset XML.`, ...Object.entries(C.params).sort((a, b) => b[1].length - a[1].length).slice(0, 40).map(([id, p]) => `- ${id}: ${p.length} plugin(s)`));
+  L.push('', '## XML/state schema roots', ...Object.entries(C.xmlRoots).sort((a, b) => b[1].length - a[1].length).map(([r, p]) => `- <${r}>: ${uniq(p).length} plugin(s)`));
+  L.push('', '## DSP-relevant constant CANDIDATES (recurrence; not yet linked to processing code)', ...C.consts.slice(0, 20).map(c => `- ${c.label}: ${c.plugins.length}/${N} plugins, ${c.total} hits`));
+  L.push('', '## Build fingerprints', ...Object.entries(linkers).map(([k, v]) => `- linker ${k}: ${v} plugins`), `- with .pdb reference: ${C.builds.filter(b => b.pdb).length}`, `- JUCE detected: ${C.builds.filter(b => b.juce).length}`);
+  L.push('', '## Classifier error flags (grouped, max 15 per type)');
+  for (const type of uniq(C.errors.map(e => e.type))) { const es = C.errors.filter(e => e.type === type); L.push(`### ${type} (${es.length})`, ...es.slice(0, 15).map(e => `- ${e.item}${e.value !== undefined ? ' · ' + e.value : ''}${e.in_plugins ? ' · in ' + e.in_plugins : ''} → ${e.suggestion}`), es.length > 15 ? `- … ${es.length - 15} more in classification_errors.json` : ''); }
+  L.push('', '## Performance by stage (ms: median / p90 / p95 / max)', ...Object.entries(C.performance.stage_stats).map(([s, v]) => `- ${s}: ${v.median_ms} / ${v.p90_ms} / ${v.p95_ms} / ${v.max_ms} (max: ${v.max_plugin})`),
+    '', '## Outliers (> 3× median total)', ...(C.performance.outliers.map(o => `- ${o.plugin}: ${o.ms} ms vs median ${o.median_ms} ms — dominant stage ${o.dominant_stage} (${o.dominant_stage_ms} ms)`)), C.performance.outliers.length ? '' : '- none',
+    '## Per plugin', ...C.performance.per_plugin.map(p => `- ${p.plugin}: ${p.size_mb} MB, ${p.ms} ms (${p.mb_per_s} MB/s), ${p.strings.toLocaleString()} strings, ${p.resources} carves${p.heap_mb_after ? ', heap ' + p.heap_mb_after + ' MB' : ''}`));
+  // spec delta
+  const fixtures = C.results.slice().sort((a, b) => (Object.keys(b.params).length + b.resources.filter(x => x.ext === 'wav').length * 5 + (b.classesAll || []).filter(x => x.kind === 'THIRD_PARTY').length) - (Object.keys(a.params).length + a.resources.filter(x => x.ext === 'wav').length * 5 + (a.classesAll || []).filter(x => x.kind === 'THIRD_PARTY').length)).slice(0, 3).map(r => r.key);
+  const biggest = C.results.slice().sort((a, b) => b.bins[0].size - a.bins[0].size)[0];
+  L.push('', '## Standalone Build Spec Delta',
+    `1. Corpus revealed: ${sharedOwned.length} "plugin-owned" classes recur across ≥${C.sharedThreshold} plugins — a shared internal library the single-plugin view mislabels as plugin DSP. Only ${(specific.length / N).toFixed(1)} owned classes per plugin are actually unique.`,
+    `2. Classifiers needing redesign: ownership (needs corpus recurrence + vtable identity, not names); role (name-only; ${C.errors.filter(e => e.type === 'ROLE_COVERAGE').length} plugins with UNKNOWN-heavy coverage); BinaryData mapping (content-based only).`,
+    `3. Trustworthy extraction: PE header/exports, RTTI class names, PNG/WAV/TTF/XML with structural bounds, embedded preset parameter IDs, font-name mapping, DSP-constant presence.`,
+    `4. Freeze as complete: static scan, resource carving+validation, evidence bundle layout, scorecard, handoff files.`,
+    `5. Standalone-only: identity/FUID, legal ranges/defaults/steps, vtables/inheritance, function bodies, callgraph roles, BinaryData→bytes for images, behavioural probes, build/differential tests.`,
+    `6. Data contracts to consume (all wrapped {schema, schema_version: ${SCHEMA_VERSION}, data}): 00_manifest/*.json, 01_evidence/rtti/classes.json, 01_evidence/resources/index.json + binarydata_map.json, 03_architecture/serialized_keys.json (+ empty parameters.json for the runtime host to fill), classes.json, 07_agent_handoff/reconstruction_index.json, corpus/shared_class_names.json, corpus/performance.json.`,
+    `7. Performance: ${(totalMB / (C.performance.total_ms/1000)).toFixed(1)} MB/s in-browser overall; stage outliers: ${C.performance.outliers.map(o => o.plugin + ' (' + o.dominant_stage + ' ' + o.dominant_stage_ms + ' ms)').join(', ') || 'none'}; largest binary ${biggest.key} took ${biggest.ms} ms${C.performance.per_plugin.some(p => p.heap_mb_after > 1500) ? '; heap exceeded 1.5 GB' : ''}. Instrument every standalone stage the same way.`,
+    `8. Remove before standalone: candidate-string parameter heuristics, name-based base-class inference in generated headers, per-plugin full strings.txt in corpus exports.`,
+    `9. Regression fixtures: ${fixtures.join(', ')} (most parameters/assets/third-party coverage) plus ${biggest.key} for scale.`,
+    `10. One-module target: requires an OWNED binary in the corpus — none is tagged as owned here; prefer the owned plugin's waveshaper/filter/resampler with a verified parameter and a carved IR or preset corpus.`);
+  return L.join('\n');
+}
+function renderCorpus() {
+  const C = CORPUS; $('#results').style.display = 'block';
+  const card = (title, rows) => `<div class="meter"><b>${title}</b><br>${rows.map(([k, v, c]) => `<span style="color:var(--ink2)">${k}</span> <span class="${c || ''}" style="font-family:var(--mono)">${v}</span>`).join(' · ')}</div>`;
+  const shared = C.classList.filter(c => c.corpus_class === 'SHARED_SYMBOL_FAMILY' && c.kind === 'PLUGIN_OWNED').length, specific = C.classList.filter(c => c.corpus_class === 'PLUGIN_SPECIFIC_NAME' && c.kind === 'PLUGIN_OWNED').length;
+  $('#meters').innerHTML = [
+    card('CORPUS', [['plugins', C.N, 'ok'], ['total MB', (C.results.reduce((a, r) => a + r.bins[0].size, 0)/1048576).toFixed(0)], ['scan time', (C.performance.total_ms/1000).toFixed(1) + ' s']]),
+    card('CLASSES', [['shared internal (owned, ≥' + C.sharedThreshold + ')', shared, 'hi'], ['plugin-specific owned', specific, 'ok'], ['error flags', C.errors.length]]),
+    card('RESOURCES', [['identical across plugins', C.resList.filter(r => r.count > 1).length], ['unique', C.resList.filter(r => r.count === 1).length]]),
+    card('SERIALIZED KEYS', [['plugins with embedded presets', C.results.filter(r => Object.keys(r.params).length).length + '/' + C.N], ['exported VST params', 'UNVERIFIED (runtime)', 'hi']]),
+  ].join('');
+  const dl = (el, rows) => { $(el).innerHTML = rows.map(([k, v, cls]) => `<dt>${k}</dt><dd class="${cls || ''}">${v}</dd>`).join(''); };
+  dl('#bin', C.results.slice(0, 8).map(r => [r.key, `${(r.bins[0].size/1048576).toFixed(1)} MB · ${r.bins[0].pe.format || '?'} · ${r.ms} ms`]));
+  dl('#fp', Object.entries(C.builds.reduce((m, b) => { m[b.linker || '?'] = (m[b.linker || '?'] || 0) + 1; return m; }, {})).map(([k, v]) => ['linker ' + k, v + ' plugins']));
+  dl('#counts', [['shared owned classes', shared, 'hi'], ['plugin-specific', specific, 'ok'], ['shared resources', C.resList.filter(r => r.count > 1).length], ['flags', C.errors.length]]);
+  const report = corpusReport(C);
+  const tabs = {
+    'CORPUS_REPORT.md': report,
+    'Shared classes': C.classList.filter(c => c.count > 1).map(c => `${String(c.count).padStart(3)}/${C.N}  ${c.corpus_class.padEnd(28)} ${c.kind.padEnd(14)} ${c.name}`).join('\n'),
+    'Plugin-specific classes': C.results.map(r => `## ${r.key}\n` + C.classList.filter(c => c.corpus_class === 'PLUGIN_SPECIFIC_NAME' && c.kind === 'PLUGIN_OWNED' && c.plugins[0] === r.key).map(c => '  ' + c.name + ' [' + c.role_candidate + ']').join('\n')).join('\n'),
+    'Shared resources': C.resList.filter(r => r.count > 1).map(r => `${r.count}/${C.N}  ${r.ext.padEnd(4)} ${(r.size/1024).toFixed(0).padStart(6)} KB  ${r.dims.padEnd(16)} ${r.names.join('/')}  ${r.plugins.join(', ')}`).join('\n') || '(none)',
+    'Similarity': C.pairs.slice(0, 60).map(p => `${p.class_name_set_jaccard.toFixed(3)}  ${p.a} ↔ ${p.b}`).join('\n'),
+    'Errors': C.errors.map(e => `${e.type.padEnd(22)} ${e.item}${e.value !== undefined ? ' · ' + e.value : ''} → ${e.suggestion}`).join('\n'),
+    'Performance': C.performance.per_plugin.map(p => `${p.plugin.padEnd(40)} ${String(p.size_mb).padStart(6)} MB ${String(p.ms).padStart(7)} ms ${String(p.strings).padStart(8)} strings ${String(p.resources).padStart(4)} carves${p.heap_mb_after ? '  heap ' + p.heap_mb_after + ' MB' : ''}`).join('\n'),
+  };
+  const T = $('#tabs'); T.innerHTML = '';
+  Object.keys(tabs).forEach((k, i) => { const bt = document.createElement('button'); bt.role = 'tab'; bt.textContent = k; bt.setAttribute('aria-selected', i === 0); bt.onclick = () => { [...T.children].forEach(x => x.setAttribute('aria-selected', x === bt)); $('#view').textContent = tabs[k]; }; T.appendChild(bt); });
+  $('#view').textContent = report;
+  $('#res').textContent = `${C.resList.length} distinct resources across the corpus; per-plugin assets are in the corpus zip under plugins/<name>/02_recovered_assets/.`;
+  $('#steps').innerHTML = ['<b>Copy CORPUS_REPORT.md</b> and paste it into chat.', 'Download the corpus zip: corpus/ holds the cross-plugin JSON; plugins/&lt;name&gt;/ holds each plugin\'s own evidence, assets and parameters (no merging).', 'Tag owned binaries for the one-module target; third-party plugins remain regression fixtures only.'].map(s => `<li>${s}</li>`).join('');
+  $('#copyFindings').textContent = 'Copy CORPUS_REPORT.md'; $('#zip').textContent = 'Download corpus zip';
+  $('#copyFindings').onclick = () => navigator.clipboard.writeText(report).then(() => status.textContent = 'CORPUS_REPORT.md copied.', () => { $('#view').textContent = report; status.textContent = 'Clipboard blocked; report shown in panel.'; });
+  $('#copyScaffold').onclick = () => navigator.clipboard.writeText(JSON.stringify(C.classList.filter(c => c.count > 1), null, 2)).then(() => status.textContent = 'shared_class_names.json copied.');
+  $('#zip').onclick = async () => {
+    if (!window.JSZip) { status.textContent = 'Zip library did not load.'; return; }
+    status.textContent = 'Packing corpus…';
+    const z = new JSZip(); const J = (path, obj) => z.file(path, JSON.stringify(withSchema(path, obj), null, 1));
+    z.file('corpus/CORPUS_REPORT.md', report);
+    J('corpus/corpus_manifest.json', { generated: new Date().toISOString(), plugins: C.results.map(r => ({ key: r.key, folder: 'plugins/' + safeFolder(r.key), inputs: r.inputs })), shared_threshold: C.sharedThreshold, rule: 'evidence never merged across plugins; recurrence only adjusts classification confidence' });
+    J('corpus/shared_class_names.json', C.classList.filter(c => c.count > 1));
+    J('corpus/plugin_specific_class_names.json', C.classList.filter(c => c.corpus_class === 'PLUGIN_SPECIFIC_NAME' && c.kind === 'PLUGIN_OWNED'));
+    J('corpus/shared_resources.json', C.resList.filter(r => r.count > 1));
+    J('corpus/shared_binary_signatures.json', { note: 'name/hash-level evidence only; function/vtable fingerprints are a standalone-stage output', builds: C.builds, class_name_set_similarity: C.pairs, binarydata_names: C.bdNames, xml_roots: C.xmlRoots, dsp_constant_candidates: C.consts, serialized_key_names: C.params });
+    J('corpus/classification_errors.json', C.errors);
+    J('corpus/performance.json', C.performance);
+    const usedFolders = new Set(); const objectsWritten = new Set();
+    for (const r of C.results) {
+      let f = safeFolder(r.key); let k = 2; while (usedFolders.has(f)) f = safeFolder(r.key) + '_' + k++; usedFolders.add(f);
+      const base = 'plugins/' + f + '/'; const b = r.bins[0]; const P = Object.values(r.params);
+      const kinds = {}; (r.classesAll || []).forEach(x => kinds[x.kind] = (kinds[x.kind] || 0) + 1);
+      J(base + '00_manifest/recovery_summary.json', { key: r.key, binary: b.name, sha256: b.sha256, format: b.pe.format, arch: b.pe.machine, size: b.size, juce: r.juce || (b.hasJuce ? 'unversioned' : null), classes: kinds, parameters: P.length, resources: r.resources.length, valid_resources: r.resources.filter(x => x.status === 'VALID_EXACT').length, pdb: r.pdb, scan_ms: r.ms });
+      for (const bb of r.bins) J(base + '01_evidence/binary/' + safeFolder(bb.name) + '.json', { kind: bb.kind, size: bb.size, sha256: bb.sha256, pe: bb.pe, juce: bb.juce, hasJuce: bb.hasJuce, pdb: bb.pdb, xml_scan_status: bb.xmlScanStatus, stages_ms: bb.stages });
+      J(base + '01_evidence/rtti/classes.json', (r.classesAll || []).map(x => ({ recovered_name: x.name, kind: x.kind, corpus_class: (C.classList.find(c => c.name === x.name) || {}).corpus_class, role_candidate: roleFor(x.name) })));
+      J(base + '01_evidence/paths/build_path_evidence.json', r.pathsAll || []);
+      J(base + '01_evidence/strings/classified.json', r.buckets); J(base + '01_evidence/strings/candidate_strings.json', (r.candidateStrings || []).slice(0, 3000));
+      J(base + '01_evidence/binary/dsp_constants.json', r.consts);
+      J(base + '01_evidence/resources/index.json', r.resources.map(x => ({ name: x.name, ext: x.ext, status: x.status, boundary: x.boundary, offset: x.offset, size: x.data.length, sha256: x.sha256, dims: x.dims, root: x.root, candidate_name: x.candidate_name, mapping_status: x.mapping_status })));
+      J(base + '01_evidence/resources/binarydata_map.json', r.binaryDataMap || []);
+      r.presetFiles.forEach((p, i) => z.file(base + `01_evidence/presets/preset_${i}_${safeFolder(p.name)}.xml`, p.xml));
+      const assetRefs = [];
+      for (const x of r.resources.filter(x => x.status === 'VALID_EXACT')) { const key = (x.sha256 || (r.key + '_' + x.name)); const objPath = 'objects/' + key + '.' + x.ext; if (!objectsWritten.has(objPath)) { z.file(objPath, x.data); objectsWritten.add(objPath); } assetRefs.push({ name: x.name, ext: x.ext, sha256: x.sha256, size: x.data.length, object: objPath, logical_path: '02_recovered_assets/' + (x.ext === 'ttf' || x.ext === 'otf' ? 'fonts/' : x.ext === 'xml' ? 'xml/' : x.ext === 'wav' ? 'impulses/' : 'images/') + x.name, candidate_name: x.candidate_name, semantics: x.semantics }); }
+      J(base + '02_recovered_assets/manifest.json', { note: 'content-addressed: bytes live once under /objects/<sha256>.<ext>; this manifest is this plugin\'s independent view. A single-project export materializes files normally.', assets: assetRefs });
+      J(base + '03_architecture/serialized_keys.json', P.map(p => serializedKeyRecord(p)));
+    }
+    z.file('README.md', `# Corpus export — ${C.N} plugins (schema v${SCHEMA_VERSION}, ${TOOL_VERSION})\n\ncorpus/ = cross-plugin correlation only (names, hashes, timings — no implementation identity claims). plugins/<name>/ = each plugin's own evidence, provenance never mixed. objects/ = content-addressed asset bytes referenced by each plugin's 02_recovered_assets/manifest.json. Full single-plugin reconstruction bundles (scaffolds, CMake, handoff) are produced by dropping one plugin at a time.\n`);
+    const blob = await z.generateAsync({ type: 'blob', compression: 'DEFLATE', compressionOptions: { level: 6 } });
+    const rs = await saveFile('corpus_' + C.N + '_plugins.zip', blob);
+    status.textContent = rs === 'saved' ? `Corpus zip saved (${(blob.size/1048576).toFixed(1)} MB).` : rs === 'declined' ? 'Save cancelled.' : 'Saving blocked in this view — use Copy CORPUS_REPORT.md.';
+  };
+}
+const SCHEMA_VERSION = 2, TOOL_VERSION = 'static-recovery-v2';
+function withSchema(path, obj) { const name = path.split('/').pop().replace(/\.json$/, ''); const schema = 'recovery.' + (path.includes('corpus/') ? 'corpus.' : '') + name; return { schema, schema_version: SCHEMA_VERSION, tool: TOOL_VERSION, generated: new Date().toISOString(), data: obj }; }
+function safeFolder(s) { return s.replace(/\.(vst3|vst|dll|dylib|component)$/i, '').replace(/[^A-Za-z0-9._-]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 60) || 'plugin'; }
+
+async function analyzeBinary(u8, name, kind, tick) {
+  const r = { name, kind, size: u8.length, pe: {}, strings: [], classes: [], tree: [], paramIds: [], resources: [], consts: [], juce: null, pdb: null, buckets: {} };
+  const stages = {}; let t0 = performance.now(); const lap = name => { stages[name] = Math.round(performance.now() - t0); t0 = performance.now(); };
+  if (kind === 'PE') r.pe = parsePE(u8); lap('pe_parse');
+  await tick('Extracting strings…');
+  r.strings = extractStrings(u8, 5); lap('string_scan');
+  await tick(`Classifying ${r.strings.length.toLocaleString()} strings…`);
+  const T = r.strings;
+  r.juce = (T.map(s => (s.match(/JUCE v?(\d+\.\d+\.\d+)/) || [])[1]).find(Boolean)) || null;
+  r.pdb = findRSDS(u8);
+  r.pathsAll = uniq(T.filter(s => /^[A-Za-z]:[\\/]|^[\\/]?[\w.-]+([\\/][\w .-]+)+\.(cpp|h|hpp|mm|c|jucer|cmake|txt)$/i.test(s) || /[\\/](Source|JuceLibraryCode|modules|src|vst3sdk|pluginterfaces)[\\/][\w .-]+/i.test(s) || /\b(VST 3\.\d|JUCE v?\d)/.test(s))).map(s => ({ path: s, kind: classifyPath(s) }));
+  r.tree = r.pathsAll.filter(x => x.kind === 'PROJECT_SOURCE').map(x => x.path);
+  // RTTI class names
+  const msvc = T.filter(s => /^\.\?A[UV][A-Za-z_][\w@?$]*@@$/.test(s)).map(demangleMsvcType);
+  const itan = T.filter(s => /^_ZTS(N(\d+[A-Za-z_]\w*)+E|\d+[A-Za-z_]\w*)$/.test(s)).map(demangleItaniumType).filter(Boolean);
+  r.classesAll = uniq(msvc.concat(itan)).map(c => ({ name: c, kind: classifyClass(c) }));
+  r.classes = r.classesAll.filter(x => x.kind === 'PLUGIN_OWNED').map(x => x.name);
+  const test = rx => uniq(T.filter(s => rx.test(s)));
+  r.buckets = {
+    'Preset / state XML': test(/^<|\/>$|ValueTree|PARAMETERS|preset/i),
+    'DSP terms': test(/oversampl|adaa|tanh|limiter|lookahead|sidechain|crossover|biquad|svf|lufs|true.?peak|saturat|glue|shelf|hpf|lpf|drive|punch|warmth|boom|texture|spark|shine/i),
+    'UI terms': test(/knob|meter|panel|drawer|halo|thermal|font|colour|theme|page|LookAndFeel|Slider|Button|Label|Tooltip/i),
+    'Licence / security': test(/licen[cs]|serial|activat|trial|expir|hwid|machine.?id|hmac|sha-?256|\baes\b|\brsa\b|obfusc|keygen|ilok|pace\b|unlock|register|demo\b/i).filter(s => !/^\.\?A|oversampl/i.test(s)),
+    'Build / toolchain': test(/MSVC|Visual Studio|clang|GCC|cmake|Projucer|JUCE_|VST3|Steinberg|AudioUnit|CLAP|_MSC_VER|mingw/i),
+    'Plugin codes': test(/^JucePlugin_/),
+  };
+  // parameter IDs: JUCE stores id and display name as adjacent literals; keep camelCase/snake identifiers that are not C++ keywords or juce symbols
+  const bad = /^(true|false|null|std|juce|const|static|void|float|double|int|char|bool|size|data|name|value|type|text|state|error|input|output|Input|Output|main|init|reset|update|render|paint|resized|operator|nullptr|volatile|short|wchar_t|char8_t|char16_t|char32_t|kernel32|advapi32|ntdll|user32)$/;
+  const libm = /^(sqrt|log|log10|log2|exp|pow|sin|cos|tan|atan|atan2|floor|ceil|ldexp|frexp|fmod|fabs|tanh|sinh|cosh)f?$/;
+  const looksMangled = s => /^[a-z]{1,2}[A-Z0-9][A-Za-z0-9]{2,6}$/.test(s) && /\d/.test(s) || /^(f{4,}|g?f{3,}[A-Z]?)$/.test(s) || /^[a-z]{2}[A-Z]\d/.test(s);
+  const hasJuce = !!r.juce || T.some(s => /^JucePlugin_|juce::|AudioProcessorValueTreeState/.test(s));
+  void bad; void libm; void looksMangled;
+  const embedded = extractStateXml(u8, true);
+  r.paramIds = uniq(embedded.params.map(x => x.id));
+  r.embeddedParams = embedded.params; r.embeddedXml = embedded.xml;
+  r.paramNote = r.paramIds.length ? '' : (hasJuce ? 'JUCE build, but no parameter XML is embedded. Drop a .vstpreset/.fxp/DAW session, or run vst_recover.py params for the exact list.' : 'No JUCE parameter table in this binary — parameters are host-side. Drop presets/sessions to recover IDs, or run vst_recover.py params.');
+  r.hasJuce = hasJuce;
+  r.candidateStrings = uniq(T.filter(s => /^[a-z][A-Za-z0-9_]{2,28}$/.test(s) && !bad.test(s) && !libm.test(s) && !looksMangled(s))).slice(0, 5000);
+  r.binaryDataNames = uniq(T.filter(s => /^[A-Za-z][\w-]{2,40}_(png|jpg|jpeg|svg|ttf|otf|xml|json|wav|aiff|txt)$/.test(s) || /^[A-Za-z][\w]{2,30}(Knob|knob|_knob|Button|button|_bg|Background|background)$/.test(s)));
+  lap('classify_rtti_paths_xml');
+  await tick('Carving artwork and fonts…');
+  r.resources = carve(u8); r.xmlScanStatus = r.resources.xml_scan_status; lap('resource_carve');
+  await tick('Scanning DSP constants…');
+  r.consts = scanConstants(u8, r.pe.rdata); lap('constant_scan');
+  r.stages = stages;
+  return r;
+}
+function classifyClass(c) {
+  if (!c || !/^[A-Za-z_][\w:<>,]*$/.test(c) || c.replace(/::/g, '').length < 4) return 'FALSE_POSITIVE';
+  if (/^(juce|Steinberg|VSTGUI|CLAP|clap)(::|$)/.test(c)) return 'FRAMEWORK';
+  if (/^(soundtouch|r8b|hiir|kiss_fft|pffft|xsimd|Eigen|signalsmith|Iir|melatonin|foleys|chowdsp|rubberband|RubberBand|libsamplerate|sfizz|Gist|essentia|aubio|Elk|fftw|nlohmann|fmt|spdlog|boost|absl|google|tbb|oneapi|curl|openssl|zlib|png|jpeg|freetype|harfbuzz|hb|sqlite|SQLite|leveldb|lz4|zstd|brotli)(::|$)/.test(c)) return 'THIRD_PARTY';
+  if (/^(std|stdext|Concurrency|ATL|Microsoft|__|_|type_info|DName|pDName|charNode|pcharNode|pairNode|Replicator|UnDecorator|HeapManager|basic_|allocator|exception|bad_|error_|codecvt|locale|ios_base|numpunct|ctype|money|time_|messages|collate|CLR|Cryptography)/.test(c)) return 'OS_RUNTIME';
+  if (/^I(Unknown|Stream|SequentialStream|DropTarget|DropSource|DataObject|DWrite\w*|D2D1\w*|D3D\w*|DXGI\w*|RawElementProvider\w*|Accessible\w*|Dispatch|Persist\w*|ClassFactory|Malloc|Storage|PropertyStore|MMDevice\w*|Audio\w*Client|OleWindow|EnumFORMATETC|WICBitmap\w*|Shell\w*)$/.test(c)) return 'OS_RUNTIME';
+  if (/^(tag|_tag|HWND__|CRITICAL_SECTION|SECURITY_ATTRIBUTES)/.test(c)) return 'OS_RUNTIME';
+  return 'PLUGIN_OWNED';
+}
+function classifyPath(s) {
+  if (/minkernel|ucrt|vctools|crt\b|\\msvc|onecore|Windows Kits|Program Files/i.test(s)) return 'CRT';
+  if (/vst3sdk|pluginterfaces|public\.sdk|VST 3\.\d|AudioUnit|CoreAudio|steinberg/i.test(s)) return 'SDK';
+  if (/[\\/]JUCE[\\/]modules|juce_\w+[\\/]|JuceLibraryCode|JUCE v?\d/i.test(s)) return 'FRAMEWORK';
+  if (/cmake|ninja|_deps[\\/]|\.cmake$|CMakeFiles/i.test(s)) return 'BUILD_TOOL';
+  if (/^[A-Za-z]:[\\/](Users|build|Jenkins|agent|actions-runner|a[\\/]1)|[\\/]ws[\\/]|[\\/]workspace[\\/]/i.test(s) && !/[\\/]Source[\\/]/i.test(s)) return 'BUILD_MACHINE';
+  if (/\.(cpp|h|hpp|mm|c|jucer)$/i.test(s) && /(^|[\\/])(Source|src|DSP|UI|Plugin|include|Builds)[\\/]/i.test(s)) return 'PROJECT_SOURCE';
+  if (/^[A-Za-z]:[\\/].*\.(cpp|h|hpp|mm|c|jucer)$/i.test(s)) return 'PROJECT_SOURCE';
+  return 'UNKNOWN';
+}
+function isUserClass(c) { return c && !/^(juce|std|Steinberg|VSTGUI|__|ATL|Microsoft|stdext|Concurrency|type_info|_|CLAP|clap|foleys|chowdsp|DName|pDName|charNode|pcharNode|pairNode|Replicator|UnDecorator|HeapManager)/.test(c) && !/^(basic_|allocator|exception|bad_|error_|codecvt|locale|ios_base|numpunct|ctype|money|time_|messages|collate)/.test(c); }
+function demangleMsvcType(s) {
+  // .?AVName@Ns2@Ns1@@  -> Ns1::Ns2::Name ; templates (?$) kept raw-ish
+  let body = s.slice(4).replace(/@@$/, '');
+  const parts = body.split('@').filter(Boolean).map(p => p.replace(/^\?\$/, '')).reverse();
+  return parts.join('::');
+}
+function demangleItaniumType(s) {
+  let i = s.startsWith('_ZTS') ? 4 : 0, nested = false;
+  if (s[i] === 'N') { nested = true; i++; }
+  const parts = [];
+  while (i < s.length) {
+    const m = s.slice(i).match(/^(\d+)/); if (!m) break;
+    const len = +m[1]; i += m[1].length; parts.push(s.substr(i, len)); i += len;
+    if (!nested) break;
+  }
+  return parts.length ? parts.join('::') : null;
+}
+function parsePE(u8) {
+  const dv = new DataView(u8.buffer), o = {};
+  try {
+    const pe = dv.getUint32(0x3c, true); if (dv.getUint32(pe, true) !== 0x4550) return o;
+    o.machine = { 0x14c: 'x86', 0x8664: 'x64', 0xaa64: 'ARM64' }[dv.getUint16(pe + 4, true)] || '?';
+    const nsec = dv.getUint16(pe + 6, true);
+    o.timestamp = new Date(dv.getUint32(pe + 8, true) * 1000).toISOString().slice(0, 16).replace('T', ' ');
+    const optSize = dv.getUint16(pe + 20, true), opt = pe + 24, pe32p = dv.getUint16(opt, true) === 0x20b;
+    o.linker = dv.getUint8(opt + 2) + '.' + dv.getUint8(opt + 3);
+    const ddOff = opt + (pe32p ? 112 : 96), expRVA = dv.getUint32(ddOff, true);
+    const secs = []; const secOff = opt + optSize;
+    for (let i = 0; i < nsec; i++) { const s = secOff + i * 40; secs.push({ name: String.fromCharCode(...u8.slice(s, s + 8)).replace(/\0+$/, ''), va: dv.getUint32(s + 12, true), vsz: dv.getUint32(s + 8, true), raw: dv.getUint32(s + 20, true), rsz: dv.getUint32(s + 16, true) }); }
+    o.sectionNames = secs.map(s => s.name).join(' ');
+    const rd = secs.find(s => s.name === '.rdata'); if (rd) o.rdata = [rd.raw, rd.raw + rd.rsz];
+    const rva2off = rva => { const s = secs.find(x => rva >= x.va && rva < x.va + Math.max(x.vsz, x.rsz)); return s ? rva - s.va + s.raw : -1; };
+    o.exports = [];
+    if (expRVA) { const e = rva2off(expRVA); if (e > 0) { const nN = dv.getUint32(e + 24, true), no = rva2off(dv.getUint32(e + 32, true)); for (let i = 0; i < Math.min(nN, 64); i++) { const so = rva2off(dv.getUint32(no + i * 4, true)); if (so < 0) continue; let s = ''; for (let j = so; j < so + 128 && u8[j]; j++) s += String.fromCharCode(u8[j]); o.exports.push(s); } } }
+    o.format = o.exports.includes('GetPluginFactory') ? 'VST3' : o.exports.includes('VSTPluginMain') ? 'VST2' : o.exports.includes('clap_entry') ? 'CLAP' : 'unknown';
+  } catch (e) { o.error = String(e); }
+  return o;
+}
+function findRSDS(u8) {
+  let i = -1;
+  while ((i = u8.indexOf(0x52, i + 1)) >= 0 && i < u8.length - 30) if (u8[i+1] === 0x53 && u8[i+2] === 0x44 && u8[i+3] === 0x53) {
+    let s = '', j = i + 24; while (j < u8.length && u8[j] >= 0x20 && u8[j] < 0x7f && s.length < 260) s += String.fromCharCode(u8[j++]);
+    if (/\.pdb$/i.test(s)) return s;
+  }
+  return null;
+}
+function extractStrings(u8, min) {
+  const out = []; let run = '';
+  for (let i = 0; i < u8.length; i++) { const c = u8[i]; if (c >= 0x20 && c < 0x7f) run += String.fromCharCode(c); else { if (run.length >= min) out.push(run); run = ''; } }
+  if (run.length >= min) out.push(run); run = '';
+  for (let i = 0; i + 1 < u8.length; i += 2) { const c = u8[i]; if (u8[i+1] === 0 && c >= 0x20 && c < 0x7f) run += String.fromCharCode(c); else { if (run.length >= min) out.push(run); run = ''; } }
+  return out;
+}
+const KNOWN = [[Math.PI,'π'],[2*Math.PI,'2π'],[Math.PI/2,'π/2'],[Math.SQRT2,'√2'],[Math.SQRT1_2,'1/√2 (Butterworth Q)'],[Math.E,'e'],[Math.LN10/20,'ln10/20 (dB→gain)'],[20/Math.LN10,'20/ln10 (gain→dB)'],[44100,'44.1 kHz'],[48000,'48 kHz'],[88200,'88.2 kHz'],[96000,'96 kHz'],[192000,'192 kHz'],[20,'20 Hz'],[20000,'20 kHz'],[0.001,'1 ms / -60 dB'],[-0.691,'LUFS offset (-0.691)'],[0.3,'0.3 (ceiling/dB?)'],[1.0/3.0,'1/3'],[0.7071,'0.7071'],[1.4142,'1.4142']];
+function scanConstants(u8, range) {
+  const dv = new DataView(u8.buffer); const [a, b] = range || [0, u8.length]; const hits = new Map();
+  const step = 4;
+  for (let i = a; i + 8 <= b; i += step) {
+    const f = dv.getFloat32(i, true), d = dv.getFloat64(i, true);
+    for (const v of [f, d]) { if (!isFinite(v) || v === 0) continue;
+      for (const [k, label] of KNOWN) { if (Math.abs(v - k) <= Math.abs(k) * 1e-5) { const key = label; const e = hits.get(key) || { label, value: k, count: 0, offsets: [] }; e.count++; if (e.offsets.length < 5) e.offsets.push('0x' + i.toString(16)); hits.set(key, e); } } }
+  }
+  return [...hits.values()].sort((x, y) => y.count - x.count);
+}
+function carve(u8) {
+  const sigs = [
+    { ext: 'png', start: [0x89,0x50,0x4e,0x47,0x0d,0x0a,0x1a,0x0a], end: null, mime: 'image/png', png: true },
+    { ext: 'jpg', start: [0xff,0xd8,0xff,0xe0,0x00,0x10,0x4a,0x46,0x49,0x46], end: [0xff,0xd9], mime: 'image/jpeg' },
+    { ext: 'jpg', start: [0xff,0xd8,0xff,0xe1], end: [0xff,0xd9], mime: 'image/jpeg', exif: true },
+    { ext: 'wav', start: [0x52,0x49,0x46,0x46], end: null, mime: 'audio/wav', riff: true },
+    { ext: 'svg', start: [0x3c,0x73,0x76,0x67,0x20], end: [0x3c,0x2f,0x73,0x76,0x67,0x3e], mime: 'image/svg+xml' },
+    { ext: 'ttf', start: [0x00,0x01,0x00,0x00], end: null, mime: 'font/ttf', font: true },
+    { ext: 'otf', start: [0x4f,0x54,0x54,0x4f], end: null, mime: 'font/otf', font: true },
+    { ext: 'xml', start: [0x3c,0x3f,0x78,0x6d,0x6c,0x20], end: null, mime: 'text/xml' },
+  ];
+  const found = [];
+  const indexOf = (pat, from) => { let i = from; while ((i = u8.indexOf(pat[0], i)) >= 0 && i <= u8.length - pat.length) { let ok = true; for (let k = 1; k < pat.length; k++) if (u8[i+k] !== pat[k]) { ok = false; break; } if (ok) return i; i++; } return -1; };
+  const pngLen = a => { // walk chunks: 8-byte sig, then [len u32be][type 4][data][crc 4] ... until IEND
+    const dv = new DataView(u8.buffer, u8.byteOffset); let p = a + 8; if (a + 16 > u8.length || String.fromCharCode(u8[a+12], u8[a+13], u8[a+14], u8[a+15]) !== 'IHDR') return 0;
+    for (let n = 0; n < 100000 && p + 12 <= u8.length; n++) { const len = dv.getUint32(p); const type = String.fromCharCode(u8[p+4], u8[p+5], u8[p+6], u8[p+7]); if (!/^[A-Za-z]{4}$/.test(type) || len > 80e6) return 0; p += 12 + len; if (type === 'IEND') return p - a; }
+    return 0; };
+  const riffLen = a => { const dv = new DataView(u8.buffer, u8.byteOffset); if (a + 12 > u8.length || String.fromCharCode(u8[a+8], u8[a+9], u8[a+10], u8[a+11]) !== 'WAVE') return 0; const L = dv.getUint32(a + 4, true) + 8; return L > 1024 && a + L <= u8.length ? L : 0; };
+  const fontLen = a => { // validate sfnt header: numTables sane and table tags ASCII; compute length from table records
+    const dv = new DataView(u8.buffer, u8.byteOffset); const n = dv.getUint16(a + 4); if (n < 2 || n > 64 || a + 12 + n * 16 > u8.length) return 0;
+    let end = 0; for (let k = 0; k < n; k++) { const rec = a + 12 + k * 16; for (let c = 0; c < 4; c++) { const ch = u8[rec + c]; if (ch < 0x20 || ch > 0x7e) return 0; } const off = dv.getUint32(rec + 8), len = dv.getUint32(rec + 12); if (off > 50e6 || len > 50e6) return 0; end = Math.max(end, off + len); }
+    return end > 1024 && a + end <= u8.length ? end : 0; };
+  // header-less XML documents (JUCE ValueTree exports, layout files): find '<' + Name followed later by matching close tag
+  const docRx = /<([A-Za-z_][\w.-]{1,40})(\s[^<>]{0,400})?>\s*<[\s\S]{200,400000}?<\/\1>/g;
+  const dec = new TextDecoder('latin1'); const seen = []; let xn = 0; let earlyStop = false, capHit = false;
+  const anchors = ['<PARAMETERS', '<PRESET', '<Preset', '<MacroMasterPreset', '<layout', '<PARAM ', '<button ', '<slider ', '<knob '];
+  for (const anchor of anchors) {
+    const pat = [...anchor].map(c => c.charCodeAt(0)); let idx = 0, hits = 0, misses = 0;
+    while (xn < 30 && hits++ < 60 && misses < 8) { const a = indexOf(pat, idx); if (a < 0) break; idx = a + pat.length;
+      if (hits >= 60 || xn >= 29) capHit = true;
+      const cover = seen.find(([s, e]) => a >= s && a < e); if (cover) { idx = cover[1]; continue; }
+      const ws = Math.max(0, a - 60000), we = Math.min(u8.length, a + 160000);
+      const win = dec.decode(u8.subarray(ws, we)).replace(/[^\x20-\x7e\n\r\t]/g, ' ');
+      const rel = a - ws; let best = null, m; docRx.lastIndex = 0;
+      while ((m = docRx.exec(win))) { if (m.index <= rel && m.index + m[0].length >= rel) { best = m; break; } if (m.index > rel) break; docRx.lastIndex = m.index + 1; }
+      if (best) { seen.push([ws + best.index, ws + best.index + best[0].length]); found.push({ ext: 'xml', mime: 'text/xml', data: new TextEncoder().encode(best[0]), offset: ws + best.index, boundary: 'BOUNDARY_VERIFIED', name: `xml_${best[1]}_${String(xn).padStart(2,'0')}.xml` }); xn++; idx = ws + best.index + best[0].length; misses = 0; }
+      else { misses++; if (misses >= 8) earlyStop = true; }
+    }
+  }
+  found.xml_scan_status = earlyStop || capHit ? 'FAST_SCAN_EARLY_TERMINATED (heuristic stop; run DEEP_SCAN in standalone for exhaustive coverage)' : 'FAST_SCAN_COMPLETE (all anchors examined)';
+  for (const s of sigs) {
+    let idx = 0, n = 0, tries = 0;
+    while (n < 40 && tries++ < 20000) {
+      const a = indexOf(s.start, idx); if (a < 0) break; idx = a + 1;
+      let b;
+      if (s.font) { const L = fontLen(a); if (!L) continue; b = a + L; }
+      else if (s.png) { const L = pngLen(a); if (!L) continue; b = a + L; }
+      else if (s.riff) { const L = riffLen(a); if (!L) continue; b = a + L; }
+      else if (s.exif) { if (String.fromCharCode(u8[a+6], u8[a+7], u8[a+8], u8[a+9]) !== 'Exif') continue; b = indexOf(s.end, a + 10); if (b < 0) break; b += 2; if (b - a > 8e6 || b - a < 2048) continue; }
+      else if (s.end) { b = indexOf(s.end, a + s.start.length); if (b < 0) break; b += s.end.length; if (b - a > 8e6) continue; }
+      else { b = a + 64; const lim = Math.min(u8.length, a + 1.5e6); while (b < lim && !(u8[b] === 0 && u8[b+1] === 0)) b++; }
+      const blob = u8.slice(a, b);
+      if (blob.length > 96) { found.push({ ext: s.ext, mime: s.mime, data: blob, offset: a, boundary: (s.png || s.riff || s.font) ? 'BOUNDARY_VERIFIED' : 'HEURISTIC', name: `${s.ext}_${String(found.filter(f => f.ext === s.ext).length).padStart(3,'0')}.${s.ext}` }); n++; idx = b; }
+    }
+  }
+  return found;
+}
+// ---- preset / session state XML (JUCE APVTS)
+function extractStateXml(u8, isBinary) {
+  const dec = new TextDecoder('latin1');
+  if (isBinary) { // byte-level: only look around '<PARAM' occurrences
+    const params = []; let xml = ''; const pat = [0x3c,0x50,0x41,0x52,0x41,0x4d,0x20]; let i = 0, n = 0;
+    const idxOf = (from) => { let k = from; while ((k = u8.indexOf(0x3c, k)) >= 0 && k <= u8.length - 7) { let ok = true; for (let q = 1; q < 7; q++) if (u8[k+q] !== pat[q]) { ok = false; break; } if (ok) return k; k++; } return -1; };
+    while (n++ < 3000) { const a = idxOf(i); if (a < 0) break; const s = dec.decode(u8.subarray(a, Math.min(u8.length, a + 300)));
+      const m = s.match(/^<PARAM\s+(?:id="([^"]+)"\s+value="([^"]+)"|value="([^"]+)"\s+id="([^"]+)")/); if (m) params.push({ id: m[1] || m[4], value: parseFloat(m[2] || m[3]) });
+      if (!xml && m) { const ws = Math.max(0, a - 4000); const win = dec.decode(u8.subarray(ws, Math.min(u8.length, a + 60000))).replace(/[^\x20-\x7e\n\r\t]/g, ' '); const d = win.match(/<([A-Za-z_][\w.-]*)[^<>]*>\s*(?:<[^<>]*>\s*)*?<PARAM[\s\S]*?<\/\1>/); if (d) xml = d[0]; }
+      i = a + 7; }
+    return { params, xml };
+  }
+  const txt = dec.decode(u8.subarray(0, Math.min(u8.length, 200e6))).replace(/[^\x20-\x7e\n\r\t]/g, ' ');
+  // also decode base64 blobs (Reaper RPP, Ableton, FL chunks)
+  let extra = '';
+  for (const m of txt.matchAll(/(?:^|\s)([A-Za-z0-9+\/=]{200,})(?=\s|$)/g)) { try { const bin = atob(m[1].replace(/\s/g, '')); if (/<PARAM|ValueTree|<\w+ /.test(bin)) extra += ' ' + bin; } catch (e) {} }
+  // Reaper splits base64 across lines inside <VST … > blocks
+  for (const m of txt.matchAll(/<VST[^\n]*\n([\s\S]*?)\n\s*>/g)) { try { const b64 = m[1].replace(/\s+/g, ''); const bin = atob(b64); extra += ' ' + bin.replace(/[^\x20-\x7e]/g, ' '); } catch (e) {} }
+  const all = txt + extra;
+  const params = [];
+  for (const m of all.matchAll(/<PARAM\s+id="([^"]+)"\s+value="([^"]+)"/g)) params.push({ id: m[1], value: parseFloat(m[2]) });
+  for (const m of all.matchAll(/<PARAM\s+value="([^"]+)"\s+id="([^"]+)"/g)) params.push({ id: m[2], value: parseFloat(m[1]) });
+  const xm = all.match(/<PARAMETERS[\s\S]*?<\/PARAMETERS>|<[A-Za-z_][\w-]*[^>]*>\s*<PARAM[\s\S]*?<\/[A-Za-z_][\w-]*>/);
+  return { params, xml: xm ? xm[0] : '' };
+}
+
+// ---------------- validation
+const hex = buf => [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, '0')).join('');
+async function validateResources(list) {
+  const seen = new Map();
+  for (const x of list) {
+    try { x.sha256 = crypto.subtle ? hex(await crypto.subtle.digest('SHA-256', x.data)) : null; } catch (e) { x.sha256 = null; }
+    if (x.sha256 && seen.has(x.sha256)) { x.status = 'DUPLICATE'; x.dupOf = seen.get(x.sha256); continue; }
+    if (x.sha256) seen.set(x.sha256, x.name);
+    x.status = 'UNKNOWN'; x.parser = 'UNKNOWN';
+    try {
+      if (x.ext === 'png' || x.ext === 'jpg') { const ok = await new Promise(res => { const im = new Image(); const u = URL.createObjectURL(new Blob([x.data], { type: x.mime })); im.onload = () => { x.dims = im.naturalWidth + 'x' + im.naturalHeight; const w = im.naturalWidth, h = im.naturalHeight; if (w > 0 && h >= 4 * w) { const frames = []; for (const fh of [w, Math.round(w * 1.5), w * 2]) if (h % fh === 0 && h / fh >= 4) frames.push(`${h / fh}×${w}x${fh}`); x.semantics = 'SPRITE_SHEET_CANDIDATE' + (frames.length ? ' (' + frames.join(' or ') + ')' : ' (frame height unknown)'); } res(w > 0); }; im.onerror = () => res(false); im.src = u; }); x.status = ok ? 'VALID_EXACT' : 'INVALID'; }
+      else if (x.ext === 'svg' || x.ext === 'xml') { const txt = new TextDecoder().decode(x.data); const doc = new DOMParser().parseFromString(txt, x.ext === 'svg' ? 'image/svg+xml' : 'text/xml'); x.status = doc.getElementsByTagName('parsererror').length ? 'CARVED_PARTIAL' : 'VALID_EXACT'; if (x.status === 'VALID_EXACT') { x.root = doc.documentElement.nodeName; x.boundary = 'BOUNDARY_VERIFIED'; /* a full-document parse rejects trailing bytes, so a clean parse bounds the carve */ } }
+      else if (x.ext === 'ttf' || x.ext === 'otf') { x.status = 'VALID_EXACT'; x.embeddedName = fontName(x.data); if (x.embeddedName) x.dims = x.embeddedName; }
+      else if (x.ext === 'json') { JSON.parse(new TextDecoder().decode(x.data)); x.status = 'VALID_EXACT'; }
+      else if (x.ext === 'wav') { const d = x.data, dv = new DataView(d.buffer, d.byteOffset); let p = 12, fmt = null, dataLen = 0; const chunks = [];
+        while (p + 8 <= d.length) { const tag = String.fromCharCode(d[p], d[p+1], d[p+2], d[p+3]); const sz = dv.getUint32(p + 4, true); chunks.push(tag.trim()); if (tag === 'fmt ') fmt = { ch: dv.getUint16(p + 10, true), sr: dv.getUint32(p + 12, true), bits: dv.getUint16(p + 22, true) }; if (tag === 'data') dataLen = sz; p += 8 + sz + (sz & 1); }
+        x.status = fmt && dataLen ? 'VALID_EXACT' : 'CARVED_PARTIAL'; if (fmt) { const secs = dataLen / (fmt.sr * fmt.ch * (fmt.bits / 8)); x.dims = `${fmt.ch}ch ${fmt.sr}Hz ${fmt.bits}bit ${secs.toFixed(2)}s`; x.root = chunks.includes('bext') ? 'BWF (' + chunks.join(',') + ')' : chunks.join(','); } }
+    } catch (e) { x.status = 'INVALID'; }
+    if (x.status === 'VALID_EXACT') { x.parser = 'PARSER_VALID'; if (x.boundary !== 'BOUNDARY_VERIFIED') x.status = 'PARSER_VALID'; }
+    else if (x.status === 'INVALID') x.parser = 'PARSER_INVALID';
+  }
+}
+function fontName(d) { // sfnt 'name' table: Windows platform, nameID 4 (full) else 1 (family)
+  try { const dv = new DataView(d.buffer, d.byteOffset); const n = dv.getUint16(4); for (let i = 0; i < n; i++) { const rec = 12 + i * 16; if (String.fromCharCode(d[rec], d[rec+1], d[rec+2], d[rec+3]) !== 'name') continue; const off = dv.getUint32(rec + 8); const cnt = dv.getUint16(off + 2), so = dv.getUint16(off + 4); const out = {};
+      for (let k = 0; k < cnt; k++) { const r = off + 6 + k * 12; const pid = dv.getUint16(r), nid = dv.getUint16(r + 6), l = dv.getUint16(r + 8), o = dv.getUint16(r + 10); if (pid === 3 && (nid === 1 || nid === 4)) { let s = ''; for (let q = 0; q < l; q += 2) s += String.fromCharCode(dv.getUint16(off + so + o + q)); out[nid] = s; } }
+      return out[4] || out[1] || null; } } catch (e) {} return null; }
+// JUCE BinaryData mapping. Emission order is NOT preserved by the linker (verified on Twin Panda: the font name tables
+// contradicted declaration order), so no order-based pairing. Only content-based evidence maps a name to bytes:
+//   fonts → embedded name table (VERIFIED); a lone name + lone asset of one type → INFERRED_SINGLETON; else UNRESOLVED (Phase 3 decompile of getNamedResource).
+function mapBinaryData(resources, names) {
+  const extOf = n => (n.match(/_(png|jpg|jpeg|svg|ttf|otf|xml|json|wav|aiff|txt)$/) || [])[1];
+  const byExt = {};
+  for (const n of names) { const e = extOf(n); if (!e) continue; const k = e === 'jpeg' ? 'jpg' : e === 'aiff' ? 'wav' : e; (byExt[k] = byExt[k] || []).push(n); }
+  const groups = {};
+  for (const x of resources) { if (x.status !== 'VALID_EXACT' && x.status !== 'PARSER_VALID') continue; (groups[x.ext] = groups[x.ext] || []).push(x); }
+  const map = []; const norm = s => s.replace(/_(png|jpg|jpeg|svg|ttf|otf|xml|json|wav|aiff|txt)$/, '').replace(/[^A-Za-z0-9]/g, '').toLowerCase();
+  const toFile = n => n.replace(/_(png|jpg|jpeg|svg|ttf|otf|xml|json|wav|aiff|txt)$/, '.$1');
+  for (const [ext, list] of Object.entries(groups)) {
+    const ns = (byExt[ext] || []).slice(); const used = new Set();
+    if (ext === 'ttf' || ext === 'otf') for (const x of list) { if (!x.embeddedName) continue; const key = norm(x.embeddedName); const hit = ns.find(n => !used.has(n) && (norm(n) === key || norm(n).includes(key) || key.includes(norm(n)))); if (hit) { used.add(hit); x.candidate_name = toFile(hit); x.mapping_status = 'VERIFIED (font name table: "' + x.embeddedName + '")'; map.push({ binarydata_name: hit, carved: x.name, offset: x.offset, size: x.data.length, mapping_status: x.mapping_status }); } }
+    const remainingNames = ns.filter(n => !used.has(n)), remainingAssets = list.filter(x => !x.candidate_name);
+    if (remainingNames.length === 1 && remainingAssets.length === 1) { const x = remainingAssets[0], n = remainingNames[0]; x.candidate_name = toFile(n); x.mapping_status = 'INFERRED_SINGLETON (only name and only asset of this type)'; map.push({ binarydata_name: n, carved: x.name, offset: x.offset, size: x.data.length, mapping_status: x.mapping_status }); }
+    else remainingNames.forEach(n => map.push({ binarydata_name: n, carved: null, mapping_status: 'UNRESOLVED (' + remainingAssets.length + ' candidate assets of this type; needs Phase 3 getNamedResource decompile)' }));
+  }
+  return map;
+}
+// ---------------- generation
+function ident(s) { return (s.replace(/\.(dll|vst3|vst|dylib|component)$/i, '').replace(/[^A-Za-z0-9_]/g, '_') || 'Plugin'); }
+function safeName(cls, i) { const leaf = cls.split('::').pop(); return /^[A-Za-z_]\w{2,60}$/.test(leaf) ? leaf : 'RecoveredClass_' + String(i + 1).padStart(4, '0'); }
+function baseFor(cls) {
+  const n = cls.split('::').pop();
+  if (/AudioProcessorEditor|Editor$/.test(n)) return 'juce::AudioProcessorEditor';
+  if (/AudioProcessor$|Processor$/.test(n)) return 'juce::AudioProcessor';
+  if (/LookAndFeel/.test(n)) return 'juce::LookAndFeel_V4';
+  if (/Knob|Slider|Dial/.test(n)) return 'juce::Slider';
+  if (/Button/.test(n)) return 'juce::TextButton';
+  if (/Meter|Visualiz|Panel|Drawer|Strip|View|Canvas|Display|Component|Overlay|Grid|Page|Tab|Window/.test(n)) return 'juce::Component';
+  return '';
+}
+function roleFor(cls) {
+  const n = ' ' + cls.replace(/([a-z0-9])([A-Z])/g, '$1 $2').replace(/([A-Z]+)([A-Z][a-z])/g, '$1 $2').replace(/[:_]+/g, ' ').toLowerCase() + ' ';
+  const has = rx => rx.test(n);
+  if (has(/ (clip\w*|satur\w*|distort\w*|shaper|drive|tanh|fold\w*) /)) return 'WAVESHAPER';
+  if (has(/ limit\w* /)) return 'LIMITER'; if (has(/ (compress\w*|comp|glue) /)) return 'COMPRESSOR'; if (has(/ gate\w* /)) return 'GATE';
+  if (has(/ (filter|lpf|hpf|shelf|eq|ladder|svf|tpt|biquad|crossover|lowpass|highpass|bandpass|iir|fir) /)) return 'FILTER';
+  if (has(/ (oversampl\w*|resampl\w*|upsamp\w*|downsamp\w*|transposer|stretch) /)) return 'OVERSAMPLER'; if (has(/ (delay|reverb|convo\w*|convolution) /)) return 'DELAY_REVERB';
+  if (has(/ (env|envelope|detector|follower) /)) return 'ENVELOPE'; if (has(/ (meter|lufs|peak|rms|vu) /)) return 'METER';
+  if (has(/ (preset|state|manager|chain|modulation|macro|parameters|property) /)) return 'STATE_CONTROL';
+  if (has(/ (editor|panel|knob|button|look and feel|lookandfeel|window|component|page|view|slider|label|tooltip|alert|box|led) /)) return 'GUI';
+  if (has(/ (licen\w*|activ\w*|auth\w*) /)) return 'PROTECTED_SUBSYSTEM';
+  return 'UNKNOWN';
+  const _unused = cls.toLowerCase();
+  if (/clip|satur|distort|shaper|drive|tanh|fold/.test(n)) return 'WAVESHAPER';
+  if (/limit/.test(n)) return 'LIMITER'; if (/compress|comp\b|glue/.test(n)) return 'COMPRESSOR'; if (/gate/.test(n)) return 'GATE';
+  if (/filter|lpf|hpf|shelf|eq|ladder|svf|tpt|biquad|crossover/.test(n)) return 'FILTER';
+  if (/oversampl|resampl|upsamp|downsamp/.test(n)) return 'OVERSAMPLER'; if (/delay|reverb|convo/.test(n)) return 'DELAY_REVERB';
+  if (/env|detector|follower/.test(n)) return 'ENVELOPE'; if (/meter|lufs|peak|rms/.test(n)) return 'METER';
+  if (/preset|state|manager|chain|modulation|macro/.test(n)) return 'STATE_CONTROL';
+  if (/editor|panel|knob|button|lookandfeel|window|component|page|view|slider|label|tooltip|alert/.test(n)) return 'GUI';
+  if (/licen|activ|auth/.test(n)) return 'PROTECTED_SUBSYSTEM';
+  return 'UNKNOWN';
+}
+function classFiles(cls, i, binName) {
+  const parts = cls.split('::'), name = parts.pop(), ns = parts.filter(p => /^[A-Za-z_]\w*$/.test(p));
+  const safe = safeName(cls, i), base = baseFor(cls), role = roleFor(cls);
+  const roleBasis = role === 'UNKNOWN' ? [] : ['name tokens'];
+  const open = ns.map(n => `namespace ${n} {`).join(' '), close = ns.map(() => '}').join(' ');
+  const isComp = /juce::(Component|AudioProcessorEditor|Slider|TextButton)/.test(base);
+  const h = `#pragma once
+#include <juce_audio_processors/juce_audio_processors.h>
+#include <juce_dsp/juce_dsp.h>
+// GENERATED scaffold — NOT compiled (lives in RecoveredScaffolds/, promote to Active/ only after BEHAVIOR_MATCHED).
+// Class identity: VERIFIED_RTTI name (${binName}). Base class: INFERRED from name. Role: ${role} (CANDIDATE, basis: name tokens).
+// Method bodies: SCAFFOLD_ONLY — fill from 01_evidence/decompiler after the desktop Ghidra stage; see 07_agent_handoff/reconstruction_index.json
+${open}
+class ${safe}${base ? ' : public ' + base : ''}
+{
+public:
+    ${safe}();
+    ~${safe}()${base ? ' override' : ''};
+${isComp ? '    void paint (juce::Graphics&) override;\n    void resized() override;\n' : ''}${/AudioProcessor$/.test(base) ? '    void prepareToPlay (double, int) override;\n    void processBlock (juce::AudioBuffer<float>&, juce::MidiBuffer&) override;\n' : ''}${!base ? '    void prepare (double sampleRate, int maxBlock);   // GENERATED signature\n    float processSample (float x);                    // GENERATED signature\n' : ''}
+private:
+    // members: UNKNOWN until decompile (look for this+offset accesses in the constructor)
+};
+${close}
+`;
+  const cpp = `#include "${safe}.h"
+${open}
+${safe}::${safe}() {}
+${safe}::~${safe}() {}
+${isComp ? `void ${safe}::paint (juce::Graphics& g) { juce::ignoreUnused (g); } // SCAFFOLD_ONLY\nvoid ${safe}::resized() {}\n` : ''}${!base ? `void ${safe}::prepare (double, int) {}\nfloat ${safe}::processSample (float x) { return x; } // SCAFFOLD_ONLY — pass-through, not recovered behaviour\n` : ''}${close}
+`;
+  return { cls, safe, base, role, roleBasis, h, cpp, dir: 'RecoveredScaffolds/' + (role === 'GUI' ? 'UI/' : role === 'STATE_CONTROL' ? 'State/' : role === 'PROTECTED_SUBSYSTEM' ? 'Protected/' : role === 'UNKNOWN' ? 'Unclassified/' : 'DSP/') };
+}
+function processorFiles(r, nm) {
+  const ps = Object.values(r.params).sort((a, b) => (b.conf||0) - (a.conf||0) || a.id.localeCompare(b.id));
+  const layout = ps.map(p => {
+    const vals = p.values || []; const t = typeInfo(p);
+    return `    layout.add (std::make_unique<juce::AudioParameterFloat> ("${p.id}", "${p.id}", juce::NormalisableRange<float> (0.0f, 1.0f), 0.0f)); // serialized key VERIFIED (${p.source}); runtime parameter UNVERIFIED; range GENERATED_PLACEHOLDER_RANGE; default UNKNOWN (placeholder 0); type ${t.status}${vals.length ? '; observed serialized values ' + nice(Math.min(...vals)) + '..' + nice(Math.max(...vals)) + ' n=' + vals.length : ''}`;
+  }).join('\n');
+  const h = `#pragma once
+#include <juce_audio_processors/juce_audio_processors.h>
+#include <juce_dsp/juce_dsp.h>
+// GENERATED. IDs are VERIFIED serialized keys from XML, NOT verified VST parameters; every range/default is a GENERATED_PLACEHOLDER until vst3host introspection (Phase 2).
+// All AudioProcessor overrides below are GENERATED_BUILD_PLACEHOLDER values, not recovered behaviour.
+class ${nm}AudioProcessor : public juce::AudioProcessor {
+public:
+    ${nm}AudioProcessor();
+    void prepareToPlay (double, int) override;
+    void releaseResources() override {}
+    void processBlock (juce::AudioBuffer<float>&, juce::MidiBuffer&) override;
+    juce::AudioProcessorEditor* createEditor() override;
+    bool hasEditor() const override { return true; }                    // GENERATED_BUILD_PLACEHOLDER
+    const juce::String getName() const override { return "${nm}"; }   // from file name — UNVERIFIED
+    bool acceptsMidi() const override { return false; }               // GENERATED_BUILD_PLACEHOLDER (verify via runtime bus/event inputs)
+    bool producesMidi() const override { return false; }              // GENERATED_BUILD_PLACEHOLDER
+    double getTailLengthSeconds() const override { return 0.0; }      // GENERATED_BUILD_PLACEHOLDER — likely WRONG if reverb/convolution present; recover from runtime
+    int getNumPrograms() override { return 1; }                       // GENERATED_BUILD_PLACEHOLDER (IUnitInfo program lists)
+    int getCurrentProgram() override { return 0; }
+    void setCurrentProgram (int) override {}
+    const juce::String getProgramName (int) override { return {}; }
+    void changeProgramName (int, const juce::String&) override {}
+    void getStateInformation (juce::MemoryBlock&) override;           // GENERATED_STATE_COMPATIBILITY_SCAFFOLD
+    void setStateInformation (const void*, int) override;             // GENERATED_STATE_COMPATIBILITY_SCAFFOLD
+    juce::AudioProcessorValueTreeState apvts;
+private:
+    static juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();
+};
+`;
+  const cpp = `#include "PluginProcessor.h"
+#include "PluginEditor.h"
+// Bus layout: GENERATED_BUILD_PLACEHOLDER (stereo in/out assumed; verify via IComponent::getBusInfo)
+${nm}AudioProcessor::${nm}AudioProcessor()
+    : AudioProcessor (BusesProperties().withInput ("Input", juce::AudioChannelSet::stereo(), true).withOutput ("Output", juce::AudioChannelSet::stereo(), true)),
+      apvts (*this, nullptr, "PARAMETERS", createParameterLayout()) {}
+
+juce::AudioProcessorValueTreeState::ParameterLayout ${nm}AudioProcessor::createParameterLayout()
+{
+    juce::AudioProcessorValueTreeState::ParameterLayout layout;
+${layout || '    // no VERIFIED parameter IDs yet — run Phase 2 introspection or drop presets/sessions'}
+    return layout;
+}
+void ${nm}AudioProcessor::prepareToPlay (double sr, int block) { juce::ignoreUnused (sr, block); }
+void ${nm}AudioProcessor::processBlock (juce::AudioBuffer<float>& b, juce::MidiBuffer&) { juce::ScopedNoDenormals nd; juce::ignoreUnused (b); } // SCAFFOLD_ONLY (pass-through; nothing from RecoveredScaffolds is wired in)
+// GENERATED_STATE_COMPATIBILITY_SCAFFOLD — standard APVTS XML; original serialization NOT yet recovered. Verify by state-differential test (Phase 2).
+void ${nm}AudioProcessor::getStateInformation (juce::MemoryBlock& d) { if (auto x = apvts.copyState().createXml()) copyXmlToBinary (*x, d); }
+void ${nm}AudioProcessor::setStateInformation (const void* d, int n) { if (auto x = getXmlFromBinary (d, n)) if (x->hasTagName (apvts.state.getType())) apvts.replaceState (juce::ValueTree::fromXml (*x)); }
+juce::AudioProcessorEditor* ${nm}AudioProcessor::createEditor() { return new ${nm}AudioProcessorEditor (*this); }
+juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter() { return new ${nm}AudioProcessor(); }
+`;
+  const eh = `#pragma once
+#include "PluginProcessor.h"
+// GENERATED generic editor — original UI NOT recovered. Rebuild from 02_recovered_assets + BinaryData mapping.
+class ${nm}AudioProcessorEditor : public juce::AudioProcessorEditor {
+public:
+    explicit ${nm}AudioProcessorEditor (${nm}AudioProcessor&);
+    void paint (juce::Graphics& g) override { g.fillAll (juce::Colour (0xff182430)); }
+    void resized() override;
+private:
+    ${nm}AudioProcessor& proc; juce::OwnedArray<juce::Slider> sliders; juce::OwnedArray<juce::Label> labels;
+    juce::OwnedArray<juce::AudioProcessorValueTreeState::SliderAttachment> att;
+};
+`;
+  const ec = `#include "PluginEditor.h"
+${nm}AudioProcessorEditor::${nm}AudioProcessorEditor (${nm}AudioProcessor& p) : AudioProcessorEditor (&p), proc (p)
+{
+    for (auto* prm : proc.getParameters())
+        if (auto* wid = dynamic_cast<juce::AudioProcessorParameterWithID*> (prm)) {
+            auto* s = sliders.add (new juce::Slider (juce::Slider::RotaryHorizontalVerticalDrag, juce::Slider::TextBoxBelow));
+            auto* l = labels.add (new juce::Label ({}, wid->getParameterID())); l->attachToComponent (s, false);
+            addAndMakeVisible (s); att.add (new juce::AudioProcessorValueTreeState::SliderAttachment (proc.apvts, wid->getParameterID(), *s)); }
+    setSize (900, 600);
+}
+void ${nm}AudioProcessorEditor::resized() { juce::FlexBox fb; fb.flexWrap = juce::FlexBox::Wrap::wrap; for (auto* s : sliders) fb.items.add (juce::FlexItem (*s).withMinWidth (110).withMinHeight (120)); fb.performLayout (getLocalBounds().reduced (12)); }
+`;
+  return { h, cpp, eh, ec };
+}
+function serializedKeyRecord(p) {
+  const ti = typeInfo(p); const v = p.values || []; const indexed = /_\d+(_\d+)*$/.test(p.id);
+  return { name: p.id, serialized_key_status: p.conf >= 3 ? 'VERIFIED_XML (preset/session file)' : p.conf === 2 ? 'VERIFIED_XML (embedded in binary)' : 'CANDIDATE', runtime_parameter_status: 'UNVERIFIED', key_kind_candidate: indexed ? 'INTERNAL_EFFECT_PROPERTY (indexed array element)' : 'XML_PARAMETER_KEY (may or may not be an exported VST parameter)', source: p.source, observed_serialized_values: v, observed_min: v.length ? Math.min(...v) : null, observed_max: v.length ? Math.max(...v) : null, value_representation: 'UNKNOWN', legal_range: 'UNKNOWN', factory_default: 'UNKNOWN', units: 'UNKNOWN', step_count: 'UNKNOWN', type_status: ti.status, type_basis: ti.basis, note: 'existence in serialized state is verified; automatability, representation (normalized/plain/enum), range and default require the runtime host and state-differential test' };
+}
+function typeInfo(p) {
+  const vals = uniq(p.values || []);
+  if (vals.length >= 2 && vals.every(v => v === 0 || v === 1)) return { status: 'INFERRED_TYPE_STRONG: bool/discrete', basis: 'both 0 and 1 observed, nothing else' };
+  if (vals.length === 1 && (vals[0] === 0 || vals[0] === 1)) return { status: 'TYPE_UNKNOWN' + (/oversampl|bypass|enable|on|off|switch|mode|auto/i.test(p.id) ? ' (discrete candidate from name)' : ''), basis: 'single observed value' };
+  if (vals.length >= 3) return { status: 'INFERRED_TYPE_WEAK: continuous', basis: 'multiple distinct non-binary values' };
+  return { status: 'TYPE_UNKNOWN', basis: 'insufficient observations' };
+}
+const nice = v => Number.isInteger(v) ? v.toFixed(1) : String(+v.toFixed(6));
+function identity(r, b) {
+  const codes = (r.buckets['Plugin codes'] || []);
+  const vendor = (r.strings.find(s => /^JucePlugin_Manufacturer$/.test(s)) ? null : null);
+  return { format: b.pe.format || 'unknown', arch: b.pe.machine || 'unknown', manufacturerCode: 'UNVERIFIED', pluginCode: 'UNVERIFIED', vendor: vendor || 'UNVERIFIED', product: ident(b.name) + ' (from file name — UNVERIFIED)', fuid: 'UNVERIFIED (Phase 2: vst3host GetPluginFactory)', jucePluginMacros: codes };
+}
+function cmakeFor(r, nm, classes, validRes, b) {
+  const fmt = b.pe.format === 'VST2' ? 'VST' : 'VST3';
+  return `cmake_minimum_required(VERSION 3.22)
+project(${nm} VERSION 1.0.0)
+add_subdirectory(JUCE) # git clone https://github.com/juce-framework/JUCE${r.juce ? ' --branch ' + r.juce : ' (version not embedded in binary — match your original toolchain)'}
+
+# ---- BUILD MODES
+#  FIDELITY  (default): requires the ORIGINAL identity. Only this mode can claim DAW-session / preset relinking.
+#  SURROGATE (-DRECOVERY_SURROGATE_BUILD=ON): temporary generated identity so DSP work, pluginval and differential
+#            tests can run before Phase 2 recovers the real FUID/codes. NEVER session-compatible.
+option(RECOVERY_SURROGATE_BUILD "Build with a temporary generated identity (not session-compatible)" OFF)
+set(RECOVERED_COMPANY "")           # UNVERIFIED — fill from 01_evidence/vst3/factory.json (Phase 2) or original project files
+set(RECOVERED_MANUFACTURER_CODE "") # UNVERIFIED
+set(RECOVERED_PLUGIN_CODE "")       # UNVERIFIED
+if(RECOVERY_SURROGATE_BUILD)
+  set(RECOVERED_COMPANY "SURROGATE-RECOVERY")
+  set(RECOVERED_MANUFACTURER_CODE "Srgt")
+  set(RECOVERED_PLUGIN_CODE "R${nm.replace(/[^A-Za-z]/g, '').slice(0, 3).padEnd(3, 'x')}")
+  message(WARNING "SURROGATE identity in use: this build cannot relink old sessions.")
+elseif(RECOVERED_MANUFACTURER_CODE STREQUAL "" OR RECOVERED_PLUGIN_CODE STREQUAL "")
+  message(FATAL_ERROR "FIDELITY build needs the original identity (UNVERIFIED). Set RECOVERED_* above, or configure with -DRECOVERY_SURROGATE_BUILD=ON for DSP work.")
+endif()
+
+# Only the analysed format (${b.pe.format || '?'} ${b.pe.machine || '?'}). Enable Standalone/AU deliberately, later.
+juce_add_plugin(${nm} COMPANY_NAME "\${RECOVERED_COMPANY}" PLUGIN_MANUFACTURER_CODE \${RECOVERED_MANUFACTURER_CODE} PLUGIN_CODE \${RECOVERED_PLUGIN_CODE} FORMATS ${fmt} PRODUCT_NAME "${nm}")
+${validRes.length ? `juce_add_binary_data(${nm}Data SOURCES ${validRes.map(x => 'Resources/' + x.name).join(' ')})` : '# no VALID_EXACT resources carved'}
+
+# Only Source/Active is compiled. Source/RecoveredScaffolds/ (${classes.length} classes) is evidence-derived scaffolding and is
+# deliberately NOT in the build; promote a class here only once it is BEHAVIOR_MATCHED (see 07_agent_handoff/reconstruction_index.json).
+target_sources(${nm} PRIVATE
+    Source/Active/PluginProcessor.cpp
+    Source/Active/PluginEditor.cpp)
+target_compile_definitions(${nm} PUBLIC JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0 JUCE_VST3_CAN_REPLACE_VST2=0)
+target_link_libraries(${nm} PRIVATE ${validRes.length ? nm + 'Data ' : ''}juce::juce_audio_utils juce::juce_dsp PUBLIC juce::juce_recommended_config_flags juce::juce_recommended_lto_flags juce::juce_recommended_warning_flags)
+`;
+}
+function desktopScripts(binName) {
+  const ps1 = `# run_recovery.ps1 — Phase 2/3 desktop stage. Downloads JDK + Ghidra into .\\tools (nothing system-wide). Needs Python 3.10+.
+$ErrorActionPreference = 'Stop'
+$bin = Resolve-Path "..\\${binName}" -ErrorAction SilentlyContinue; if (-not $bin) { $bin = Read-Host "Path to ${binName}" }
+New-Item -ItemType Directory -Force tools | Out-Null
+if (-not (Test-Path tools\\jdk)) { Write-Host "Downloading Temurin JDK 21…"; Invoke-WebRequest "https://api.adoptium.net/v3/binary/latest/21/ga/windows/x64/jdk/hotspot/normal/eclipse?project=jdk" -OutFile tools\\jdk.zip
+  Expand-Archive tools\\jdk.zip tools\\jdk_tmp; Move-Item (Get-ChildItem tools\\jdk_tmp | Select -First 1).FullName tools\\jdk; Remove-Item tools\\jdk_tmp, tools\\jdk.zip -Recurse -Force }
+if (-not (Get-ChildItem tools -Directory -Filter "ghidra_*")) { Write-Host "Downloading Ghidra…"; $rel = Invoke-RestMethod https://api.github.com/repos/NationalSecurityAgency/ghidra/releases/latest
+  $asset = $rel.assets | Where-Object name -like "*.zip" | Select -First 1; Invoke-WebRequest $asset.browser_download_url -OutFile tools\\ghidra.zip; Expand-Archive tools\\ghidra.zip tools; Remove-Item tools\\ghidra.zip }
+$env:JAVA_HOME = (Resolve-Path tools\\jdk).Path; $env:PATH = "$env:JAVA_HOME\\bin;$env:PATH"
+$env:GHIDRA_INSTALL_DIR = (Get-ChildItem tools -Directory -Filter "ghidra_*" | Select -First 1).FullName; $env:MAXMEM = "8G"
+python -m pip install --quiet pedalboard
+python vst_recover.py -o ..\\01_evidence "$bin" params     # interim: pedalboard until vst3host.exe exists
+python vst_recover.py -o ..\\01_evidence "$bin" ghidra
+Write-Host "Done. Decompiled evidence in ..\\01_evidence\\*\\decompiled — it is EVIDENCE, not source. Port via 07_agent_handoff."`;
+  const sh = `#!/usr/bin/env bash
+set -e; cd "$(dirname "$0")"; mkdir -p tools; BIN="\${1:-../${binName}}"
+if [ ! -d tools/jdk ]; then OS=$( [ "$(uname)" = Darwin ] && echo mac || echo linux ); ARCH=$( [ "$(uname -m)" = arm64 ] && echo aarch64 || echo x64 )
+  curl -L "https://api.adoptium.net/v3/binary/latest/21/ga/$OS/$ARCH/jdk/hotspot/normal/eclipse?project=jdk" -o tools/jdk.tgz; mkdir tools/jdk; tar xzf tools/jdk.tgz -C tools/jdk --strip-components=1; rm tools/jdk.tgz; fi
+if ! ls -d tools/ghidra_* >/dev/null 2>&1; then URL=$(curl -s https://api.github.com/repos/NationalSecurityAgency/ghidra/releases/latest | grep browser_download_url | grep '\\.zip' | head -1 | cut -d '"' -f4); curl -L "$URL" -o tools/ghidra.zip; unzip -q tools/ghidra.zip -d tools; rm tools/ghidra.zip; fi
+export JAVA_HOME="$PWD/tools/jdk"; [ -d "$JAVA_HOME/Contents/Home" ] && export JAVA_HOME="$JAVA_HOME/Contents/Home"; export PATH="$JAVA_HOME/bin:$PATH"
+export GHIDRA_INSTALL_DIR="$(ls -d tools/ghidra_* | head -1)"; export MAXMEM=8G
+python3 -m pip install --quiet pedalboard || true
+python3 vst_recover.py -o ../01_evidence "$BIN" params || true
+python3 vst_recover.py -o ../01_evidence "$BIN" ghidra
+echo "Done. See ../01_evidence/*/decompiled"`;
+  return { ps1, sh };
+}
+
+// ---------------- render
+function render() {
+  const r = R, b = r.bins[0] || { name: 'unknown', kind: '?', size: 0, pe: {} };
+  const nm = ident(b.name);
+  const classes = r.classes.map((c, i) => classFiles(c, i, b.name));
+  const kinds = {}; (r.classesAll || []).forEach(x => kinds[x.kind] = (kinds[x.kind] || 0) + 1);
+  const pkinds = {}; (r.pathsAll || []).forEach(x => pkinds[x.kind] = (pkinds[x.kind] || 0) + 1);
+  const rstat = {}; r.resources.forEach(x => rstat[x.status || 'UNKNOWN'] = (rstat[x.status || 'UNKNOWN'] || 0) + 1);
+  const validRes = r.resources.filter(x => x.status === 'VALID_EXACT');
+  const usableRes = r.resources.filter(x => x.status === 'VALID_EXACT' || x.status === 'PARSER_VALID');
+  const proc = processorFiles(r, nm);
+  const P = Object.values(r.params); const pcount = P.length, withVals = P.filter(x => x.values && x.values.length).length;
+  const idn = identity(r, b);
+  $('#results').style.display = 'block';
+  const card = (title, rows) => `<div class="meter"><b>${title}</b><br>${rows.map(([k, v, c]) => `<span style="color:var(--ink2)">${k}</span> <span class="${c || ''}" style="font-family:var(--mono)">${v}</span>`).join(' · ')}</div>`;
+  $('#meters').innerHTML = [
+    card('IDENTITY', [['format', idn.format, 'ok'], ['arch', idn.arch, 'ok'], ['codes/FUID', 'UNVERIFIED → Phase 2', 'hi']]),
+    card('SERIALIZED KEYS', [['verified keys (XML/preset)', pcount, pcount ? 'ok' : ''], ['indexed/internal-looking', P.filter(p => /_\d+(_\d+)*$/.test(p.id)).length], ['exported VST parameters', 'UNVERIFIED → Phase 2 host', 'hi'], ['candidate strings kept as evidence', (r.candidateStrings || []).length]]),
+    card('CLASSES', [['plugin-owned candidates', kinds.PLUGIN_OWNED || 0, 'ok'], ['framework', kinds.FRAMEWORK || 0], ['third-party libs', kinds.THIRD_PARTY || 0], ['os/runtime', kinds.OS_RUNTIME || 0], ['rejected', kinds.FALSE_POSITIVE || 0]]),
+    card('RESOURCES', [['valid+bounded', rstat.VALID_EXACT || 0, 'ok'], ['parser-valid only', rstat.PARSER_VALID || 0], ['partial', rstat.CARVED_PARTIAL || 0], ['invalid', rstat.INVALID || 0], ['duplicate', rstat.DUPLICATE || 0], ['BinaryData mapped', `${(r.binaryDataMap || []).filter(m => /^VERIFIED/.test(m.mapping_status)).length} verified / ${(r.binaryDataMap || []).filter(m => /^INFERRED/.test(m.mapping_status)).length} inferred`]]),
+    card('BUILD-PATH EVIDENCE', [['project source', pkinds.PROJECT_SOURCE || 0, pkinds.PROJECT_SOURCE ? 'ok' : ''], ['framework/SDK/CRT', (pkinds.FRAMEWORK || 0) + (pkinds.SDK || 0) + (pkinds.CRT || 0)], ['build machine', pkinds.BUILD_MACHINE || 0]]),
+    card('SYMBOLS', [['.pdb', r.pdbFound ? 'dropped' : r.pdb ? 'referenced, not found' : 'stripped', r.pdbFound ? 'ok' : r.pdb ? 'hi' : 'bad'], ['rescued source files', r.rescued.length, r.rescued.length ? 'ok' : '']]),
+    card('DSP BODIES', [['status', 'SCAFFOLD_ONLY → Phase 3/4 (desktop)', 'hi']]),
+  ].join('');
+  const dl = (el, rows) => { $(el).innerHTML = rows.map(([k, v, cls]) => `<dt>${k}</dt><dd class="${cls || ''}">${v}</dd>`).join(''); };
+  dl('#bin', [['File', b.name], ['Type', b.kind + (b.pe.format ? ' · ' + b.pe.format : '')], ['Size', (b.size/1048576).toFixed(2) + ' MB'], ['Arch', b.pe.machine || '—'], ['Exports', (b.pe.exports || []).slice(0, 6).join(', ') || '—'], ['SHA-256', (r.inputs.find(i => i.path.endsWith(b.name)) || {}).sha256 || '—']]);
+  dl('#fp', [['JUCE', r.juce || (b.hasJuce ? 'yes (version string not embedded)' : 'not a JUCE build'), (r.juce || b.hasJuce) ? 'ok' : 'hi'], ['Linker', b.pe.linker ? 'MSVC ' + b.pe.linker : '—'], ['Built', b.pe.timestamp || '—'], ['Sections', b.pe.sectionNames || '—'],
+    ['.pdb', r.pdbFound ? 'dropped ✓' : r.pdb ? r.pdb + ' — find this file' : 'none referenced', r.pdbFound ? 'ok' : r.pdb ? 'hi' : 'bad']]);
+  dl('#counts', [['Plugin-owned classes', kinds.PLUGIN_OWNED || 0, 'ok'], ['Parameters', `${pcount} (${withVals} with values)`, pcount ? 'ok' : ''], ['Presets read', r.presetFiles.map(p => p.name + ':' + p.count).join(', ') || '—'], ['Valid resources', validRes.length, validRes.length ? 'ok' : ''], ['Licence strings', (r.buckets['Licence / security'] || []).length, (r.buckets['Licence / security'] || []).length ? 'hi' : '']]);
+  const tabs = {
+    'Classes': ['// kind        role                name   →   file', ...(r.classesAll || []).slice().sort((a, b) => a.kind.localeCompare(b.kind) || a.name.localeCompare(b.name)).map(x => { const c = classes.find(k => k.cls === x.name); return `${x.kind.padEnd(14)} ${(c ? c.role : '-').padEnd(19)} ${x.name}${c ? '   →  Source/' + c.dir + c.safe + '.{h,cpp}' : ''}`; })].join('\n'),
+    'Serialized keys': '// serialized key status · observed SERIALIZED values (representation UNKNOWN; not legal range, not default) · runtime parameter status always UNVERIFIED here\n' + (b.paramNote ? '// ' + b.paramNote + '\n' : '') + (P.sort((a, b) => (b.conf||0)-(a.conf||0)).map(p => `${p.id.padEnd(24)} ${p.conf >= 2 ? 'VERIFIED_KEY' : 'CANDIDATE   '}  observed ${p.values ? nice(Math.min(...p.values)) + '..' + nice(Math.max(...p.values)) + ' n=' + p.values.length : '—'}   ${/_\d+(_\d+)*$/.test(p.id) ? 'INTERNAL_PROPERTY?' : 'XML_PARAMETER_KEY'}   ${typeInfo(p).status}`).join('\n') || '(none)'),
+    'Build-path evidence': (r.pathsAll || []).slice().sort((a, b) => a.kind.localeCompare(b.kind)).map(x => `${x.kind.padEnd(15)} ${x.path}`).join('\n') || '(none)',
+    'Resources': r.resources.map(x => `${(x.status || '?').padEnd(15)} ${x.name.padEnd(22)} ${(x.data.length/1024).toFixed(0).padStart(6)} KB  ${(x.dims || x.root || '').padEnd(14)} ${x.semantics ? x.semantics + ' ' : ''}${x.candidate_name ? '≈ ' + x.candidate_name + ' [' + x.mapping_status.split(' ')[0] + ']' : ''}${x.dupOf ? ' = ' + x.dupOf : ''}  @0x${(x.offset || 0).toString(16)}`).join('\n') || '(none)',
+    'BinaryData map': (r.binaryDataMap || []).map(m => `${m.binarydata_name.padEnd(36)} → ${(m.carved || '—').padEnd(20)} ${m.mapping_status}`).join('\n') || '(no BinaryData names)',
+    'DSP constant candidates': r.consts.map(c => `${c.label.padEnd(26)} ×${c.count}   at ${c.offsets.join(' ')}`).join('\n') || '(none matched)',
+    'PluginProcessor.cpp': proc.cpp,
+    'Preset XML': r.presetFiles.map(p => '// ' + p.name + '\n' + p.xml).join('\n\n') || '(drop a .vstpreset / .fxp / .RPP / DAW project to recover ranges)',
+    'BinaryData names': uniq(r.bins.flatMap(x => x.binaryDataNames || [])).join('\n') || '(none)',
+    'Candidate strings': (r.candidateStrings || []).slice(0, 3000).join('\n') || '(none)',
+    ...Object.fromEntries(Object.entries(r.buckets).map(([k, v]) => [k, v.join('\n') || '(none)'])),
+    'All strings': r.strings.slice(0, 30000).join('\n'),
+  };
+  const T = $('#tabs'); T.innerHTML = '';
+  Object.keys(tabs).forEach((k, i) => { const bt = document.createElement('button'); bt.role = 'tab'; bt.textContent = k; bt.setAttribute('aria-selected', i === 0); bt.onclick = () => { [...T.children].forEach(x => x.setAttribute('aria-selected', x === bt)); $('#view').textContent = tabs[k]; }; T.appendChild(bt); });
+  $('#view').textContent = tabs['Classes'];
+  const res = $('#res'); res.innerHTML = '';
+  r.resources.forEach(x => { const blob = new Blob([x.data], { type: x.mime }); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = '#'; a.innerHTML = (/^(png|jpg|svg)$/.test(x.ext) && x.status === 'VALID_EXACT' ? `<img src="${url}" alt="">` : '') + `${x.name}<br><span class="${x.status === 'VALID_EXACT' ? 'ok' : x.status === 'DUPLICATE' ? '' : 'hi'}">${x.status || '?'}</span> ${(x.data.length/1024).toFixed(0)} KB`; a.onclick = e => { e.preventDefault(); saveFile(x.name, blob); }; res.appendChild(a); });
+  if (!r.resources.length) res.textContent = 'No embedded images, fonts, or XML found.';
+  const steps = [];
+  if (r.pdb && !r.pdbFound) steps.push(`<span class="hi">Find <code>${r.pdb.split(/[\\/]/).pop()}</code></span> and drop it here — it restores every function name for the Ghidra stage.`);
+  if (!withVals) steps.push('Drop any <code>.vstpreset</code>, <code>.fxp</code>, Reaper <code>.RPP</code>, Ableton <code>.als</code>, FL <code>.flp</code> or Cubase <code>.cpr</code> that used this plugin — saved values become VERIFIED parameter IDs with observed ranges.');
+  if (!r.rescued.length) steps.push('Drop your old project folder, Downloads, or OneDrive folder — surviving <code>.cpp/.h/.jucer</code> is copied verbatim into <code>04_reconstruction/Source/rescued/</code>.');
+  steps.push('Download the bundle. <code>04_reconstruction/</code> is a Git-ready skeleton whose CMake fails loudly until you supply the UNVERIFIED identity codes.');
+  steps.push('Tap <b>Copy findings</b> and paste into chat: the export cross-references every gap to the Claude Code phase that closes it.');
+  $('#steps').innerHTML = steps.map(s => `<li>${s}</li>`).join('');
+
+  const crossref = () => {
+    const rows = [
+      ['Identity (FUID, vendor, codes)', 'UNVERIFIED', 'Phase 2 — vst3host.exe: GetPluginFactory → 01_evidence/vst3/factory.json'],
+      ['Serialized state keys', pcount ? `${pcount} VERIFIED keys from XML/presets` : 'none', 'Phase 2 — IEditController → runtime_parameters.json, then state_runtime_map.json (SAME_ID / MAPPED / STATE_ONLY / RUNTIME_ONLY)'],
+      ['Exported VST parameters, ranges, defaults, representation', 'UNVERIFIED (observed serialized values only)', 'Phase 2 — runtime host + state-differential harness'],
+      ['Class architecture', `${kinds.PLUGIN_OWNED || 0} PLUGIN_OWNED candidates (VERIFIED_RTTI names; bases/roles CANDIDATE from name tokens)`, 'Phase 3 — Ghidra MSVC RTTI analyzer: vtables, inheritance, ctor/dtor, method addresses; callgraph confirms roles'],
+      ['Function bodies / DSP', 'SCAFFOLD_ONLY', 'Phase 3 — seeded callgraph from processBlock, DSP scoring, noise suppression → 01_evidence/decompiler'],
+      ['DSP behaviour', `${r.consts.length} constant hints only`, 'Phase 2 probes + Phase 4 transfer-curve fit → 05_reference_behavior'],
+      ['Resources', `${validRes.length} VALID_EXACT (parser+boundary) / ${r.resources.length} carved; BinaryData names: ${(r.binaryDataMap || []).filter(m => /^VERIFIED/.test(m.mapping_status)).length} VERIFIED (font name tables), ${(r.binaryDataMap || []).filter(m => /^INFERRED/.test(m.mapping_status)).length} inferred, rest UNRESOLVED`, 'Phase 3 — getNamedResource decompile resolves the rest'],
+      ['UI layout', r.resources.some(x => x.ext === 'xml' && x.status === 'VALID_EXACT' && /layout|button|slider|knob|component|editor/i.test(new TextDecoder().decode(x.data).slice(0, 4000))) ? 'XML layout docs recovered' : 'none (UI is code-defined)', 'Phase 4/5 — XML control ↔ parameter ↔ DSP mapping (ui_map.json)'],
+      ['State schema', r.presetFiles.length ? 'preset XML present' : 'none', 'Phase 2 — state-differential test (change one control, diff state)'],
+      ['Build', 'CMake: VST3 only, Active/ only; FIDELITY needs identity, SURROGATE mode for DSP work', 'Phase 4 — build + pluginval + differential harness → 06_validation'],
+      ['Symbols', r.pdbFound ? '.pdb present' : r.pdb ? '.pdb referenced' : 'stripped', r.pdbFound ? 'Phase 3 uses it automatically' : 'owner artifact hunt; otherwise names stay GENERATED'],
+    ];
+    return ['## Cross-reference: what this static scan settled vs. what Claude Code must build', '| Area | Static scan result | Closed by |', '|---|---|---|', ...rows.map(x => `| ${x[0]} | ${x[1]} | ${x[2]} |`)];
+  };
+  $('#copyFindings').textContent = 'Copy findings for chat'; $('#zip').textContent = 'Download repo zip';
+  $('#copyFindings').onclick = () => {
+    const lines = [
+      `# Recovery findings: ${b.name} (${b.kind}${b.pe.format ? ' ' + b.pe.format : ''}, ${(b.size/1048576).toFixed(1)} MB, ${b.pe.machine || '?'})`,
+      `JUCE ${r.juce || (b.hasJuce ? 'yes/unversioned' : 'no')} · linker ${b.pe.linker || '?'} · built ${b.pe.timestamp || '?'} · sections ${b.pe.sectionNames || '?'}`,
+      `pdb: ${r.pdbFound ? 'dropped' : r.pdb || 'none'} · exports: ${(b.pe.exports || []).slice(0, 8).join(', ')}`,
+      `presets read: ${r.presetFiles.map(p => p.name + '(' + p.count + ')').join(', ') || 'none'} · rescued source: ${r.rescued.length}`,
+      `## Scorecard`, `classes: owned ${kinds.PLUGIN_OWNED || 0}, framework ${kinds.FRAMEWORK || 0}, third-party ${kinds.THIRD_PARTY || 0}, os ${kinds.OS_RUNTIME || 0}, rejected ${kinds.FALSE_POSITIVE || 0}`,
+      `third-party libs: ${uniq((r.classesAll || []).filter(x => x.kind === 'THIRD_PARTY').map(x => x.name.split('::')[0])).join(', ') || 'none'}`,
+      `serialized keys: verified ${pcount} (${P.filter(p => /_\d+(_\d+)*$/.test(p.id)).length} indexed/internal-looking), with values ${withVals}; exported VST parameters: UNVERIFIED (runtime host); candidate strings ${(r.candidateStrings || []).length}`,
+      `resources: ${Object.entries(rstat).map(([k, v]) => k + ' ' + v).join(', ') || 'none'}`, `paths: ${Object.entries(pkinds).map(([k, v]) => k + ' ' + v).join(', ') || 'none'}`,
+      `## Plugin-owned classes (${r.classes.length}) [role]`, ...classes.slice(0, 150).map(c => `${c.cls} [${c.role}]`),
+      `## Serialized keys (${pcount}; ${P.filter(p => /_\d+(_\d+)*$/.test(p.id)).length} look like indexed internal properties) — NOT verified VST parameters`, ...P.slice(0, 120).map(p => p.id + (p.values ? ` [${nice(Math.min(...p.values))}..${nice(Math.max(...p.values))} n=${p.values.length}]` : '') + (/_\d+(_\d+)*$/.test(p.id) ? ' [STATE_FIELD?]' : '') + ` ← ${p.source}`),
+      `## Project-source paths (${r.tree.length})`, ...r.tree.slice(0, 60),
+      `## DSP-relevant constant candidates`, ...r.consts.map(c => `${c.label} x${c.count}`),
+      `## BinaryData names`, ...uniq(r.bins.flatMap(x => x.binaryDataNames || [])).slice(0, 60),
+      `## Resources`, ...r.resources.map(x => `${x.status} ${x.name} ${(x.data.length/1024).toFixed(0)}KB ${x.dims || x.root || ''}${x.candidate_name ? ' ≈ ' + x.candidate_name : ''}`),
+      `## BinaryData map`, ...(r.binaryDataMap || []).map(m => `${m.binarydata_name} → ${m.carved || '—'} (${m.mapping_status})`),
+      `## Licence/security`, ...(r.buckets['Licence / security'] || []).filter(s => !/^<|="/.test(s)).slice(0, 15),
+      ...crossref(),
+    ];
+    navigator.clipboard.writeText(lines.join('\n')).then(() => status.textContent = 'Findings copied — paste them into the chat.', () => { $('#view').textContent = lines.join('\n'); status.textContent = 'Clipboard blocked; findings shown in the panel — select and copy.'; });
+  };
+  $('#copyScaffold').onclick = () => navigator.clipboard.writeText(proc.cpp).then(() => status.textContent = 'PluginProcessor.cpp copied.');
+  $('#zip').onclick = async () => {
+    if (!window.JSZip) { status.textContent = 'Zip library did not load; use Copy findings instead.'; return; }
+    status.textContent = 'Packing bundle…';
+    const z = new JSZip(), base = nm + '_RECOVERED/';
+    const J = (path, obj) => z.file(base + path, JSON.stringify(withSchema(path, obj), null, 2));
+    // 00 manifest
+    J('00_manifest/input_manifest.json', { inputs: r.inputs, mode: 'OWNER_RECOVERY (static stage)', tool: 'Plugin Recovery Bench (browser)', generated: new Date().toISOString() });
+    J('00_manifest/recovery_summary.json', { binary: b.name, format: b.pe.format, arch: b.pe.machine, juce: r.juce || (b.hasJuce ? 'unversioned' : null), classes: kinds, parameters: { verified: pcount, withValues: withVals, candidateStrings: (r.candidateStrings || []).length }, resources: rstat, paths: pkinds, pdb: r.pdb, pdbFound: r.pdbFound });
+    // 01 evidence
+    for (const bb of r.bins) J('01_evidence/binary/' + bb.name + '.json', { kind: bb.kind, size: bb.size, sha256: bb.sha256, pe: bb.pe, juce: bb.juce, hasJuce: bb.hasJuce, pdb: bb.pdb, xml_scan_status: bb.xmlScanStatus, stages_ms: bb.stages });
+    J('01_evidence/rtti/classes.json', (r.classesAll || []).map(x => { const c = classes.find(k => k.cls === x.name); return { recovered_name: x.name, kind: x.kind === 'PLUGIN_OWNED' ? 'PLUGIN_OWNED_CANDIDATE' : x.kind, library: x.kind === 'THIRD_PARTY' ? x.name.split('::')[0] : undefined, role: c ? c.role : null, role_status: c && c.role !== 'UNKNOWN' ? 'CANDIDATE' : 'UNKNOWN', role_basis: c ? c.roleBasis : [], inferred_base: c ? c.base || null : null, base_status: c && c.base ? 'INFERRED' : 'UNKNOWN', safe_name: c ? c.safe : null, name_status: 'VERIFIED_RTTI_NAME', source: 'RTTI type descriptor string' }; }));
+    J('01_evidence/paths/build_path_evidence.json', r.pathsAll || []);
+    z.file(base + '01_evidence/strings/all.txt', r.strings.join('\n'));
+    J('01_evidence/strings/candidate_strings.json', r.candidateStrings || []);
+    J('01_evidence/strings/classified.json', r.buckets);
+    J('01_evidence/binary/dsp_constants.json', r.consts);
+    J('01_evidence/resources/index.json', r.resources.map(x => ({ name: x.name, ext: x.ext, status: x.status, parser: x.parser, boundary: x.boundary, semantics: x.semantics || (x.status === 'VALID_EXACT' ? 'BOUNDARY_VALID_SEMANTICS_UNKNOWN' : undefined), offset: x.offset, size: x.data.length, sha256: x.sha256, from: x.from, dims: x.dims, root: x.root, dupOf: x.dupOf, candidate_name: x.candidate_name, mapping_status: x.mapping_status, extraction: x.boundary === 'BOUNDARY_VERIFIED' ? 'structural parse' : 'signature carve (heuristic end)' })));
+    J('01_evidence/resources/binarydata_map.json', r.binaryDataMap || []);
+    r.resources.filter(x => x.status !== 'VALID_EXACT').forEach(x => z.file(base + '01_evidence/resources/' + x.name, x.data));
+    r.presetFiles.forEach((p, i) => z.file(base + `01_evidence/presets/preset_${i}_${p.name.replace(/[^\w.-]/g, '_')}.xml`, p.xml));
+    // 02 assets
+    validRes.forEach(x => z.file(base + '02_recovered_assets/' + (x.ext === 'ttf' || x.ext === 'otf' ? 'fonts/' : x.ext === 'xml' ? 'xml/' : x.ext === 'wav' ? 'impulses/' : 'images/') + x.name, x.data));
+    // 03 architecture
+    J('03_architecture/classes.json', classes.map(c => ({ name: c.cls, safe_name: c.safe, role: c.role, role_status: c.role === 'UNKNOWN' ? 'UNKNOWN' : 'CANDIDATE', role_basis: c.roleBasis, inferred_base: c.base || null, file: '04_reconstruction/Source/' + c.dir + c.safe + '.cpp', status: 'SCAFFOLD_ONLY', compiled: false })));
+    J('03_architecture/serialized_keys.json', P.map(p => serializedKeyRecord(p)));
+    J('03_architecture/parameters.json', { note: 'EXPORTED_VST_PARAMETER records are produced only by the standalone runtime host (IEditController). This static stage contributes serialized keys; see serialized_keys.json.', runtime_parameters: [], state_runtime_map: [] });
+    J('03_architecture/identity.json', idn);
+    // 04 reconstruction
+    z.file(base + '04_reconstruction/CMakeLists.txt', cmakeFor(r, nm, classes, validRes, b));
+    z.file(base + '04_reconstruction/.gitignore', 'build/\nrecovery_kit/tools/\n*.pdb\n');
+    z.file(base + '04_reconstruction/Source/Active/PluginProcessor.h', proc.h); z.file(base + '04_reconstruction/Source/Active/PluginProcessor.cpp', proc.cpp);
+    z.file(base + '04_reconstruction/Source/Active/PluginEditor.h', proc.eh); z.file(base + '04_reconstruction/Source/Active/PluginEditor.cpp', proc.ec);
+    z.file(base + '04_reconstruction/Source/RecoveredScaffolds/README.md', '# RecoveredScaffolds\nGenerated from VERIFIED RTTI names. NOT compiled. Promote a class to Source/Active/ (and add it to CMake) only after it is BEHAVIOR_MATCHED against the original.\n');
+    classes.forEach(c => { z.file(base + '04_reconstruction/Source/' + c.dir + c.safe + '.h', c.h); z.file(base + '04_reconstruction/Source/' + c.dir + c.safe + '.cpp', c.cpp); });
+    validRes.forEach(x => z.file(base + '04_reconstruction/Resources/' + x.name, x.data));
+    usableRes.filter(x => x.status === 'PARSER_VALID').forEach(x => z.file(base + '01_evidence/resources/parser_valid_unbounded/' + x.name, x.data));
+    for (const s of r.rescued) z.file(base + '04_reconstruction/Source/rescued/' + s.path.replace(/[<>:"|?*]/g, '_'), await s.f.arrayBuffer());
+    // 05/06 placeholders
+    z.file(base + '05_reference_behavior/README.md', '# Reference behaviour\nPopulated by the desktop stage (Phase 2 probes: impulse, DC, amplitude ramp, sine, log sweep, noise, two-tone at 44.1/48/96k).\n');
+    z.file(base + '06_validation/README.md', '# Validation\nPopulated by the desktop stage (Phase 4: build, pluginval, original-vs-rebuild differential).\n');
+    // 07 handoff
+    J('07_agent_handoff/reconstruction_index.json', [
+      { symbol: nm + 'AudioProcessor', file: '04_reconstruction/Source/Active/PluginProcessor.cpp', status: 'SCAFFOLD_ONLY', compiled: true, evidence: ['JUCE_TEMPLATE'], parameters: P.map(p => p.id), placeholders: ['acceptsMidi', 'producesMidi', 'getTailLengthSeconds', 'getNumPrograms', 'hasEditor', 'bus layout', 'state serialization', 'all parameter ranges/defaults'], todos: ['Phase 2: replace GENERATED_BUILD_PLACEHOLDER values and GENERATED_PLACEHOLDER_RANGE from vst3host', 'Phase 2: state-differential test before trusting APVTS serialization', 'Phase 3: port processBlock from decompiler evidence'] },
+      ...classes.map(c => ({ symbol: c.cls, safe_name: c.safe, file: '04_reconstruction/Source/' + c.dir + c.safe + '.cpp', status: 'SCAFFOLD_ONLY', compiled: false, role: c.role, role_status: c.role === 'UNKNOWN' ? 'UNKNOWN' : 'CANDIDATE', role_basis: c.roleBasis, base: c.base || null, base_status: c.base ? 'INFERRED' : 'UNKNOWN', evidence: ['RTTI_TYPE_DESCRIPTOR'], binary_addresses: [], promotion: 'SCAFFOLD_ONLY → STATIC_RECONSTRUCTED → BEHAVIOR_MATCHED → Source/Active', todos: ['confirm base/role from Ghidra RTTI + callgraph', 'recover members', 'port method bodies', 'behavioural validation'] })),
+    ]);
+    z.file(base + '07_agent_handoff/UNRECOVERABLE.md', `# Unrecoverable from a stripped optimised binary\n\nRecreate these; do not keep searching for them.\n\n- original source comments\n- original whitespace/formatting\n- original local variable names${r.pdbFound ? '' : '\n- original function/member names (no .pdb)'}\n- dead source removed by the compiler/linker\n- excluded #if branches and unused files\n- template abstractions optimised away\n- Git history\n- original CMake/Projucer formatting\n`);
+    z.file(base + '07_agent_handoff/HANDOFF.md', `# Handoff: ${nm}\n\n**Binary:** ${b.name} (${b.pe.format || '?'}, ${b.pe.machine || '?'}, ${(b.size/1048576).toFixed(1)} MB) · JUCE ${r.juce || (b.hasJuce ? 'yes' : 'no')} · built ${b.pe.timestamp || '?'}\n\n## Verified\n- ${pcount} parameter IDs (XML/presets)\n- ${kinds.PLUGIN_OWNED || 0} plugin-owned class names (RTTI)\n- ${validRes.length} valid embedded resources\n- ${r.tree.length} project-source paths\n\n## Inferred\n- class base classes and DSP roles (from names)\n- parameter ranges (${withVals} from observed values)\n\n## Generated / scaffold-only\n- every method body in 04_reconstruction/Source\n- PluginProcessor/Editor shells\n\n## Unverified\n- plugin identity (vendor, codes, FUID) — CMake fails until supplied\n\n## Next best tasks (in order)\n1. Phase 2: run vst3host introspection → replace parameters.json and identity.json with VERIFIED_RUNTIME values.\n2. Phase 3: Ghidra RTTI + seeded callgraph → fill binary_addresses in reconstruction_index.json.\n3. Phase 4: pick the one module with strongest evidence${classes.filter(c => c.role === 'WAVESHAPER' || c.role === 'FILTER' || c.role === 'OVERSAMPLER').slice(0, 3).map(c => ' (' + c.cls + ')').join('') || ''}; decompile → behavioural fit → concise C++ → build → differential test.\n`);
+    z.file(base + '07_agent_handoff/agent_prompt.md', `You are continuing an evidence-first reconstruction of ${nm} from its compiled binary.\n\nRules:\n- Read 07_agent_handoff/reconstruction_index.json first; work TODOs in confidence order.\n- Treat 01_evidence/ as immutable. Never edit it.\n- Never promote a CANDIDATE or INFERRED item to VERIFIED without new evidence (runtime introspection, RTTI export, behavioural test).\n- Any algorithmic operation not present in static or behavioural evidence must be marked INFERRED in code comments.\n- Keep 04_reconstruction buildable at every commit. Do not invent identity codes; leave the CMake FATAL_ERROR until real values exist.\n- After changing any DSP, run the differential harness (06_validation) and record the result in reconstruction_index.json.\n- Licensing code is PROTECTED_SUBSYSTEM: document its architecture, do not reimplement or bypass it.\n\nUnrecoverable items are listed in UNRECOVERABLE.md — recreate them, do not search for them.\n`);
+    // kit
+    const ds = desktopScripts(b.name);
+    z.file(base + 'recovery_kit/vst_recover.py', KIT_PY);
+    z.file(base + 'recovery_kit/ghidra_scripts/ExportDecompiled.java', KIT_JAVA);
+    z.file(base + 'recovery_kit/run_recovery.ps1', ds.ps1);
+    z.file(base + 'recovery_kit/run_recovery.sh', ds.sh, { unixPermissions: '755' });
+    z.file(base + 'README_RECOVERY.md', `# ${nm} — recovery bundle (STATIC RECOVERY v2)\n\nLayout: 00_manifest · 01_evidence (immutable) · 02_recovered_assets · 03_architecture · 04_reconstruction (Git-ready skeleton) · 05/06 (desktop stages) · 07_agent_handoff · recovery_kit.\n\nStart with 07_agent_handoff/HANDOFF.md. Put ${b.name} in the bundle root, then run recovery_kit/run_recovery.ps1 for the interim desktop stage.\n`);
+    const blob = await z.generateAsync({ type: 'blob' });
+    const rs = await saveFile(nm + '_RECOVERED.zip', blob);
+    status.textContent = rs === 'saved' ? 'Bundle saved.' : rs === 'declined' ? 'Save cancelled.' : 'Saving is blocked in this view — use Copy findings.';
+  };
+}
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,68 @@
+{
+  "status": "CORPUS_INFERENCE_NOT_IMPLEMENTATION_PROOF",
+  "families": [
+    {
+      "id": "GEN_A_STUDIO_SAFARI",
+      "label": "Gen A Studio/Safari",
+      "members": [
+        "Bull Sub Machine.vst3",
+        "Silver Llama Amp.vst3",
+        "Silver Llama FX.vst3",
+        "Twin Panda Amp.vst3",
+        "Twin Panda FX.vst3",
+        "Zebra Clipper.vst3",
+        "Hawk Phaser.vst3",
+        "Cobra Fuzz.vst3"
+      ],
+      "signals": [
+        "StudioChainEffect",
+        "StudioNodeEffect",
+        "Morph*",
+        "SafariPlugin",
+        "ModulationManager",
+        "SoundTouch",
+        "pitch/tuner family"
+      ]
+    },
+    {
+      "id": "GEN_B_MORPH_WDF",
+      "label": "Gen B Morph/WDF",
+      "members": [
+        "Camel Strip.vst3",
+        "Dragon EQ.vst3",
+        "LadyBug Reverb.vst3",
+        "Rabbit Tape.vst3",
+        "Rhino Reverb.vst3"
+      ],
+      "signals": [
+        "chowdsp::wdft",
+        "MorphDiodeClipper",
+        "MorphBaxendell",
+        "MorphCurrentDivider",
+        "resonators"
+      ]
+    },
+    {
+      "id": "GEN_C_HAMMER",
+      "label": "Gen C Hammer",
+      "members": [
+        "Flamingo Verb.vst3",
+        "Fox Echo Chorus.vst3",
+        "Gorilla Drive.vst3",
+        "TimeMachine.vst3",
+        "Dirty Dog Reverb.vst3",
+        "Owl Control.vst3",
+        "Lion Master.vst3",
+        "Yak Delay.vst3"
+      ],
+      "signals": [
+        "HammerEffectBase",
+        "DisotrtionEffect",
+        "CompressorEffect",
+        "ParametericEQ",
+        "GlobalPresetBox/RotaryKnob/ImageToggleButton family"
+      ]
+    }
+  ],
+  "warning": "Family membership came from corpus-level class-set evidence and user/Claude interpretation; standalone implementation fingerprints must verify lineage."
+}

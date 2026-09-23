@@ -1,0 +1,167 @@
+[
+  {
+    "component": "GainStage",
+    "file": "Gain.h",
+    "purpose": "input/output/volume gain with smoothing"
+  },
+  {
+    "component": "Hard/soft clip families",
+    "file": "Nonlinear.h",
+    "purpose": "hard, tanh, atan, cubic, diode-like"
+  },
+  {
+    "component": "BitCrusher",
+    "file": "Nonlinear.h",
+    "purpose": "bit depth + sample hold"
+  },
+  {
+    "component": "EnvelopeFollower",
+    "file": "Dynamics.h",
+    "purpose": "attack/release envelope"
+  },
+  {
+    "component": "Compressor",
+    "file": "Dynamics.h",
+    "purpose": "downward compression"
+  },
+  {
+    "component": "Limiter",
+    "file": "Dynamics.h",
+    "purpose": "reference ceiling limiter"
+  },
+  {
+    "component": "Gate",
+    "file": "Dynamics.h",
+    "purpose": "reference gate"
+  },
+  {
+    "component": "AutoGain",
+    "file": "Dynamics.h",
+    "purpose": "RMS/envelope level match"
+  },
+  {
+    "component": "Biquad",
+    "file": "Filters.h",
+    "purpose": "LP/HP/BP/peak/shelves"
+  },
+  {
+    "component": "TPTOnePole",
+    "file": "Filters.h",
+    "purpose": "TPT LP/HP"
+  },
+  {
+    "component": "StateVariableFilter",
+    "file": "Filters.h",
+    "purpose": "low/band/high outputs"
+  },
+  {
+    "component": "FourPoleLadder",
+    "file": "Filters.h",
+    "purpose": "generic nonlinear ladder"
+  },
+  {
+    "component": "Resonator",
+    "file": "Filters.h",
+    "purpose": "bandpass resonator"
+  },
+  {
+    "component": "BaxandallReference",
+    "file": "Filters.h",
+    "purpose": "shelf-pair tone reference"
+  },
+  {
+    "component": "SallenKeyReference",
+    "file": "Filters.h",
+    "purpose": "generic two-pole low-pass reference"
+  },
+  {
+    "component": "FractionalDelayLine",
+    "file": "Delay.h",
+    "purpose": "linear fractional delay"
+  },
+  {
+    "component": "StereoDelay",
+    "file": "Delay.h",
+    "purpose": "stereo feedback delay"
+  },
+  {
+    "component": "PingPongDelay",
+    "file": "Delay.h",
+    "purpose": "cross-feedback delay"
+  },
+  {
+    "component": "PreDelay",
+    "file": "Delay.h",
+    "purpose": "short delay"
+  },
+  {
+    "component": "SineLFO",
+    "file": "Modulation.h",
+    "purpose": "standard LFO"
+  },
+  {
+    "component": "Tremolo",
+    "file": "Modulation.h",
+    "purpose": "amplitude modulation"
+  },
+  {
+    "component": "Chorus",
+    "file": "Modulation.h",
+    "purpose": "modulated short delay"
+  },
+  {
+    "component": "Phaser",
+    "file": "Modulation.h",
+    "purpose": "cascaded allpass phaser"
+  },
+  {
+    "component": "WowFlutter",
+    "file": "Modulation.h",
+    "purpose": "dual-rate delay modulation"
+  },
+  {
+    "component": "SchroederReverb",
+    "file": "Reverb.h",
+    "purpose": "comb/allpass algorithmic reverb"
+  },
+  {
+    "component": "FIRConvolver",
+    "file": "Reverb.h",
+    "purpose": "direct FIR convolution reference"
+  },
+  {
+    "component": "MidSide/StereoWidth",
+    "file": "Stereo.h",
+    "purpose": "M/S encode/decode + width"
+  },
+  {
+    "component": "WhiteNoise",
+    "file": "Noise.h",
+    "purpose": "deterministic xorshift noise"
+  },
+  {
+    "component": "LinearResampler",
+    "file": "Resampling.h",
+    "purpose": "offline linear interpolation"
+  },
+  {
+    "component": "SampleHoldReducer",
+    "file": "Resampling.h",
+    "purpose": "sample-rate-reduction primitive"
+  },
+  {
+    "component": "Peak/RMS meters",
+    "file": "Meters.h",
+    "purpose": "reference metering"
+  },
+  {
+    "component": "Pitch autocorrelation",
+    "file": "Pitch.h",
+    "purpose": "simple pitch estimator"
+  },
+  {
+    "component": "Probe signals",
+    "file": "ProbeSignals.h",
+    "purpose": "impulse/ramp/sine/sweep/noise"
+  }
+]
