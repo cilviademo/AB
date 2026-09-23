@@ -94,4 +94,8 @@ def main(argv: list[str] | None = None) -> int:
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    # `python -m ab_engine.cli` loads this file as __main__, a second module object: subcommands registered by the API
+    # modules attach to the real `ab_engine.cli`. Delegate there so both spellings see every subcommand (Windows bootstrap).
+    from ab_engine.cli import main as _main  # noqa: PLC0415
+
+    raise SystemExit(_main())
