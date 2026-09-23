@@ -1,0 +1,11 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "artifactbench.tool_versions",
+  "type": "object",
+  "required": ["engine", "static_engine", "tools"],
+  "properties": {
+    "engine": {"type": "string"},
+    "static_engine": {"type": ["string", "null"]},
+    "tools": {"type": "array", "items": {"type": "object", "required": ["name", "present"]}}
+  }
+}

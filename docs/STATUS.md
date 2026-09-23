@@ -8,8 +8,8 @@ BLOCKERS.md). Nothing is marked green without a run.
 |---|---|---|
 | 1.1 | `ab-cli doctor` reports shell, engine, disk, tools | measured (Linux): 11 pass · 1 warning · 4 unavailable · 0 fail |
 | 1.1 | `AB.exe` launches from a clean ZIP with no dev tools | pending-windows |
-| 1.2 | no-change re-run does zero work; DECOMPILATION version bump re-runs only it and later | — |
-| 1.3 | 4 fixtures + 3 presets → 4 jobs, correct attachments; 500 MB under 400 MB RSS | — |
+| 1.2 | no-change re-run does zero work; DECOMPILATION version bump re-runs only it and later | measured: engine/tests/test_jobs.py (24 tests green) |
+| 1.3 | 4 fixtures + 3 presets → 4 jobs, correct attachments; 500 MB under 400 MB RSS | measured (synthetic PEs): 4 jobs, attachments by prefix, pdb to all; 513 MB corpus → peak RSS 39 MB, 4.0 s |
 | 1.4 | `diff-baseline` zero evidence-status diffs, ≤ 20 % timing variance | blocked (B-001) |
 | 1.5 | invalid-path and secret scanners pass on the four fixtures | — |
 | 1.6 | stripped fixture → static bundle; GROUND_TRUTH_REPORT thresholds | — |

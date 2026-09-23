@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "artifactbench.input_manifest",
+  "description": "00_manifest/input_manifest.json — what was dropped, how it was grouped, and the ownership declaration (SPEC §15).",
+  "type": "object",
+  "required": ["job_id", "ownership", "mode", "primary", "inputs", "attachments", "ignored", "duplicates"],
+  "properties": {
+    "job_id": {"type": "string"},
+    "name": {"type": "string"},
+    "ownership": {"type": "string", "enum": ["OWNED", "AUTHORIZED", "THIRD_PARTY"]},
+    "mode": {"type": "string", "enum": ["OWNER_RECOVERY", "AUTHORIZED_RECOVERY", "THIRD_PARTY_ANALYSIS_ONLY"]},
+    "reconstruction_allowed": {"type": "boolean"},
+    "primary": {"type": "object", "required": ["path", "size", "sha256", "kind", "format_hint"]},
+    "inputs": {"type": "array", "items": {"type": "object", "required": ["path", "size", "sha256", "kind"],
+      "properties": {"kind": {"enum": ["binary", "pdb", "map", "obj", "source", "preset", "session", "asset", "archive", "other"]}}}},
+    "attachments": {"type": "object", "additionalProperties": {"type": "array", "items": {"type": "string"}}},
+    "ignored": {"type": "integer"},
+    "duplicates": {"type": "array", "items": {"type": "array", "items": {"type": "string"}}},
+    "bundle_key": {"type": "string"},
+    "source_roots": {"type": "array", "items": {"type": "string"}}
+  }
+}
