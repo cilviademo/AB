@@ -209,6 +209,10 @@ function Resources({ job }: { job: Job }) {
   if (rows.length === 0) return <Note>No carved resources. The static stage writes 01_evidence/resources/index.json.</Note>;
   return (
     <>
+      <Section title="Gallery" meta="sprite sheets rendered as frame strips">
+        <Gallery job={job} rows={rows} />
+      </Section>
+      <div style={{ marginTop: "var(--s8)" }} />
       <Section title="Carved resources" meta={`${rows.length}`}>
         <table className="grid">
           <thead><tr><th>State</th><th>Name</th><th>Size</th><th>Details</th><th>BinaryData name</th><th>Offset</th></tr></thead>
@@ -230,6 +234,57 @@ function Resources({ job }: { job: Job }) {
         <Note>Names are only assigned when the mapping is content-based (font name table, singleton, or a getNamedResource decompile). Tall PNGs are SPRITE_SHEET_CANDIDATE, not corruption.</Note>
       </div>
     </>
+  );
+}
+
+/** Image tiles from the project folder via the shell's sandboxed reader; tall PNGs
+ *  (SPRITE_SHEET_CANDIDATE) are sliced into frames using the frame height the
+ *  static stage recorded, e.g. "SPRITE_SHEET_CANDIDATE (64×100x100 or 32×100x200)". */
+function Gallery({ job, rows }: { job: Job; rows: ResourceRow[] }) {
+  const [urls, setUrls] = useState<Record<string, string>>({});
+  const images = rows.filter((r) => (r.ext === "png" || r.ext === "jpg" || r.ext === "svg") && (r.status === "VALID_EXACT" || r.status === "PARSER_VALID"));
+  useEffect(() => {
+    let cancelled = false;
+    const made: string[] = [];
+    void (async () => {
+      const next: Record<string, string> = {};
+      for (const r of images) {
+        const rel = `02_recovered_assets/images/${r.name}`;
+        try {
+          const bytes = new Uint8Array(await shell.readBundleFile(`${job.project_dir}/${rel}`, 64 * 1024 * 1024));
+          const url = URL.createObjectURL(new Blob([bytes], { type: r.ext === "svg" ? "image/svg+xml" : r.ext === "jpg" ? "image/jpeg" : "image/png" }));
+          made.push(url);
+          next[r.name] = url;
+        } catch { /* PARSER_VALID files live under 01_evidence; skip */ }
+      }
+      if (!cancelled) setUrls(next);
+    })();
+    return () => { cancelled = true; made.forEach((u) => URL.revokeObjectURL(u)); };
+  }, [job, rows]);  // eslint-disable-line react-hooks/exhaustive-deps
+  if (images.length === 0) return <Note>No image resources.</Note>;
+  return (
+    <div className="gallery">
+      {images.map((r) => {
+        const frames = /SPRITE_SHEET_CANDIDATE \((\d+)×(\d+)x(\d+)/.exec(r.semantics ?? "");
+        const [w, h] = (r.dims ?? "0x0").split("x").map(Number);
+        const url = urls[r.name];
+        return (
+          <div className="tile" key={r.name} title={`${r.name} · ${r.status} · 0x${r.offset.toString(16)}`}>
+            {frames && url ? (
+              <div className="strip">
+                {Array.from({ length: Math.min(Number(frames[1]), 24) }, (_, i) => (
+                  <div key={i} style={{ width: `${(88 * w) / Number(frames[3])}px`, height: 88, backgroundImage: `url(${url})`, backgroundSize: `${(88 * w) / Number(frames[3])}px ${(88 * h) / Number(frames[3])}px`, backgroundPosition: `0 -${i * 88}px`, flex: "none" }} />
+                ))}
+              </div>
+            ) : (
+              <div className="img">{url ? <img src={url} alt="" /> : <span className="faint">…</span>}</div>
+            )}
+            <span className="nm">{r.candidate_name ?? r.name}</span>
+            <span className="meta">{r.dims}{frames ? ` · ${frames[1]} frames` : ""} · <Ev state={r.status} /></span>
+          </div>
+        );
+      })}
+    </div>
   );
 }
 

@@ -2,7 +2,7 @@
   "schema": "recovery.recovery_summary",
   "schema_version": 2,
   "tool": "static-recovery-v2",
-  "generated": "2026-09-23T01:04:25.570Z",
+  "generated": "2026-09-23T01:08:44.729Z",
   "data": {
     "binary": "SynthPlug.vst3",
     "format": "VST3",

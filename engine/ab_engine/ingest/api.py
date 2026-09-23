@@ -163,7 +163,8 @@ def _tool_versions(ws: Workspace) -> dict[str, Any]:
     return {
         "engine": TOOL,
         "static_engine": "static-recovery-v2" if se.present else None,
-        "tools": [{"name": t.name, "present": t.present, "path": t.path, "version": t.version} for t in tools_mod.all_tools(ws)],
+        # names and versions only: absolute tool paths would leak the machine into the bundle (the export scanner caught this)
+        "tools": [{"name": t.name, "present": t.present, "version": t.version} for t in tools_mod.all_tools(ws)],
     }
 
 

@@ -8,6 +8,7 @@ import { Bench, type BenchScreen } from "./views/Bench";
 import { Corpus } from "./views/Corpus";
 import { SettingsView } from "./views/Settings";
 import { Diagnostics } from "./views/Diagnostics";
+import { Help } from "./views/Help";
 
 /** The AB mark: a bench — a rail over two legs. Survives an 11px render. */
 const Mark = () => (
@@ -18,7 +19,7 @@ const Mark = () => (
   </svg>
 );
 
-type Tab = "recover" | "bench" | "corpus" | "settings";
+type Tab = "recover" | "bench" | "corpus" | "settings" | "help";
 
 export default function App() {
   const [tab, setTab] = useState<Tab>("recover");
@@ -168,7 +169,7 @@ export default function App() {
       <header className="titlebar">
         <span className="wordmark"><Mark />AB · Artifact Bench</span>
         <nav className="nav">
-          {(["recover", "bench", "corpus", "settings"] as Tab[]).map((t) => (
+          {(["recover", "bench", "corpus", "settings", "help"] as Tab[]).map((t) => (
             <button
               key={t}
               type="button"
@@ -221,6 +222,7 @@ export default function App() {
         )}
         {tab === "corpus" && <Corpus jobs={jobs} onOpen={openJob} />}
         {tab === "settings" && <SettingsView env={env} status={status} />}
+        {tab === "help" && <Help />}
       </div>
     </div>
   );

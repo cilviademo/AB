@@ -1,0 +1,10 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "artifactbench.export_report",
+  "type": "object",
+  "required": ["job_id", "exported", "out_dir", "files", "reconstruction_exported", "path_findings", "secret_findings", "git_ready", "checks"],
+  "properties": {
+    "git_ready": {"type": "boolean"},
+    "checks": {"type": "array", "items": {"type": "object", "required": ["name", "ok", "detail"], "properties": {"ok": {"type": ["boolean", "null"]}}}}
+  }
+}
