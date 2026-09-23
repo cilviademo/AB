@@ -1,0 +1,26 @@
+{
+  "schema": "artifactbench.fixture_manifest",
+  "schema_version": 1,
+  "tool": "fixtures/groundtruth",
+  "generated": "2026-09-23",
+  "data": {
+    "fixture_id": "abgt-juce-1",
+    "name": "ABGroundTruth",
+    "source_type": "hand-written C++ (JUCE 8.0.9), EXECUTE \u00a71.6",
+    "license": "repository licence (owner: Multibanded LLC) \u2014 fixture source in fixtures/groundtruth/Source",
+    "license_class": "PROPRIETARY",
+    "source_repository": "this repository",
+    "source_commit": "HEAD (fixtures/groundtruth)",
+    "build_configuration": "Release (-O2, -fvisibility=hidden, -s for the stripped variant); Debug and Release+symbols variants also built",
+    "compiler": "g++ 13 / Ninja (Linux); MSVC via build_all.ps1 (Windows, pending)",
+    "binary_sha256": {
+      "debug": "00fa827bb0c88c85cda2ee6656d6ee2a2ce0bf40111fb68ab01acd41f9662c0c",
+      "release": "b1d9003091b9a2c144082e050ee711a90842bcae47ad1676b468e64df558186b",
+      "stripped": "0a2a655ac97767f29f8cbb46a2eb58400442c2adadd7e95e52f554c6e54b3e3d"
+    },
+    "expected": "truth.json (generated from spec.json by gen.py): identity, 7 parameters, 11 state fields, 5 classes, DSP modules, licensing stub, 3 resources, buses, latency",
+    "usage_context": "KNOWN_SOURCE_FIXTURE",
+    "source_availability": "KNOWN_SOURCE_GROUND_TRUTH",
+    "rule": "fixture facts live here and in truth.json, never in recovery logic (ADDENDUM B5)"
+  }
+}

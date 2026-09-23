@@ -270,6 +270,20 @@ def h_ground_truth(params: dict[str, Any], ws: Workspace) -> dict[str, Any]:
     truth = read_json(truth_path, expect="artifactbench.ground_truth")["data"]
     report = compare(job, truth, phase=int(params.get("phase", 1)))
     write_json(Path(job.project_dir) / "06_validation" / "GROUND_TRUTH_REPORT.json", "artifactbench.ground_truth_report", report)
+    # ADDENDUM B5: the known-source validation report — separate metrics, failure classes, benchmark integrity
+    from ab_engine.groundtruth import known_source as ks_mod  # noqa: PLC0415
+
+    pd = Path(job.project_dir)
+    manifest = _load(pd, "00_manifest/input_manifest.json") or {}
+    fx = ks_mod.load_fixture_manifest(truth_path)
+    ks = ks_mod.metrics_from_report(report, truth, project_dir=pd)
+    src_dir = truth_path.parent / "Source"
+    integ = ks_mod.integrity(job.context, manifest, src_dir if src_dir.is_dir() else None)
+    ks["integrity"] = integ
+    ks["fixture_manifest"] = fx
+    write_json(pd / "06_validation" / "known_source_metrics.json", "artifactbench.known_source_metrics", ks)
+    (pd / "06_validation" / "KNOWN_SOURCE_VALIDATION_REPORT.md").write_text(ks_mod.to_markdown(ks, integ, fx), encoding="utf-8")
+    report["known_source"] = {"metrics": "06_validation/known_source_metrics.json", "report": "06_validation/KNOWN_SOURCE_VALIDATION_REPORT.md", "integrity_ok": integ["ok"], "failure_classes": ks["failure_classes"]}
     return report
 
 
