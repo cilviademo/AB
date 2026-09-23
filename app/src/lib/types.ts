@@ -23,6 +23,10 @@ export type StageStatus = "PENDING" | "RUNNING" | "OK" | "FAILED" | "SKIPPED";
 export type UsageContext = "USER_RECOVERY" | "KNOWN_SOURCE_FIXTURE" | "BLACK_BOX_REFERENCE" | "SOURCE_AVAILABLE_REFERENCE" | "UNKNOWN_CONTEXT";
 export type SourceAvailability = "SOURCE_UNKNOWN" | "SOURCE_UNAVAILABLE" | "SOURCE_PARTIAL" | "SOURCE_AVAILABLE" | "KNOWN_SOURCE_GROUND_TRUTH";
 export interface RecoveryContext { usage_context: UsageContext; source_availability: SourceAvailability }
+// docs/NAMING_CANONICALIZATION.md §5, §20 — evidence always keeps original names; this only decides what the source calls things
+export type NamingMode = "PRESERVE_ORIGINAL_NAMES" | "CANONICALIZE_NAMES" | "CUSTOM_RENAME_MAP";
+export interface IdentifierRow { original: string; kind: string; original_address: string | null; evidence_status: string; category: string; semantic: string; active: string; reason: string; collision?: { with: string[]; resolved_by: string } }
+export interface IdentifierMap { mode: NamingMode; terms: Record<string, string>; identifiers: IdentifierRow[]; parameters: { runtime_param_id: string | number; original_display_name: string; transformed_display_name: string }[]; state_keys: { legacy: string; new: string; migration_status: string }[]; resources: { original_binarydata_name: string; original_filename: string; new_filename: string }[] }
 export const CONTEXT_LABEL: Record<UsageContext, string> = {
   USER_RECOVERY: "user recovery", KNOWN_SOURCE_FIXTURE: "known-source fixture", BLACK_BOX_REFERENCE: "black-box reference",
   SOURCE_AVAILABLE_REFERENCE: "source-available reference", UNKNOWN_CONTEXT: "context unknown",

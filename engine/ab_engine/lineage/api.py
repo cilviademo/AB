@@ -200,9 +200,23 @@ def _cli_lineage(p):
     p.set_defaults(func=run)
 
 
-@subcommand("knowledge", "known-library cache: ab-cli knowledge stats | seed <job_id> [--state S] | match <job_id>")
+def h_knowledge_refresh(params: dict[str, Any], ws: Workspace) -> dict[str, Any]:
+    """Re-record a job's stored decompiler evidence into the knowledge base (no Ghidra run): names learned
+    from a symbol build replace decompiler labels recorded earlier from a stripped one; vtable layouts are re-learned."""
+    from ab_engine.knowledge import hooks as knowledge_hooks  # noqa: PLC0415
+
+    job = jobs_db.get_job(jobs_db.connect(ws.db_path), str(params.get("job_id", "")))
+    if job is None:
+        raise api.ApiError("not_found", "no such job")
+    return knowledge_hooks.refresh_from_evidence(ws, job)
+
+
+api.register("knowledge.refresh", h_knowledge_refresh)
+
+
+@subcommand("knowledge", "known-library cache: ab-cli knowledge stats | seed <job_id> [--state S] | match <job_id> | refresh <job_id>")
 def _cli_knowledge(p):
-    p.add_argument("action", choices=["stats", "seed", "match"])
+    p.add_argument("action", choices=["stats", "seed", "match", "refresh"])
     p.add_argument("job_id", nargs="?")
     p.add_argument("--state", default="KNOWN_FRAMEWORK", choices=STATES)
     p.add_argument("--prefix", action="append", dest="prefixes")
@@ -212,6 +226,8 @@ def _cli_knowledge(p):
             r = api.dispatch("knowledge.stats", {}, ws)
         elif args.action == "seed":
             r = api.dispatch("knowledge.seed", {"job_id": args.job_id, "state": args.state, "name_prefixes": args.prefixes}, ws)
+        elif args.action == "refresh":
+            r = api.dispatch("knowledge.refresh", {"job_id": args.job_id}, ws)
         else:
             r = api.dispatch("knowledge.match", {"job_id": args.job_id}, ws)
             r = {k: v for k, v in r.items() if k != "results"}

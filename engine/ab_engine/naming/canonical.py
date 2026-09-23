@@ -43,7 +43,13 @@ ABBREVIATIONS = {"comp": "Compressor", "compressor": "Compressor", "eq": "EQ", "
 ARCH_TOKENS = ("Bus", "Channel", "Parallel", "Input", "Output", "Master", "Side", "Mid", "Stereo", "Mono", "Pre", "Post")
 _FRAMEWORK = ("juce::", "std::", "Steinberg::", "__cxxabiv1::", "__gnu_cxx::", "iplug::", "igraphics::")
 _MANGLED = re.compile(r"^(_Z|\?)")
-_MODEL = re.compile(r"(?<![A-Za-z])([A-Z]{1,3}\d{2,4}[A-Z]?|\d{3,4}[A-Z]{1,2})(?![A-Za-z0-9])")
+#: decompiler-generated labels are not names at all: never mapped, never renamed
+_GENERATED = re.compile(r"^(switchD_|caseD_|FUN_|LAB_|DAT_|PTR_|thunk_|SUB_|EXT_|entry$|_init$|_fini$|frame_dummy|register_tm_clones|deregister_tm_clones|__do_global|Unwind_)")
+
+
+def is_generated_label(name: str) -> bool:
+    return bool(_GENERATED.match(leaf(name)) or _GENERATED.match(name))
+_MODEL = re.compile(r"((?<![A-Za-z])[A-Z]{1,3}\d{2,4}[A-Z]?|\d{3,4}[A-Z]{0,2})(?![A-Za-z0-9])")   # LA2A, 1176, DBX160, 33609
 _WIN_RESERVED = re.compile(r"(?i)^(CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])$")
 _ILLEGAL = re.compile(r'[<>:"|?*\x00-\x1f]')
 
@@ -61,7 +67,7 @@ def leaf(name: str) -> str:
     return name.split("::")[-1]
 
 
-def infer_vendor_terms(names: list[str], *, declared: list[str] | None = None, min_count: int = 2) -> dict[str, str]:
+def infer_vendor_terms(names: list[str], *, declared: list[str] | None = None, min_count: int = 3) -> dict[str, str]:
     """Terms worth neutralizing, each with its category. Declared terms (identity vendor/product, the owner's
     list) are ``VENDOR_REFERENCE`` / ``PRODUCT_NAME``; an all-caps prefix shared by ≥ ``min_count`` plugin
     identifiers (`SSL` in SSLComp, SSL_EQ, SSLBusComp) is a ``VENDOR_REFERENCE`` *candidate* — a naming clue,
@@ -73,10 +79,11 @@ def infer_vendor_terms(names: list[str], *, declared: list[str] | None = None, m
             terms[t] = terms.get(t, "VENDOR_REFERENCE")
     counts: dict[str, int] = {}
     for n in names:
-        if n.startswith(_FRAMEWORK):
+        if n.startswith(_FRAMEWORK) or is_generated_label(n):
             continue
         parts = split_camel(leaf(n))
-        if parts and parts[0].isupper() and 2 <= len(parts[0]) <= 5 and len(parts) > 1:
+        # an all-caps prefix followed by a CamelCase word: SSL|Comp, SSL|Channel — not DT|OR-style fragments
+        if len(parts) > 1 and parts[0].isupper() and 2 <= len(parts[0]) <= 5 and parts[1][:1].isupper() and parts[1][1:].islower() and len(parts[1]) >= 2:
             counts[parts[0]] = counts.get(parts[0], 0) + 1
     for pfx, c in counts.items():
         if c >= min_count and pfx not in terms:
@@ -100,9 +107,22 @@ def categorize(name: str, terms: dict[str, str]) -> str:
 
 
 def strip_terms(name: str, terms: dict[str, str]) -> str:
+    """Remove vendor/product/model terms from a name: whole parts (`SSL`), multi-part terms as a contiguous
+    run of parts (`ABGroundTruth` = AB·Ground·Truth), and model numbers."""
     parts = split_camel(leaf(name))
     lowered = {t.lower() for t in terms}
-    kept = [p for p in parts if p.lower() not in lowered and not _MODEL.fullmatch(p)]
+    runs = [[q.lower() for q in split_camel(t)] for t in terms if len(split_camel(t)) > 1]
+    kept: list[str] = []
+    i = 0
+    while i < len(parts):
+        hit = next((r for r in runs if [q.lower() for q in parts[i:i + len(r)]] == r), None)
+        if hit:
+            i += len(hit)
+            continue
+        p = parts[i]
+        if p.lower() not in lowered and not _MODEL.fullmatch(p):
+            kept.append(p)
+        i += 1
     if not kept:
         return ""
     return "".join(ABBREVIATIONS.get(p.lower(), p[:1].upper() + p[1:]) for p in kept)
@@ -127,7 +147,7 @@ def semantic_name(item: dict[str, Any], terms: dict[str, str]) -> tuple[str, str
         arch = [p for p in split_camel(leaf(original)) if p in ARCH_TOKENS]
         name = "".join(arch[:2]) + base if arch and not base.startswith(tuple(arch)) else base
         return name, f"role {role} ({item.get('role_status') or 'validated'})" + (f" + architecture tokens {arch}" if arch else "")
-    if stripped and stripped.lower() != leaf(original).lower() and len(stripped) >= 3:
+    if stripped and stripped.lower() != leaf(original).lower() and len(stripped) >= 2:
         return stripped, "original with vendor/product/model terms removed (role not confirmed: no semantic claim)"
     if role in ROLE_BASE and stripped:
         return stripped, "original kept (role CANDIDATE only)"
@@ -137,25 +157,30 @@ def semantic_name(item: dict[str, Any], terms: dict[str, str]) -> tuple[str, str
 
 
 def resolve_collisions(rows: list[dict[str, Any]]) -> None:
-    """Two originals must never collapse into one active name (directive §14)."""
+    """Two originals must never collapse into one active name (directive §14). The member whose role is
+    supported (or the first by original name) keeps the base name; the others get an architecture token from
+    their own original (Bus, Channel, …) or a numeric suffix."""
     by_active: dict[str, list[dict[str, Any]]] = {}
     for r in rows:
         by_active.setdefault(r["active"], []).append(r)
+    used: set[str] = set(by_active)
     for active, group in by_active.items():
         if len(group) < 2:
             continue
-        used: set[str] = {a for a in by_active if a != active}
-        for r in group:
+        group.sort(key=lambda r: (str(r.get("role_status") or "") not in SUPPORTED_ROLE_STATUS and not r.get("validated"), r["original"]))
+        keeper = group[0]
+        for r in group[1:]:
             arch = [p for p in split_camel(leaf(r["original"])) if p in ARCH_TOKENS]
             cand = ("".join(arch[:2]) + active) if arch else active
-            if cand in used or cand == active and any(o is not r and o["active"] == cand for o in group):
+            if cand in used or cand == active:
                 i = 2
-                while f"{cand}_{i}" in used:
+                while f"{active}_{i}" in used:
                     i += 1
-                cand = f"{cand}_{i}"
+                cand = f"{active}_{i}"
             r["active"] = cand
-            r["collision"] = {"with": [o["original"] for o in group if o is not r], "resolved_by": "architecture token" if arch else "numeric suffix"}
+            r["collision"] = {"with": [keeper["original"]], "resolved_by": "numeric suffix" if cand.startswith(active + "_") else "architecture token"}
             used.add(cand)
+
 
 
 def sanitize_filename(name: str) -> str:
@@ -179,7 +204,7 @@ def build_map(*, classes: list[dict[str, Any]], functions: list[dict[str, Any]] 
     for kind, items in (("class", classes), ("function", functions or [])):
         for it in items:
             original = str(it["original"])
-            if original.startswith(_FRAMEWORK):
+            if original.startswith(_FRAMEWORK) or is_generated_label(original):
                 continue
             item = dict(it, kind=kind, original=original)
             sem, basis = semantic_name(item, terms)
@@ -188,7 +213,7 @@ def build_map(*, classes: list[dict[str, Any]], functions: list[dict[str, Any]] 
                 active, reason = leaf(original), "PRESERVE_ORIGINAL_NAMES"
             elif mode == "CUSTOM_RENAME_MAP" and (original in custom or leaf(original) in custom):
                 active, reason = custom.get(original) or custom[leaf(original)], "CUSTOM_RENAME_MAP (owner-supplied)"
-            elif cat == "NONE" and sem == leaf(original):
+            elif cat == "NONE":
                 active, reason = leaf(original), "no vendor/product/model reference: name kept"
             else:
                 active, reason = sem, "USER_OR_POLICY_CANONICALIZATION"
@@ -258,4 +283,4 @@ def to_markdown(imap: dict[str, Any], *, title: str = "IDENTIFIER_MAP") -> str:
     return "\n".join(lines) + "\n"
 
 
-__all__ = ["MODES", "CATEGORIES", "build_map", "search", "to_markdown", "infer_vendor_terms", "categorize", "strip_terms", "semantic_name", "resolve_collisions", "sanitize_filename", "split_camel"]
+__all__ = ["MODES", "CATEGORIES", "is_generated_label", "build_map", "search", "to_markdown", "infer_vendor_terms", "categorize", "strip_terms", "semantic_name", "resolve_collisions", "sanitize_filename", "split_camel"]

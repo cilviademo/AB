@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import type { BundleEntry, Job, ProgressEvent, StageKey } from "../lib/types";
+import type { BundleEntry, IdentifierMap, Job, ProgressEvent, StageKey } from "../lib/types";
 import { CONTEXT_LABEL, STAGE_KEYS, STAGE_OF } from "../lib/types";
 import { api, shell } from "../lib/api";
 import {
@@ -400,6 +400,7 @@ interface FlowNode { addr: string; name: string; role: string; role_status: stri
 
 function Architecture({ job }: { job: Job }) {
   const classes = useDoc<ClassRow[]>(job, "03_architecture/classes.json");
+  const imap = useDoc<IdentifierMap>(job, "04_reconstruction/identifier_map.json");
   const flow = useDoc<{ seed: string | null; seed_basis: string; evidence: string; nodes: FlowNode[]; edges: { from: string; to: string }[] }>(job, "03_architecture/signal_flow.json");
   const lineage = useDoc<unknown>(job, "LINEAGE_REPORT.md");
   void lineage;
@@ -425,6 +426,20 @@ function Architecture({ job }: { job: Job }) {
         </table>
       </Section>
       <div style={{ marginTop: "var(--s8)" }}>
+        <Section title="Names" meta={imap ? `${imap.mode} · ${imap.identifiers.filter((r) => r.active !== r.original.split("::").pop()).length} renamed · reversible` : "RECONSTRUCT stage not run"}>
+          {imap && imap.identifiers.some((r) => r.active !== r.original.split("::").pop()) ? (
+            <table className="tbl">
+              <thead><tr><th>active</th><th>recovered as</th><th>evidence</th><th>category</th><th>reason</th></tr></thead>
+              <tbody>
+                {imap.identifiers.filter((r) => r.active !== r.original.split("::").pop()).slice(0, 60).map((r) => (
+                  <tr key={r.original}><td className="mono">{r.active}</td><td className="mono">{r.original}{r.original_address ? ` @ ${r.original_address}` : ""}</td><td>{r.evidence_status}</td><td>{r.category}</td><td className="faint">{r.reason}</td></tr>
+                ))}
+              </tbody>
+            </table>
+          ) : (
+            <p className="copy faint">{imap ? "No identifier renamed: the source uses the recovered names. Parameter ids and state keys are never renamed silently (04_reconstruction/IDENTIFIER_MAP.md)." : ""}</p>
+          )}
+        </Section>
         <Section title="Signal flow" meta={flow ? `${flow.evidence} · seed ${flow.seed_basis}` : "DECOMPILE stage not run"}>
           {flow && flow.nodes.length > 0 ? (
             <div className="stages">

@@ -159,7 +159,17 @@ def handoff_md(job: Job, ev: dict[str, Any]) -> str:
               "cmake --build build --config Release", "```",
               "FIDELITY (original identity, session-compatible) needs `identity.cmake` with VERIFIED_RUNTIME codes: " + ("present" if (ev["pd"] / "04_reconstruction" / "identity.cmake").is_file() else "absent — run the RUNTIME stage first") + ".",
               "After any DSP change: rebuild, then re-run COMPARE (`ab-cli run <job> --stage BUILD_COMPLETE --stage VALIDATION_COMPLETE`) and read 06_validation/VALIDATION.md.", ""]
-    lines += ["## Next best tasks (in order)"]
+    imap = _load(ev["pd"], "04_reconstruction/identifier_map.json") or {}
+    renamed = [r for r in imap.get("identifiers", []) if r.get("active") != r.get("original", "").split("::")[-1]]
+    lines += ["## Names", f"Naming mode `{imap.get('mode', 'PRESERVE_ORIGINAL_NAMES')}`; the full reversible map is `04_reconstruction/IDENTIFIER_MAP.md` (search either name space: `ab-cli naming-search <job> <name>`)."]
+    if renamed:
+        lines += ["Renamed in the reconstruction (a presentation/source-maintenance transformation; identity, fingerprints, addresses, callgraph, behaviour and validation state are untouched):"]
+        lines += [f"- recovered symbol `{r['original']}` ({r.get('evidence_status')}, {r.get('original_address') or 'no address'}) → `{r['active']}` — reason: {r['reason']}" for r in renamed[:40]]
+        if len(renamed) > 40:
+            lines.append(f"- … {len(renamed) - 40} more in IDENTIFIER_MAP.md")
+    else:
+        lines += ["No identifier was renamed: original names are used everywhere."]
+    lines += ["", "## Next best tasks (in order)"]
     for i, t in enumerate(next_tasks(ev), 1):
         lines.append(f"{i}. {t['task']}  \n   evidence: {t['evidence']}")
     lines += ["", "Unrecoverable items are listed in UNRECOVERABLE.md — recreate them, do not search for them.", ""]

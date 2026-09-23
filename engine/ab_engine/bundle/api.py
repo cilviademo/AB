@@ -280,7 +280,7 @@ def export_job(ws: Workspace, conn: Any, job: Job, *, zip_it: bool, ctx: StageCo
     if rec.is_dir():
         for d in ("Source", "Resources", "human_source", "evidence_source"):
             copy_tree(rec / d, out / d)
-        for f in ("CMakeLists.txt", "identity.cmake", "RECONSTRUCTION.md", "reconstruction_model.json"):
+        for f in ("CMakeLists.txt", "identity.cmake", "RECONSTRUCTION.md", "reconstruction_model.json", "identifier_map.json", "IDENTIFIER_MAP.md"):
             copy_file(rec / f, out / f)
     for f in ("HANDOFF.md", "TODO.md", "agent_prompt.md", "reconstruction_index.json", "UNRECOVERABLE.md", "binary_symbol_map.json"):
         copy_file(pd / "07_agent_handoff" / f, out / f)

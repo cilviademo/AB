@@ -176,7 +176,10 @@ class KnowledgeDB:
             kind = (kind_of(fp) if kind_of else None) or "UNKNOWN"
             role = (role_of(fp) if role_of else None)
             if row:
-                self.db.execute("UPDATE function SET last_verified=?, verifications=verifications+1, name_hint=COALESCE(name_hint, ?), role=COALESCE(?, role) WHERE function_fp_id=?", (now, fp.get("name"), role, fid))
+                # a real name always beats a decompiler label, whatever order the builds were analysed in
+                self.db.execute("UPDATE function SET last_verified=?, verifications=verifications+1, "
+                                "name_hint=CASE WHEN (name_hint IS NULL OR name_hint LIKE 'FUN_%' OR name_hint LIKE 'thunk_FUN_%' OR name_hint LIKE 'switchD_%') AND ? IS NOT NULL AND ? NOT LIKE 'FUN_%' AND ? NOT LIKE 'thunk_FUN_%' THEN ? ELSE name_hint END, "
+                                "role=COALESCE(?, role) WHERE function_fp_id=?", (now, fp.get("name"), fp.get("name"), fp.get("name"), fp.get("name"), role, fid))
                 if row["kind"] == "UNKNOWN" and kind != "UNKNOWN":
                     self.db.execute("UPDATE function SET kind=? WHERE function_fp_id=?", (kind, fid))
                     self.history("function.kind", fid, "UNKNOWN", kind, f"kind learned from {source} in {artifact_sha256[:12]}", tool_version=tool_version, evidence_version=evidence_version)

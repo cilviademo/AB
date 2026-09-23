@@ -189,6 +189,29 @@ def after_validation(ctx: StageContext, *, modules: list[dict[str, Any]], index:
     _safe(ctx, "after_validation", go)
 
 
+def refresh_from_evidence(ws, job) -> dict[str, Any]:
+    """Re-record a job's stored decompiler evidence (fingerprints, roles, classes, vtable layouts) into the
+    knowledge base without re-running Ghidra — e.g. after a symbol build was analysed *after* the stripped one
+    so its names can replace decompiler labels (name hints never regress)."""
+    from ab_engine.knowledge import vtable_layout  # noqa: PLC0415
+
+    pd = Path(job.project_dir)
+    db = KnowledgeDB(ws.knowledge)
+    fps = (_load(pd / "01_evidence" / "decompiler" / "fingerprints.json") or {}).get("functions", [])
+    roles = _load(pd / "01_evidence" / "decompiler" / "roles.json") or []
+    classes = _load(pd / "01_evidence" / "rtti" / "classes_verified.json") or []
+    cg = _load(pd / "01_evidence" / "callgraphs" / "callgraph.json") or {}
+    role_by = {r["addr"]: r for r in roles}
+    b = db.record_functions(job.artifact_sha256, fps, source="ghidra", tool_version="ghidra/Fingerprint.java", evidence_version="knowledge-refresh",
+                            kind_of=lambda fp: kind_from_name(fp.get("name")) or ("KNOWN_PLUGIN_SPECIFIC" if role_by.get(fp.get("addr"), {}).get("role") in ("WAVESHAPER", "FILTER", "AUDIO_LOOP", "PARAMETER_UPDATE", "STATE", "GAIN", "LICENSING_AND_ENTITLEMENT_SUBSYSTEM") and not role_by.get(fp.get("addr"), {}).get("noise") else None),
+                            role_of=lambda fp: role_by.get(fp.get("addr"), {}).get("role"))
+    c = db.record_classes(job.artifact_sha256, classes)
+    n_layouts = 0
+    if (cg.get("seeds") or {}).get("processBlock") and not cg.get("seed_detail"):
+        n_layouts = db.record_vtable_layouts(job.artifact_sha256, vtable_layout.learn_rows(classes, {f["addr"]: f for f in fps}), tool_version="ghidra/ExportRTTI.java", evidence_version="knowledge-refresh")
+    return {"functions": b, "classes": c, "vtable_layouts": n_layouts, "job_id": job.job_id}
+
+
 def knowledge_used(ctx: StageContext) -> dict[str, Any]:
     """Rows this job relied on (for evidence/knowledge_used.json at export, A7): every match that was
     reusable or suppressed deep work, with its provenance, plus the ladder states of the
@@ -201,4 +224,4 @@ def knowledge_used(ctx: StageContext) -> dict[str, Any]:
             "rule": "only BEHAVIOR_MATCHED / IMPLEMENTATION_VERIFIED implementations are reused; KNOWN_FRAMEWORK / KNOWN_THIRD_PARTY matches suppress deep work; CANDIDATE / STATIC_SUPPORTED only prioritise"}
 
 
-__all__ = ["after_static", "after_runtime", "match_prefingerprints", "after_decompile", "match_ghidra_names", "learn_vtable_layouts", "seed_from_vtable_layouts", "after_validation", "knowledge_used", "kind_from_name"]
+__all__ = ["after_static", "after_runtime", "match_prefingerprints", "after_decompile", "match_ghidra_names", "learn_vtable_layouts", "seed_from_vtable_layouts", "after_validation", "refresh_from_evidence", "knowledge_used", "kind_from_name"]

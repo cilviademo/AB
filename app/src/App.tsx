@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
-import type { BackendStatus, Env, Job, RecoveryContext, ProgressEvent } from "./lib/types";
+import type { BackendStatus, Env, Job, NamingMode, RecoveryContext, ProgressEvent } from "./lib/types";
 import { api, backendStatus, onProgress, saveWindow } from "./lib/api";
 import { runStaticInWorker } from "./lib/staticWorker";
 import { Recover } from "./views/Recover";
@@ -114,7 +114,7 @@ export default function App() {
     }
   }, []);
 
-  const recover = useCallback(async (paths: string[], context: RecoveryContext, name?: string) => {
+  const recover = useCallback(async (paths: string[], context: RecoveryContext, name?: string, naming: NamingMode = "PRESERVE_ORIGINAL_NAMES") => {
     setBusy(true);
     setError(null);
     setEvents([]);
@@ -141,7 +141,7 @@ export default function App() {
           setEvents((prev) => [...prev, { id: 0, stage: "STATIC", status: "failed", detail: `STATIC_WORKER: ${String((e as Error).message ?? e)}`, extra: {} }]);
         }
       }
-      const ran = await api.runJob(first.job_id);
+      const ran = await api.runJob(first.job_id, undefined, { naming });
       setJob(ran);
       refreshJobs();
     } catch (e) {

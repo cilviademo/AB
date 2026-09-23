@@ -64,12 +64,21 @@ def stage_reconstruct(ctx: StageContext) -> None:
     for ws in m["modules"]:
         if not ws["active"]:
             ctx.warn("MODULE_NOT_ACTIVE", f"{ws['name']}: fit RMSE {ws['rmse']:.2e} > {model_mod.ACTIVE_RMSE:g}; kept in human_source only")
+    # naming layer (docs/NAMING_CANONICALIZATION.md): the reversible identifier map, evidence names preserved,
+    # the chosen mode deciding what transformed / active source may call things
+    from ab_engine.naming import api as naming_api  # noqa: PLC0415
+
+    mode = str(ctx.options.get("naming", "PRESERVE_ORIGINAL_NAMES")).upper()
+    imap = naming_api.build_for_project(ctx.project_dir, mode=mode, terms=[t for t in str(ctx.options.get("naming_terms", "")).split(",") if t.strip()])
+    ctx.output("04_reconstruction/identifier_map.json")
+    ctx.output("04_reconstruction/IDENTIFIER_MAP.md")
     ctx.metrics.update(out["summary"] | {"modules_detail": [{"name": ws["name"], "family": ws["family"], "rmse": ws["rmse"], "active": ws["active"],
-                                                             "laws": {mo["key"]: mo["law"] for mo in ws["modulation"]}} for ws in m["modules"]]})
+                                                             "laws": {mo["key"]: mo["law"] for mo in ws["modulation"]}} for ws in m["modules"]],
+                                         "naming": {"mode": mode, "identifiers": len(imap["identifiers"]), "renamed": sum(1 for r in imap["identifiers"] if r["active"] != r["original"].split("::")[-1]), "terms": imap["terms"]}})
     ctx.completeness = "NOT_APPLICABLE"
 
 
-runner.register_stage(StageImpl("RECONSTRUCTION_COMPLETE", version=STAGE_VERSION, run=stage_reconstruct, tool_version=TOOL, config_keys=("build_kind",)))
+runner.register_stage(StageImpl("RECONSTRUCTION_COMPLETE", version=STAGE_VERSION, run=stage_reconstruct, tool_version=TOOL, config_keys=("build_kind", "naming", "naming_terms")))
 
 
 def h_reconstruct(params: dict[str, Any], ws: Workspace) -> dict[str, Any]:
