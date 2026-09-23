@@ -71,8 +71,10 @@ def compare(job: Job, truth: dict[str, Any], *, phase: int = 1) -> dict[str, Any
         if c not in hit:
             fns.append({"kind": "rtti_class", "item": c})
     # ownership accuracy: expected classes must be PLUGIN_OWNED_CANDIDATE; juce/std must not be
-    owned_ok = sum(1 for c in hit for r in recovered.values() if _norm_class(r["recovered_name"]) == _norm_class(c) and r["kind"] == "PLUGIN_OWNED_CANDIDATE")
-    wrong_owned = [r["recovered_name"] for r in recovered.values() if r["kind"] == "PLUGIN_OWNED_CANDIDATE" and r["recovered_name"].startswith(("juce::", "std::", "Steinberg::"))]
+    # on a stripped build the ownership verdicts live on the decompiler's classes (03_architecture/classes.json, same vocabulary)
+    recovered_all = {**{r["recovered_name"]: r for r in (_load(pd, "03_architecture/classes.json") or []) if isinstance(r, dict) and r.get("recovered_name")}, **recovered}
+    owned_ok = sum(1 for c in hit for r in recovered_all.values() if _norm_class(r["recovered_name"]) == _norm_class(c) and r.get("kind") == "PLUGIN_OWNED_CANDIDATE")
+    wrong_owned = [r["recovered_name"] for r in recovered_all.values() if r.get("kind") == "PLUGIN_OWNED_CANDIDATE" and r["recovered_name"].startswith(("juce::", "std::", "Steinberg::"))]
     metrics["ownership_accuracy"] = {"expected_owned_classified_owned": owned_ok, "of": len(hit), "framework_misclassified_as_owned": len(wrong_owned)}
     for r in wrong_owned:
         fps.append({"kind": "ownership", "item": r})

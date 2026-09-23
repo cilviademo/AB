@@ -79,3 +79,13 @@ def test_name_token_roles_and_inlined_class_inference():
     assert [x["class"] for x in inl] == ["abgt::TanhShaper", "abgt::TptLowpass"]           # Big has a real body; juce::X is not plugin-owned
     assert inl[0]["evidence"] == "INFERRED" and inl[0]["inlined_into"] == "0x100" and "largest 14 B" in inl[0]["basis"][1]
     assert roles_mod.infer_inlined(classes, scored, None) == []
+
+
+def test_role_from_name_knows_pole_and_lp_tokens():
+    """B8 test 1 lesson: the unseen fixture's `abus::OnePoleLP` was UNKNOWN because only lowpass/filter tokens counted."""
+    from ab_engine.decompile import roles
+
+    assert roles.role_from_name("abus::OnePoleLP") == ("FILTER", "CANDIDATE")
+    assert roles.role_from_name("HighCutStage")[0] == "FILTER" and roles.role_from_name("abus::AtanShaper")[0] == "WAVESHAPER"
+    assert roles.role_from_name("HelpPanel")[0] == "GUI" and roles.role_from_name("Mystery")[0] == "UNKNOWN"
+

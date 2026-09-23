@@ -39,7 +39,8 @@ _NAME_ROLES = (
     (r"(licen\w*|serial|activat\w*|unlock|trial|hwid|entitle\w*|registr\w*)", LICENSING_ROLE),
     (r"(tanh|shaper|drive|distort\w*|satur\w*|clip\w*|fold|waveshap\w*)", "WAVESHAPER"),
     (r"(oversampl\w*|resampl\w*|upsamp\w*|downsamp\w*|halfband|polyphase)", "OVERSAMPLER"),
-    (r"(filter|lpf|hpf|svf|tpt|biquad|ladder|shelf|lowpass|highpass|bandpass|eq)", "FILTER"),
+    # unseen-fixture lesson (B8 test 1): "OnePoleLP" carried no lowpass/filter token — pole / lp / hp / bp / lowcut / highcut count too
+    (r"(filter|lpf|hpf|svf|tpt|biquad|ladder|shelf|lowpass|highpass|bandpass|eq|pole|lp|hp|bp|low cut|high cut|all pass|allpass|notch)", "FILTER"),
     (r"(compress\w*|comp)", "COMPRESSOR"), (r"(limit\w*)", "LIMITER"), (r"(gate)", "GATE"), (r"(delay|echo)", "DELAY"), (r"(reverb|plate|hall)", "REVERB"),
     (r"(meter|vu|analy[sz]er)", "METER"), (r"(editor|component|button|slider|knob|lookandfeel|gui|panel)", "GUI"), (r"(state|preset|valuetree|xml)", "STATE"),
 )

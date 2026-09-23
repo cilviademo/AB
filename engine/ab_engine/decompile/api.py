@@ -40,7 +40,7 @@ from ab_engine.jobs.runner import BlockedDependency, StageContext, StageFailed, 
 from ab_engine.workers.run import run_worker
 from ab_engine.workspace import Workspace
 
-STAGE_VERSION = 6  # 6: name-token roles for structural classes, inlined-class inference; 5: Fingerprint.java sizes restored (were 0 → every Ghidra fingerprint was skipped by the knowledge base); 4: structural RTTI + vtable layouts; 3: Capstone (A3)
+STAGE_VERSION = 7  # 7: FILTER name tokens pole/lp/hp/bp/lowcut/highcut/allpass/notch (unseen-fixture lesson, B8); 6: name-token roles for structural classes, inlined-class inference; 5: Fingerprint.java sizes restored (were 0 → every Ghidra fingerprint was skipped by the knowledge base); 4: structural RTTI + vtable layouts; 3: Capstone (A3)
 SCRIPTS = ("ExportRTTI.java", "ExportCallgraph.java", "Fingerprint.java", "ExportDecompiled.java")
 
 
