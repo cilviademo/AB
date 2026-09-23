@@ -30,6 +30,14 @@ export async function call<T>(method: string, payload: Record<string, unknown> =
   return envelope.data as T;
 }
 
+export interface LineageReport {
+  report: string;
+  families: { members: string[]; size: number; medoid: string; average_link: number }[];
+  pairs: [string, string, number][];
+  knowledge: Record<string, unknown>;
+  unique_owned: string[];
+}
+
 export const api = {
   environment: () => call<Env>("environment"),
   doctor: () => call<Doctor>("doctor"),
@@ -52,6 +60,10 @@ export const api = {
   bundleTree: (jobId: string) => call<{ entries: BundleEntry[]; root: string }>("bundle.tree", { job_id: jobId }),
   bundleRead: (jobId: string, path: string) => call<{ text: string | null; schema: string | null; size: number }>("bundle.read", { job_id: jobId, path }),
   scorecard: (jobId: string) => call<{ cells: { key: string; value: string; detail: string; evidence: string }[] }>("bundle.scorecard", { job_id: jobId }),
+  lineage: (jobId: string) => call<LineageReport>("lineage.report", { job_id: jobId }),
+  corpusRun: () => call<{ out_dir: string; plugins: number; report: string }>("corpus.run"),
+  knowledgeStats: () => call<Record<string, unknown>>("knowledge.stats"),
+  handoff: (jobId: string) => call<{ written: string[]; tasks: { task: string; evidence: string; priority: string }[] }>("handoff.write", { job_id: jobId }),
   exportBundle: (jobId: string, zip: boolean) => call<{ out_dir: string; zip_path: string | null; git_ready: { ok: boolean; checks: { name: string; ok: boolean | null; detail: string }[] } }>("bundle.export", { job_id: jobId, zip }),
 };
 

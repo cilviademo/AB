@@ -44,6 +44,17 @@ ab-cli doctor
 Release packaging (Windows): `scripts/build-release.ps1` produces a ZIP with a
 single `AB.exe` plus its bundled engine; no dev tooling is needed to run it.
 
+## Pipeline (one plugin, from the CLI)
+```
+export AB_VST3HOST=.../vst3host AB_JUCE_DIR=.../JUCE            # or install pinned tools: ab-cli tools install
+ab-cli ingest --ownership OWNED <plugin.vst3> [presets/ sessions/ *.pdb]
+ab-cli run <job> --stage INGESTED --stage STATIC_COMPLETE --stage RUNTIME_COMPLETE \
+    --stage DECOMPILATION_COMPLETE --stage BEHAVIOR_COMPLETE                      # INGEST · STATIC · RUNTIME · DECOMPILE · PROBE
+ab-cli loop <job>                                                                # RECONSTRUCT → BUILD → COMPARE → handoff (repeat after edits)
+ab-cli run <job> --stage EXPORT_COMPLETE                                         # bundle + scanners + GIT_READY
+ab-cli --text ground-truth <job> --phase 4                                       # fixture only: GROUND_TRUTH_REPORT.json gates
+```
+
 ## Status
 See [docs/STATUS.md](docs/STATUS.md). Gates are reported as measured,
 pending-windows or blocked; nothing is marked green without a run.
