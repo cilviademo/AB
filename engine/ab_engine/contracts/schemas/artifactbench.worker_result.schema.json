@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "artifactbench.worker_result",
+  "description": "What every isolated worker run returns (EXECUTE 1.1 spawn_worker contract).",
+  "type": "object",
+  "required": ["kind", "pid", "exit_code", "stdout_path", "stderr_path", "timed_out", "crash_dump", "elapsed_ms", "error_code"],
+  "properties": {
+    "kind": {"type": "string"},
+    "pid": {"type": ["integer", "null"]},
+    "exit_code": {"type": ["integer", "null"]},
+    "stdout_path": {"type": ["string", "null"]},
+    "stderr_path": {"type": ["string", "null"]},
+    "timed_out": {"type": "boolean"},
+    "crash_dump": {"type": ["string", "null"]},
+    "elapsed_ms": {"type": "integer"},
+    "peak_rss_mb": {"type": ["number", "null"]},
+    "error_code": {"type": ["string", "null"], "enum": [null, "PLUGIN_CRASH", "HOST_TIMEOUT", "GHIDRA_FAILED", "BUILD_FAILED", "VALIDATION_FAILED", "WORKER_NOT_FOUND", "WORKER_FAILED", "BAD_REQUEST"]},
+    "stdout_json": {}
+  }
+}

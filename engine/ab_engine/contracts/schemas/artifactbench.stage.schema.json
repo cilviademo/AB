@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "artifactbench.stage",
+  "description": "One stage record (SPEC §5): written before and after a stage runs; partial outputs are never left unmarked.",
+  "type": "object",
+  "required": ["job_id", "stage", "status", "input_hashes", "tool_versions", "config_hash", "stage_version", "started", "ended", "warnings", "errors", "outputs", "completeness"],
+  "properties": {
+    "job_id": {"type": "string"},
+    "stage": {"type": "string", "enum": ["INGESTED", "STATIC_COMPLETE", "RUNTIME_COMPLETE", "DECOMPILATION_COMPLETE", "BEHAVIOR_COMPLETE", "RECONSTRUCTION_COMPLETE", "BUILD_COMPLETE", "VALIDATION_COMPLETE", "EXPORT_COMPLETE"]},
+    "status": {"type": "string", "enum": ["PENDING", "RUNNING", "OK", "FAILED", "SKIPPED"]},
+    "input_hashes": {"type": "array", "items": {"type": "string"}},
+    "tool_versions": {"type": "object", "additionalProperties": {"type": "string"}},
+    "config_hash": {"type": "string"},
+    "stage_version": {"type": "integer"},
+    "started": {"type": ["string", "null"]},
+    "ended": {"type": ["string", "null"]},
+    "warnings": {"type": "array", "items": {"type": "object", "required": ["code", "message"]}},
+    "errors": {"type": "array", "items": {"type": "object", "required": ["code", "message"]}},
+    "outputs": {"type": "array", "items": {"type": "string"}},
+    "completeness": {"type": "string", "enum": ["FAST_SCAN_COMPLETE", "FAST_SCAN_EARLY_TERMINATED", "DEEP_SCAN_COMPLETE", "SCAN_INCOMPLETE", "NOT_APPLICABLE"]},
+    "metrics": {"type": "object"},
+    "skip_reason": {"type": ["string", "null"]}
+  }
+}

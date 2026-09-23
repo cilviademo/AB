@@ -1,0 +1,52 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "AB",
+  "version": "0.1.0",
+  "identifier": "com.multibanded.ab",
+  "build": {
+    "beforeDevCommand": "npm run dev",
+    "devUrl": "http://localhost:5184",
+    "beforeBuildCommand": "npm run build",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "AB — Artifact Bench",
+        "width": 1180,
+        "height": 780,
+        "minWidth": 920,
+        "minHeight": 620,
+        "resizable": true,
+        "center": true,
+        "decorations": true,
+        "dragDropEnabled": true,
+        "theme": "Dark",
+        "backgroundColor": "#0A0A0A"
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; script-src 'self'; worker-src 'self' blob:; object-src 'none'; frame-src 'none'; base-uri 'self'; form-action 'none'; connect-src 'self' ipc: http://ipc.localhost; img-src 'self' asset: http://asset.localhost data: blob:; media-src 'self' asset: http://asset.localhost blob:; style-src 'self' 'unsafe-inline'"
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["nsis"],
+    "icon": ["icons/icon.png", "icons/icon.ico"],
+    "windows": {
+      "nsis": { "installMode": "currentUser" },
+      "webviewInstallMode": { "type": "offlineInstaller" },
+      "digestAlgorithm": "sha256",
+      "timestampUrl": "http://timestamp.digicert.com"
+    },
+    "resources": {
+      "resources/ab-engine": "resources/ab-engine",
+      "resources/bin": "resources/bin",
+      "resources/static-engine": "resources/static-engine"
+    },
+    "shortDescription": "Recover. Reconstruct. Rebuild.",
+    "longDescription": "AB (Artifact Bench) recovers an owned compiled audio plugin into a portable, buildable, evidence-backed source project with a behavioural comparison against the original and a coding-agent handoff.",
+    "licenseFile": "../../LICENSE.txt"
+  },
+  "plugins": {}
+}

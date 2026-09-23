@@ -1,0 +1,5 @@
+AB — Artifact Bench
+Copyright (c) 2026 Multibanded LLC. All rights reserved.
+
+Proprietary. Internal use by the copyright holder. Third-party components are
+listed in licenses/THIRD-PARTY.md with their own terms.

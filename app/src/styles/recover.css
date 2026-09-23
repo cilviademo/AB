@@ -1,0 +1,137 @@
+/* AB — home. The first impression, so it gets the most restraint. */
+
+.home {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  max-width: 620px;
+  margin: 0 auto;
+  padding: var(--s10) var(--s7) var(--s11);
+}
+
+.hero { text-align: center; margin-bottom: var(--s9); }
+
+/* The line is the hero; the wordmark is a quiet plate above it. */
+.hero .name {
+  font-size: var(--fs-label);
+  font-weight: 600;
+  letter-spacing: 0.44em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: var(--s5);
+}
+
+.hero .line {
+  font-family: var(--font-display);
+  font-size: 30px;
+  font-weight: 200;
+  letter-spacing: -0.015em;
+  color: var(--text);
+}
+
+/* -- drop target -------------------------------------------------------- */
+
+/* A machined plate, not an upload box: hairline edge, corner ticks, a
+ * centred label and a faint baseline grid that brightens as you approach. */
+.drop {
+  position: relative;
+  width: 100%;
+  height: 232px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--s4);
+  background: var(--surface-sunken);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-md);
+  cursor: pointer;
+  overflow: hidden;
+  transition: border-color var(--slow) var(--ease), background var(--slow) var(--ease);
+}
+.drop:hover { border-color: var(--line-active); background: var(--surface-1); }
+.drop[data-hot="true"] {
+  border-color: var(--text-secondary);
+  background: var(--surface-1);
+}
+.drop[data-busy="true"] { cursor: progress; }
+
+/* Ruled baseline: evenly spaced ticks, like a bar ruler. */
+.drop .grid {
+  position: absolute;
+  left: 0; right: 0; bottom: 0;
+  height: 13px;
+  background-image: repeating-linear-gradient(
+    to right, var(--line-strong) 0 1px, transparent 1px 26px);
+  opacity: 0.5;
+  transition: opacity var(--slow) var(--ease);
+  pointer-events: none;
+}
+.drop:hover .grid, .drop[data-hot="true"] .grid { opacity: 1; }
+
+/* Corner ticks. */
+.drop .tick {
+  position: absolute;
+  width: 9px; height: 9px;
+  border-color: var(--line-active);
+  border-style: solid;
+  border-width: 0;
+  transition: border-color var(--slow) var(--ease);
+  pointer-events: none;
+}
+.drop[data-hot="true"] .tick { border-color: var(--text-secondary); }
+.drop .tick.tl { top: 9px;  left: 9px;  border-top-width: 1px; border-left-width: 1px; }
+.drop .tick.tr { top: 9px;  right: 9px; border-top-width: 1px; border-right-width: 1px; }
+.drop .tick.bl { bottom: 9px; left: 9px;  border-bottom-width: 1px; border-left-width: 1px; }
+.drop .tick.br { bottom: 9px; right: 9px; border-bottom-width: 1px; border-right-width: 1px; }
+
+.drop .glyph {
+  width: 30px; height: 30px;
+  color: var(--text-muted);
+  transition: color var(--slow) var(--ease), transform var(--slow) var(--ease);
+}
+.drop:hover .glyph { color: var(--text-secondary); }
+.drop[data-hot="true"] .glyph { color: var(--text); transform: translateY(2px); }
+
+.drop .lead {
+  font-size: var(--fs-heading);
+  font-weight: 400;
+  color: var(--text-secondary);
+  transition: color var(--slow) var(--ease);
+}
+.drop:hover .lead, .drop[data-hot="true"] .lead { color: var(--text); }
+
+.drop .ext {
+  font-family: var(--mono);
+  font-size: var(--fs-label);
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+.home .browse { margin-top: var(--s5); }
+
+/* -- recent ------------------------------------------------------------- */
+
+.recent { width: 100%; margin-top: var(--s10); }
+.recent .head {
+  display: flex; align-items: baseline; justify-content: space-between;
+  padding-bottom: var(--s3);
+  border-bottom: 1px solid var(--line);
+}
+.recent-row {
+  display: flex; align-items: baseline; gap: var(--s4);
+  width: 100%; padding: var(--s3) var(--s2);
+  text-align: left;
+  border-bottom: 1px solid var(--line);
+  transition: background var(--fast) var(--ease);
+}
+.recent-row:hover:not(:disabled) { background: var(--surface-2); }
+.recent-row .nm { flex: 1; font-size: var(--fs-body); color: var(--text-secondary);
+                  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.recent-row:hover:not(:disabled) .nm { color: var(--text); }
+.recent-row .meta {
+  font-family: var(--mono); font-size: var(--fs-micro);
+  color: var(--text-faint); font-variant-numeric: tabular-nums; white-space: nowrap;
+}
+.recent-row:disabled .nm { color: var(--text-faint); text-decoration: line-through; }

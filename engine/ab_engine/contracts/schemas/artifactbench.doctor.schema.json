@@ -1,0 +1,12 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "artifactbench.doctor",
+  "type": "object",
+  "required": ["ok", "rows", "counts", "workspace"],
+  "properties": {
+    "ok": {"type": "boolean"},
+    "rows": {"type": "array", "items": {"type": "object", "required": ["name", "verdict", "detail"], "properties": {"verdict": {"enum": ["PASS", "WARNING", "UNAVAILABLE", "FAIL"]}}}},
+    "counts": {"type": "object"},
+    "workspace": {"type": "object"}
+  }
+}

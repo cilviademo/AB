@@ -1,0 +1,98 @@
+/* AB — design tokens (Prosody's system, carried over verbatim).
+ *
+ * One restrained monochrome system: emphasis is luminance, weight and rule
+ * thickness, the way a well-made plugin panel does it. Status is a glyph plus
+ * a brightness step, never a colour — with exactly one exception below.
+ */
+
+:root {
+  /* -- surfaces --------------------------------------------------------- */
+  --bg:             #0A0A0A;
+  --surface-1:      #101010;
+  --surface-2:      #151515;
+  --surface-3:      #1B1B1B;
+  --surface-sunken: #070707;
+
+  /* -- text ------------------------------------------------------------- */
+  --text:           #F2F2F2;
+  --text-secondary: #9D9D9D;
+  --text-muted:     #656565;
+  --text-faint:     #474747;
+  --text-inverse:   #0A0A0A;
+
+  /* -- lines ------------------------------------------------------------ */
+  --line:           #202020;
+  --line-strong:    #2E2E2E;
+  --line-active:    #4D4D4D;
+
+  /* -- interactive ------------------------------------------------------ */
+  --idle:           transparent;
+  --hover:          #151515;
+  --active:         #1B1B1B;
+  --selected:       #212121;
+  --on:             #F2F2F2;
+  --on-text:        #0A0A0A;
+  --disabled-text:  #404040;
+
+  /* -- state (monochrome) ----------------------------------------------- */
+  --state-ok:       #F2F2F2;
+  --state-warn:     #9D9D9D;
+  --state-bad:      #F2F2F2;
+  --state-idle:     #474747;
+
+  /* -- evidence states (SPEC §14): the ONE place hue is allowed ---------- */
+  /* Used identically in the UI, reports and file badges. Muted so they read
+   * as annotations on a monochrome instrument, not as alarms. */
+  --ev-verified:      #6FBF73;   /* green */
+  --ev-inferred:      #D9A441;   /* amber */
+  --ev-candidate:     #8A8A8A;   /* grey */
+  --ev-generated:     #5B9BD5;   /* blue */
+  --ev-unrecoverable: #D9534F;   /* red, always with line-through */
+
+  /* -- type ------------------------------------------------------------- */
+  --font: "Segoe UI Variable Text", "Segoe UI", Inter, -apple-system, system-ui, "Helvetica Neue", sans-serif;
+  --font-display: "Segoe UI Variable Display", "Segoe UI", Inter, -apple-system, system-ui, sans-serif;
+  --mono: "Cascadia Mono", "SF Mono", "Roboto Mono", ui-monospace, "DejaVu Sans Mono", monospace;
+
+  --fs-display: 40px;
+  --fs-title:   26px;
+  --fs-heading: 17px;
+  --fs-body:    13.5px;
+  --fs-small:   12.5px;
+  --fs-micro:   11px;
+  --fs-label:   10.5px;
+
+  --lh-tight: 1.15;
+  --lh-body:  1.55;
+
+  --tracking-label: 0.14em;
+  --tracking-wordmark: 0.34em;
+
+  /* -- spacing (4px base) ----------------------------------------------- */
+  --s1: 4px;   --s2: 8px;   --s3: 12px;  --s4: 16px;
+  --s5: 20px;  --s6: 24px;  --s7: 32px;  --s8: 40px;
+  --s9: 56px;  --s10: 72px; --s11: 96px;
+
+  /* -- radii ------------------------------------------------------------ */
+  --r-sm: 2px;
+  --r:    4px;
+  --r-md: 6px;
+  --r-lg: 10px;
+
+  /* -- motion ----------------------------------------------------------- */
+  --ease: cubic-bezier(0.2, 0, 0, 1);
+  --fast: 120ms;
+  --slow: 240ms;
+
+  /* -- layout ----------------------------------------------------------- */
+  --page-max:  920px;
+  --page-wide: 1180px;
+  --titlebar:  44px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

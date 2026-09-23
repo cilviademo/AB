@@ -1,0 +1,591 @@
+/* AB — component system.
+ *
+ * Every control here is built from the same three moves: a hairline edge, a
+ * one-step surface change, and a luminance shift on the label. Nothing glows,
+ * nothing gradients, nothing bounces.
+ */
+
+/* ======================================================= titlebar ======= */
+
+.titlebar {
+  height: var(--titlebar);
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: var(--s6);
+  padding: 0 var(--s5);
+  border-bottom: 1px solid var(--line);
+  background: var(--bg);
+  -webkit-app-region: drag;
+}
+
+.wordmark {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  font-size: var(--fs-micro);
+  font-weight: 600;
+  letter-spacing: var(--tracking-wordmark);
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+.wordmark .mark { width: 10px; height: 11px; flex: none; color: var(--text); }
+
+/* The nav spans the full titlebar height so the active indicator can sit
+ * exactly on its bottom rule rather than floating below it. */
+.nav {
+  display: flex;
+  align-self: stretch;
+  gap: var(--s1);
+  -webkit-app-region: no-drag;
+}
+.nav button {
+  position: relative;
+  display: flex;
+  align-items: center;
+  padding: 0 var(--s3);
+  font-size: var(--fs-micro);
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  transition: color var(--fast) var(--ease);
+}
+.nav button:hover { color: var(--text-secondary); }
+.nav button[aria-current="page"] { color: var(--text); }
+.nav button[aria-current="page"]::after {
+  content: "";
+  position: absolute;
+  left: var(--s3); right: var(--s3); bottom: -1px;
+  height: 1px;
+  background: var(--text);
+}
+
+.status-chip {
+  -webkit-app-region: no-drag;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s2);
+  padding: var(--s1) var(--s3);
+  font-size: var(--fs-micro);
+  color: var(--text-muted);
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  transition: border-color var(--fast) var(--ease), color var(--fast) var(--ease);
+}
+.status-chip:hover { color: var(--text-secondary); border-color: var(--line-strong); }
+.status-chip .led {
+  width: 5px; height: 5px; border-radius: 50%;
+  background: var(--state-idle);
+  transition: background var(--fast) var(--ease);
+}
+.status-chip[data-on="true"] .led { background: var(--state-ok); }
+
+/* ========================================================== panel ======= */
+
+.panel {
+  background: var(--surface-1);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+}
+.panel-pad { padding: var(--s5) var(--s6); }
+.panel-inset { background: var(--surface-sunken); }
+
+.rule { height: 1px; background: var(--line); border: 0; }
+
+.section-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--s4);
+  padding-bottom: var(--s3);
+  margin-bottom: var(--s4);
+  border-bottom: 1px solid var(--line);
+}
+
+/* ========================================================= buttons ====== */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--s2);
+  padding: var(--s3) var(--s5);
+  font-size: var(--fs-small);
+  font-weight: 500;
+  color: var(--text-secondary);
+  background: var(--surface-1);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r);
+  white-space: nowrap;
+  transition: background var(--fast) var(--ease), color var(--fast) var(--ease),
+              border-color var(--fast) var(--ease);
+}
+.btn:hover:not(:disabled) {
+  background: var(--surface-2);
+  border-color: var(--line-active);
+  color: var(--text);
+}
+.btn:active:not(:disabled) { background: var(--surface-3); }
+.btn:disabled { color: var(--disabled-text); border-color: var(--line); background: transparent; }
+
+.btn.primary {
+  background: var(--on);
+  border-color: var(--on);
+  color: var(--on-text);
+  font-weight: 600;
+}
+.btn.primary:hover:not(:disabled) { background: #FFFFFF; border-color: #FFFFFF; color: var(--on-text); }
+.btn.primary:disabled { background: var(--surface-2); border-color: var(--line); color: var(--disabled-text); }
+
+.btn.quiet { background: transparent; border-color: transparent; color: var(--text-muted); }
+.btn.quiet:hover:not(:disabled) { background: var(--surface-2); color: var(--text); border-color: transparent; }
+
+.btn.lg { padding: var(--s4) var(--s8); font-size: var(--fs-body); }
+.btn.sm { padding: var(--s2) var(--s3); font-size: var(--fs-micro); }
+
+.back {
+  display: inline-flex; align-items: center; gap: var(--s2);
+  font-size: var(--fs-small); color: var(--text-muted);
+  padding: var(--s1) 0; margin-bottom: var(--s5);
+  transition: color var(--fast) var(--ease);
+}
+.back:hover { color: var(--text); }
+
+/* =============================================== segmented control ====== */
+
+.segmented {
+  display: inline-flex;
+  padding: 2px;
+  background: var(--surface-sunken);
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+}
+.segmented.block { display: flex; width: 100%; }
+.segmented button {
+  flex: 1;
+  padding: var(--s2) var(--s4);
+  font-size: var(--fs-small);
+  color: var(--text-muted);
+  border-radius: var(--r-sm);
+  white-space: nowrap;
+  transition: background var(--fast) var(--ease), color var(--fast) var(--ease);
+}
+.segmented button:hover:not(:disabled):not([aria-pressed="true"]) { color: var(--text-secondary); }
+.segmented button[aria-pressed="true"] {
+  background: var(--surface-3);
+  color: var(--text);
+  box-shadow: inset 0 0 0 1px var(--line-strong);
+}
+.segmented button:disabled { color: var(--disabled-text); }
+
+/* A segmented control whose options carry a caption under the label. */
+.segmented.tall button { padding: var(--s3) var(--s4); line-height: 1.3; text-align: center; }
+.segmented.tall .cap {
+  display: block;
+  font-size: var(--fs-micro);
+  color: var(--text-faint);
+  margin-top: 2px;
+}
+.segmented.tall button[aria-pressed="true"] .cap { color: var(--text-muted); }
+
+/* ======================================================== options ======= */
+
+.option-rows { display: flex; flex-direction: column; }
+.option {
+  display: flex;
+  align-items: center;
+  gap: var(--s4);
+  width: 100%;
+  padding: var(--s4) var(--s4);
+  text-align: left;
+  border-top: 1px solid var(--line);
+  transition: background var(--fast) var(--ease);
+}
+.option:last-child { border-bottom: 1px solid var(--line); }
+.option:hover:not(:disabled) { background: var(--surface-2); }
+.option:disabled { opacity: 0.4; }
+.option .t { display: block; font-size: var(--fs-body); color: var(--text); }
+.option .d {
+  display: block;
+  font-size: var(--fs-small);
+  color: var(--text-muted);
+  margin-top: 2px;
+  line-height: var(--lh-body);
+}
+.option .chev { color: var(--text-faint); font-size: var(--fs-small); }
+.option:hover:not(:disabled) .chev { color: var(--text-secondary); }
+.option.emphasis .t { font-weight: 600; }
+
+/* ========================================================= toggle ======= */
+
+.toggle-rows { display: flex; flex-direction: column; }
+.toggle {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  width: 100%;
+  padding: var(--s3) var(--s2);
+  text-align: left;
+  font-size: var(--fs-body);
+  border-radius: var(--r-sm);
+  transition: background var(--fast) var(--ease);
+}
+.toggle + .toggle { border-top: 1px solid var(--line); border-radius: 0; }
+.toggle:hover:not(:disabled) { background: var(--surface-2); }
+.toggle:disabled { color: var(--disabled-text); }
+.toggle .box {
+  width: 14px; height: 14px; flex: none;
+  border: 1px solid var(--line-active);
+  border-radius: var(--r-sm);
+  display: grid; place-items: center;
+  font-size: 9px; line-height: 1;
+  color: transparent;
+  transition: background var(--fast) var(--ease), border-color var(--fast) var(--ease);
+}
+.toggle[aria-pressed="true"] .box {
+  background: var(--on); border-color: var(--on); color: var(--on-text);
+}
+.toggle:disabled .box { border-color: var(--line); }
+.toggle .why {
+  margin-left: auto;
+  font-size: var(--fs-micro);
+  color: var(--text-faint);
+  font-family: var(--mono);
+}
+
+/* ========================================================== notes ======= */
+
+/* A note is a left rule and quiet text - never a filled card. */
+.note {
+  padding: var(--s1) 0 var(--s1) var(--s4);
+  border-left: 1px solid var(--line-strong);
+  font-size: var(--fs-small);
+  color: var(--text-secondary);
+  line-height: var(--lh-body);
+  max-width: 68ch;
+}
+.note.strong { border-left-color: var(--text-secondary); color: var(--text); }
+.note .hd {
+  display: block;
+  font-size: var(--fs-label);
+  font-weight: 600;
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: var(--s1);
+}
+
+/* ========================================================= readout ====== */
+
+/* Horizontal instrument readout: value over tracked caption, hairline split. */
+.readout { display: flex; align-items: stretch; }
+.readout .cell { padding: 0 var(--s5); }
+.readout .cell:first-child { padding-left: 0; }
+.readout .cell + .cell { border-left: 1px solid var(--line); }
+.readout .v {
+  display: block;
+  font-size: 19px;
+  font-weight: 300;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.2;
+  color: var(--text);
+}
+.readout .k {
+  display: block;
+  font-size: var(--fs-label);
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+  color: var(--text-faint);
+  margin-top: var(--s1);
+}
+
+/* ========================================================== lists ======= */
+
+.list { display: flex; flex-direction: column; }
+.list-row {
+  display: flex;
+  align-items: center;
+  gap: var(--s4);
+  width: 100%;
+  padding: var(--s3) var(--s3);
+  text-align: left;
+  border-top: 1px solid var(--line);
+  transition: background var(--fast) var(--ease);
+}
+.list-row:last-child { border-bottom: 1px solid var(--line); }
+.list-row:hover:not(:disabled) { background: var(--surface-2); }
+.list-row:disabled { color: var(--text-faint); }
+
+.data-head {
+  display: grid;
+  gap: var(--s4);
+  padding: 0 var(--s3) var(--s2);
+  font-size: var(--fs-label);
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+.data-row {
+  display: grid;
+  gap: var(--s4);
+  align-items: center;
+  width: 100%;
+  padding: var(--s3);
+  text-align: left;
+  border-top: 1px solid var(--line);
+  transition: background var(--fast) var(--ease);
+}
+.data-row:last-child { border-bottom: 1px solid var(--line); }
+.data-row:hover { background: var(--surface-2); }
+.data-row .c { font-size: var(--fs-small); color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+
+/* ========================================================== roles ======= */
+
+.roles { display: grid; grid-template-columns: 1fr 1fr; gap: 0 var(--s7); }
+.role {
+  display: flex; align-items: center; gap: var(--s3);
+  padding: var(--s2) 0;
+  font-size: var(--fs-small);
+  border-bottom: 1px solid var(--line);
+}
+.role .g {
+  width: 12px; text-align: center; flex: none;
+  font-family: var(--mono); font-size: var(--fs-micro);
+  color: var(--text-faint);
+}
+.role[data-state="on"]    { color: var(--text); }
+.role[data-state="on"] .g { color: var(--text); }
+.role[data-state="maybe"] { color: var(--text-secondary); }
+.role[data-state="maybe"] .g { color: var(--text-muted); }
+.role[data-state="off"]   { color: var(--text-faint); }
+.role .tag {
+  margin-left: auto; font-size: var(--fs-label);
+  letter-spacing: var(--tracking-label); text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+/* ========================================================== stats ======= */
+
+.stats { display: flex; flex-direction: column; }
+.stat {
+  display: flex; justify-content: space-between; align-items: baseline;
+  padding: var(--s2) 0;
+  font-size: var(--fs-small);
+  border-bottom: 1px solid var(--line);
+}
+.stat .k { color: var(--text-muted); }
+.stat .v { color: var(--text); font-variant-numeric: tabular-nums; }
+.stat[data-flag="true"] .v { color: var(--text); font-weight: 600; }
+
+/* ========================================================= stages ======= */
+
+.stages { display: flex; flex-direction: column; }
+.stage {
+  display: flex; align-items: flex-start; gap: var(--s4);
+  padding: var(--s3) 0;
+  font-size: var(--fs-small);
+  border-top: 1px solid var(--line);
+}
+.stage:first-child { border-top: 0; }
+.stage .g {
+  width: 14px; flex: none; text-align: center;
+  font-family: var(--mono); font-size: var(--fs-micro);
+  line-height: 1.6;
+}
+.stage .nm { flex: none; width: 184px; color: var(--text); }
+.stage .dt { color: var(--text-muted); line-height: var(--lh-body); }
+
+.stage[data-status="ok"] .g       { color: var(--state-ok); }
+.stage[data-status="warning"] .g  { color: var(--state-warn); }
+.stage[data-status="failed"] .g   { color: var(--state-bad); }
+.stage[data-status="failed"] .nm  { font-weight: 600; }
+.stage[data-status="skipped"]     { color: var(--text-faint); }
+.stage[data-status="skipped"] .nm { color: var(--text-muted); }
+.stage[data-status="running"] .g  { color: var(--text); }
+.stage[data-status="pending"]     { opacity: 0.4; }
+
+.spin { display: inline-block; animation: spin 1s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.meter { height: 1px; background: var(--line); overflow: hidden; }
+.meter i { display: block; height: 100%; background: var(--text-secondary);
+           transition: width var(--slow) var(--ease); }
+
+/* ========================================================== files ======= */
+
+.file {
+  display: flex; align-items: center; gap: var(--s4);
+  width: 100%; padding: var(--s3) var(--s2);
+  text-align: left; font-size: var(--fs-small);
+  border-top: 1px solid var(--line);
+  transition: background var(--fast) var(--ease);
+}
+.file:last-child { border-bottom: 1px solid var(--line); }
+.file:hover { background: var(--surface-2); }
+.file .kind {
+  width: 40px; flex: none;
+  font-family: var(--mono); font-size: var(--fs-label);
+  letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-faint);
+}
+.file .nm { flex: 1; color: var(--text-secondary); }
+.file:hover .nm { color: var(--text); }
+.file .sz { color: var(--text-faint); font-family: var(--mono);
+            font-size: var(--fs-micro); font-variant-numeric: tabular-nums; }
+
+/* ========================================================== badge ======= */
+
+.badge {
+  display: inline-block;
+  padding: 2px var(--s2);
+  font-size: var(--fs-label);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-sm);
+  white-space: nowrap;
+}
+.badge.on { color: var(--text); border-color: var(--text-muted); }
+
+/* ======================================================== settings ====== */
+
+.setting {
+  display: flex; align-items: flex-start; gap: var(--s6);
+  padding: var(--s5) 0;
+  border-top: 1px solid var(--line);
+}
+.setting:first-of-type { border-top: 0; padding-top: var(--s3); }
+.setting .lab { flex: 1; min-width: 0; }
+.setting .lab .t { display: block; font-size: var(--fs-body); color: var(--text); }
+.setting .lab .d {
+  display: block;
+  font-size: var(--fs-small); color: var(--text-muted);
+  margin-top: var(--s1); line-height: var(--lh-body); max-width: 58ch;
+}
+.setting .ctl { flex: none; display: flex; align-items: center; gap: var(--s2); }
+
+.path {
+  display: block;
+  margin-top: var(--s3);
+  padding: var(--s2) var(--s3);
+  font-family: var(--mono); font-size: var(--fs-micro);
+  color: var(--text-secondary);
+  background: var(--surface-sunken);
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  user-select: text;
+}
+.path[data-empty="true"] { color: var(--text-faint); }
+
+/* ======================================================== advanced ====== */
+
+details.advanced { margin-top: var(--s8); border-top: 1px solid var(--line); }
+details.advanced > summary {
+  list-style: none; cursor: pointer;
+  padding: var(--s4) 0;
+  font-size: var(--fs-label);
+  font-weight: 600;
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+  color: var(--text-faint);
+  transition: color var(--fast) var(--ease);
+}
+details.advanced > summary:hover { color: var(--text-secondary); }
+details.advanced > summary::-webkit-details-marker { display: none; }
+details.advanced > summary::before { content: "+"; display: inline-block; width: 14px; }
+details.advanced[open] > summary::before { content: "−"; }
+.advanced-body { padding-bottom: var(--s6); }
+
+.kv { display: grid; grid-template-columns: 180px 1fr; gap: var(--s2) var(--s5); font-size: var(--fs-small); }
+.kv dt { color: var(--text-faint); }
+.kv dd { color: var(--text-secondary); word-break: break-word; }
+
+pre.data {
+  margin-top: var(--s3);
+  padding: var(--s4);
+  font-family: var(--mono); font-size: var(--fs-micro);
+  line-height: 1.7; color: var(--text-muted);
+  background: var(--surface-sunken);
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  overflow-x: auto;
+  user-select: text;
+}
+
+/* ========================================================== empty ======= */
+
+.empty { padding: var(--s11) var(--s4); text-align: center; }
+.empty .t { font-size: var(--fs-heading); font-weight: 400; color: var(--text-secondary); }
+.empty .d { font-size: var(--fs-small); color: var(--text-faint); margin-top: var(--s2); }
+
+/* Safe Mode banner. Loud enough that nobody wonders why Build does nothing,
+   quiet enough that it is not an error — Safe Mode is a choice, not a fault. */
+.safe-mode {
+  padding: 12px 20px;
+  border-bottom: 1px solid var(--line);
+  background: var(--surface-2);
+  color: var(--text-secondary);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.safe-mode strong {
+  color: var(--text);
+  font-weight: 600;
+}
+
+/* System check table. The verdict is encoded in lightness, not colour — the
+   interface is monochrome, and a verdict is a reading, not an alarm. */
+.check {
+  width: 100%;
+  margin-top: 12px;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.check tr {
+  border-top: 1px solid var(--line);
+}
+
+.check td {
+  padding: 7px 10px 7px 0;
+  vertical-align: top;
+}
+
+.check-verdict {
+  width: 104px;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+}
+
+.check-name { width: 172px; color: var(--text); }
+.check-detail { color: var(--text-secondary); }
+
+/* PASS recedes; the things that need reading are brighter. */
+.check tr[data-verdict="PASS"] .check-verdict { color: var(--text-faint); }
+.check tr[data-verdict="WARNING"] .check-verdict { color: var(--text); }
+.check tr[data-verdict="UNAVAILABLE"] .check-verdict { color: var(--text-muted); }
+.check tr[data-verdict="FAIL"] .check-verdict {
+  color: var(--text-inverse);
+  background: var(--text);
+  padding-left: 8px;
+  font-weight: 600;
+}
+
+/* An interrupted build. Same weight as the Safe Mode notice: informational,
+   not an error — the user's original is untouched either way. */
+.interrupted {
+  padding: 12px 20px;
+  border-bottom: 1px solid var(--line);
+  background: var(--surface-2);
+  color: var(--text-secondary);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.interrupted strong { color: var(--text); font-weight: 600; }

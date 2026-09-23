@@ -1,0 +1,128 @@
+/* AB — bench-specific components: stage rail, evidence badges, scorecard,
+ * evidence tree, drill-down tables. Same three moves as everything else:
+ * hairline edge, one-step surface change, luminance shift on the label. */
+
+/* ======================================================== evidence ====== */
+
+.ev {
+  display: inline-block;
+  padding: 1px var(--s2);
+  font-family: var(--mono);
+  font-size: var(--fs-label);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-sm);
+  color: var(--text-muted);
+  white-space: nowrap;
+  vertical-align: middle;
+}
+.ev[data-ev="VERIFIED"]      { color: var(--ev-verified);      border-color: color-mix(in srgb, var(--ev-verified) 45%, transparent); }
+.ev[data-ev="INFERRED"]      { color: var(--ev-inferred);      border-color: color-mix(in srgb, var(--ev-inferred) 45%, transparent); }
+.ev[data-ev="CANDIDATE"]     { color: var(--ev-candidate);     border-color: var(--line-strong); }
+.ev[data-ev="GENERATED"]     { color: var(--ev-generated);     border-color: color-mix(in srgb, var(--ev-generated) 45%, transparent); }
+.ev[data-ev="UNRECOVERABLE"] { color: var(--ev-unrecoverable); border-color: color-mix(in srgb, var(--ev-unrecoverable) 45%, transparent); text-decoration: line-through; }
+.ev[data-ev="UNKNOWN"]       { color: var(--text-faint); }
+
+/* ======================================================= stage rail ===== */
+
+.rail {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--surface-sunken);
+  overflow: hidden;
+}
+.rail .st {
+  display: flex; flex-direction: column; gap: var(--s1);
+  padding: var(--s3) var(--s3);
+  border-left: 1px solid var(--line);
+  text-align: left;
+  min-width: 0;
+  transition: background var(--fast) var(--ease);
+}
+.rail .st:first-child { border-left: 0; }
+.rail .st:hover { background: var(--surface-2); }
+.rail .st[aria-current="true"] { background: var(--surface-3); }
+.rail .st .k {
+  font-size: var(--fs-label); font-weight: 600; letter-spacing: var(--tracking-label);
+  text-transform: uppercase; color: var(--text-faint);
+  display: flex; align-items: center; gap: var(--s2);
+}
+.rail .st .g { font-family: var(--mono); font-size: var(--fs-micro); width: 10px; text-align: center; color: var(--state-idle); }
+.rail .st .v { font-family: var(--mono); font-size: var(--fs-micro); color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rail .st[data-status="OK"] .k, .rail .st[data-status="OK"] .g { color: var(--text); }
+.rail .st[data-status="RUNNING"] .g { color: var(--text); }
+.rail .st[data-status="FAILED"] .k { color: var(--text); font-weight: 700; }
+.rail .st[data-status="FAILED"] .g { color: var(--ev-unrecoverable); }
+.rail .st[data-status="SKIPPED"] .k { color: var(--text-muted); }
+.rail .st[data-status="PENDING"] { opacity: 0.55; }
+
+/* ======================================================= scorecard ====== */
+
+.score { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: var(--r-md); overflow: hidden; }
+.score .cell {
+  background: var(--surface-1); padding: var(--s4) var(--s5);
+  display: flex; flex-direction: column; gap: var(--s1); text-align: left;
+  transition: background var(--fast) var(--ease);
+}
+.score .cell:hover { background: var(--surface-2); }
+.score .cell .k { font-size: var(--fs-label); font-weight: 600; letter-spacing: var(--tracking-label); text-transform: uppercase; color: var(--text-muted); }
+.score .cell .v { font-size: 19px; font-weight: 300; color: var(--text); font-variant-numeric: tabular-nums; line-height: 1.2; }
+.score .cell .d { font-size: var(--fs-micro); color: var(--text-faint); }
+
+/* ===================================================== evidence tree ==== */
+
+.split { display: grid; grid-template-columns: 280px 1fr; gap: var(--s5); min-height: 420px; }
+.tree { border: 1px solid var(--line); border-radius: var(--r-md); background: var(--surface-sunken); overflow: auto; max-height: 70vh; padding: var(--s2) 0; }
+.tree button {
+  display: flex; align-items: center; gap: var(--s2); width: 100%;
+  padding: var(--s1) var(--s3); text-align: left;
+  font-family: var(--mono); font-size: var(--fs-micro); color: var(--text-secondary);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.tree button:hover { background: var(--surface-2); color: var(--text); }
+.tree button[aria-current="true"] { background: var(--surface-3); color: var(--text); }
+.tree .dir { color: var(--text-muted); font-weight: 600; }
+.tree .sz { margin-left: auto; color: var(--text-faint); }
+
+.viewer { border: 1px solid var(--line); border-radius: var(--r-md); background: var(--surface-sunken); overflow: auto; max-height: 70vh; }
+.viewer .head { display: flex; align-items: center; gap: var(--s3); padding: var(--s2) var(--s4); border-bottom: 1px solid var(--line); font-family: var(--mono); font-size: var(--fs-micro); color: var(--text-muted); position: sticky; top: 0; background: var(--surface-sunken); }
+.viewer pre { padding: var(--s4); font-family: var(--mono); font-size: var(--fs-micro); line-height: 1.7; color: var(--text-secondary); user-select: text; white-space: pre-wrap; word-break: break-word; }
+.schema-badge { padding: 1px var(--s2); border: 1px solid var(--line-strong); border-radius: var(--r-sm); color: var(--text-secondary); }
+
+/* ========================================================= gallery ====== */
+
+.gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: var(--s3); }
+.gallery .tile { border: 1px solid var(--line); border-radius: var(--r); background: var(--surface-sunken); padding: var(--s2); display: flex; flex-direction: column; gap: var(--s1); text-align: left; }
+.gallery .tile:hover { border-color: var(--line-active); }
+.gallery .tile .img { height: 96px; display: grid; place-items: center; overflow: hidden; background: repeating-conic-gradient(#0d0d0d 0 25%, #111 0 50%) 0 0/12px 12px; border-radius: var(--r-sm); }
+.gallery .tile img { max-width: 100%; max-height: 96px; image-rendering: auto; }
+.gallery .tile .strip { display: flex; gap: 2px; overflow-x: auto; height: 96px; align-items: center; }
+.gallery .tile .strip img { height: 88px; width: auto; }
+.gallery .tile .nm { font-family: var(--mono); font-size: var(--fs-micro); color: var(--text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.gallery .tile .meta { font-family: var(--mono); font-size: var(--fs-label); color: var(--text-faint); }
+
+/* ========================================================= tables ======= */
+
+table.grid { width: 100%; border-collapse: collapse; font-size: var(--fs-small); }
+table.grid th { text-align: left; padding: var(--s2) var(--s3); font-size: var(--fs-label); letter-spacing: var(--tracking-label); text-transform: uppercase; color: var(--text-faint); border-bottom: 1px solid var(--line); font-weight: 600; }
+table.grid td { padding: var(--s2) var(--s3); border-bottom: 1px solid var(--line); color: var(--text-secondary); vertical-align: top; }
+table.grid td.mono, table.grid td .mono { font-family: var(--mono); font-size: var(--fs-micro); }
+table.grid tr:hover td { background: var(--surface-2); color: var(--text); }
+
+/* ======================================================= ownership ====== */
+
+.ownership { display: flex; gap: var(--s2); margin-top: var(--s5); }
+
+/* ========================================================= intake ======= */
+
+.intake { display: flex; flex-wrap: wrap; gap: var(--s2); margin-top: var(--s4); }
+.chip {
+  display: inline-flex; align-items: center; gap: var(--s2);
+  padding: 2px var(--s2); font-family: var(--mono); font-size: var(--fs-micro);
+  border: 1px solid var(--line-strong); border-radius: var(--r-sm); color: var(--text-secondary);
+}
+.chip .kind { color: var(--text-faint); letter-spacing: 0.08em; text-transform: uppercase; font-size: var(--fs-label); }

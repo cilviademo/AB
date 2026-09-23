@@ -1,0 +1,1 @@
+app/static-engine/dist/cli.mjs is copied here by scripts/build-release.ps1 so ab-cli can run the static stage headlessly when Node is available.

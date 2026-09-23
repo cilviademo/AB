@@ -6,7 +6,7 @@ BLOCKERS.md). Nothing is marked green without a run.
 
 | Step | Gate | State |
 |---|---|---|
-| 1.1 | `ab-cli doctor` reports shell, engine, disk, tools | — |
+| 1.1 | `ab-cli doctor` reports shell, engine, disk, tools | measured (Linux): 11 pass · 1 warning · 4 unavailable · 0 fail |
 | 1.1 | `AB.exe` launches from a clean ZIP with no dev tools | pending-windows |
 | 1.2 | no-change re-run does zero work; DECOMPILATION version bump re-runs only it and later | — |
 | 1.3 | 4 fixtures + 3 presets → 4 jobs, correct attachments; 500 MB under 400 MB RSS | — |

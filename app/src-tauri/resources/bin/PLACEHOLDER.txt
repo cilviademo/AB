@@ -1,0 +1,1 @@
+vst3host.exe is copied here by scripts/build-release.ps1 (built from native/vst3host).

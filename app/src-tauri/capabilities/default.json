@@ -1,0 +1,13 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "AB desktop capabilities. Every privileged action (spawning the engine or a worker, revealing a folder, reading a bundle file) is a Rust command that validates its own arguments. The webview gets no shell, no filesystem and no arbitrary-path opener permission. Plugins are never loaded in this process.",
+  "windows": ["main"],
+  "permissions": [
+    "core:default",
+    "core:event:default",
+    "core:window:allow-start-dragging",
+    "dialog:default",
+    "opener:default"
+  ]
+}

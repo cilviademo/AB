@@ -1,0 +1,2 @@
+The packaged AB engine (PyInstaller onedir output of engine/) is copied here by scripts/build-release.ps1.
+In development the shell runs the engine from the source checkout instead.
