@@ -75,7 +75,7 @@ jobs:
         run: |
           set -euo pipefail
           WS="$RUNNER_TEMP/gtws"
-          ab-cli --workspace "$WS" ingest --ownership OWNED --name ABGroundTruth fixtures/groundtruth/out/stripped/ABGroundTruth.vst3 > ingest.json
+          ab-cli --workspace "$WS" ingest --context KNOWN_SOURCE_FIXTURE --source-availability KNOWN_SOURCE_GROUND_TRUTH --name ABGroundTruth fixtures/groundtruth/out/stripped/ABGroundTruth.vst3 > ingest.json
           JOB=$(python -c "import json;print(json.load(open('ingest.json'))['data']['jobs'][0]['job_id'])")
           echo "job=$JOB" >> "$GITHUB_ENV"
           ab-cli --workspace "$WS" run "$JOB" --stage INGESTED --stage STATIC_COMPLETE --stage RUNTIME_COMPLETE
