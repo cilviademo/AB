@@ -9,7 +9,7 @@ from pathlib import Path
 import pytest
 
 from ab_engine import api
-from ab_engine.bundle.scan import scan_paths, scan_secrets
+from ab_engine.bundle.scan import scan_paths, scan_secrets, scrub_machine_paths
 
 ROOT = Path(__file__).resolve().parents[2]
 FIXTURE = ROOT / "fixtures" / "synthetic" / "SynthPlug.vst3"
@@ -87,3 +87,22 @@ def test_third_party_export_has_no_reconstruction(ws, tmp_path):
     out = Path(r["out_dir"])
     assert not (out / "Source").exists() and not (out / "CMakeLists.txt").exists() and (out / "ANALYSIS_ONLY.md").is_file()
     assert (out / "evidence" / "01_evidence" / "rtti" / "classes.json").is_file()
+
+
+def test_export_scrubs_this_machines_paths(tmp_path):
+    """The build machine's workspace, tools, home and temp roots never leave with an export; the original
+    developer's paths under 01_evidence/paths stay (they are evidence)."""
+    out = tmp_path / "X_RECOVERED"
+    (out / "validation").mkdir(parents=True)
+    (out / "evidence" / "01_evidence" / "paths").mkdir(parents=True)
+    ws_root = str(tmp_path / "ws")
+    (out / "validation" / "build_report.json").write_text('{"juce_dir": "/home/someone/JUCE", "log": "' + ws_root + '/logs/b.log", "win": "C:\\\\Users\\\\someone\\\\AppData\\\\Local\\\\AB\\\\tools"}', encoding="utf-8")
+    (out / "evidence" / "01_evidence" / "paths" / "build_path_evidence.json").write_text('{"path": "C:\\\\Users\\\\dev\\\\plugin\\\\Source\\\\x.cpp"}', encoding="utf-8")
+    before = scan_secrets(out)
+    assert {f["kind"] for f in before} >= {"unix_home_path", "temp_path", "windows_user_path"}
+    rows = scrub_machine_paths(out, [(ws_root, "<WORKSPACE>"), ("/home/someone", "<HOME>"), ("C:\\Users\\someone\\AppData\\Local\\AB\\tools", "<TOOLS>")])
+    assert rows == [{"path": "validation/build_report.json", "replacements": 3}]
+    text = (out / "validation" / "build_report.json").read_text(encoding="utf-8")
+    assert '"<HOME>/JUCE"' in text and '"<WORKSPACE>/logs/b.log"' in text and '"<TOOLS>"' in text
+    assert scan_secrets(out) == []
+    assert "dev" in (out / "evidence" / "01_evidence" / "paths" / "build_path_evidence.json").read_text(encoding="utf-8")   # evidence untouched

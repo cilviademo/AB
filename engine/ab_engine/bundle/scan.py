@@ -31,14 +31,18 @@ SECRET_PATTERNS: list[tuple[str, re.Pattern[str]]] = [
     ("juce_serial_literal", re.compile(r"(?i)\b(serial|licen[cs]e)[_-]?(key|number)\b\s*[:=]\s*['\"][A-Z0-9-]{12,}['\"]")),
 ]
 USER_PATH_PATTERNS: list[tuple[str, re.Pattern[str]]] = [
-    ("windows_user_path", re.compile(r"(?i)\b[A-Z]:\\Users\\[^\\\s\"'<>|]+")),
+    ("windows_user_path", re.compile(r"(?i)\b[A-Z]:\\{1,2}Users\\{1,2}[^\\\s\"'<>|]+")),   # also the JSON-escaped spelling
     ("unix_home_path", re.compile(r"(?<![\w/])/(?:home|Users)/[^/\s\"'<>|]+")),
+    # a build machine's temp / state roots are just as identifying as its home
+    ("temp_path", re.compile(r"(?<![\w/<])/(?:tmp|var/tmp|var/folders|private/tmp)/[^\s\"'<>|]+")),
+    ("windows_temp_path", re.compile(r"(?i)\b[A-Z]:\\{1,2}(?:Windows\\{1,2}Temp|Temp)\\{1,2}[^\\\s\"'<>|]+")),
 ]
 TEXT_EXT = {".json", ".md", ".txt", ".cpp", ".h", ".hpp", ".cmake", ".xml", ".yml", ".yaml", ".toml", ".ini", ".cfg",
             ".py", ".ts", ".js", ".ps1", ".sh", ".gitignore", ".csv", ".log", ".svg", ".html"}
 #: Evidence paths are recorded on purpose: build_path_evidence.json and the raw string dump
 #: *contain* the original developer's paths — that is the evidence. They are not the bundle leaking ours.
-EVIDENCE_EXEMPT = ("01_evidence/paths/", "01_evidence/strings/", "01_evidence/binary/")
+EVIDENCE_EXEMPT = ("01_evidence/paths/", "01_evidence/strings/", "01_evidence/binary/",
+                   "evidence/01_evidence/paths/", "evidence/01_evidence/strings/", "evidence/01_evidence/binary/")   # A7 export layout
 
 
 def scan_paths(root: Path) -> list[dict[str, Any]]:
@@ -95,3 +99,44 @@ def scan_secrets(root: Path, *, max_bytes: int = 8 * 1024 * 1024) -> list[dict[s
                     if m:
                         findings.append({"kind": kind, "path": rel, "line": lineno, "excerpt": _redact(m.group(0))})
     return findings
+
+
+def scrub_machine_paths(root: Path, roots: list[tuple[str, str]], *, max_bytes: int = 8 * 1024 * 1024) -> list[dict[str, Any]]:
+    """Replace this machine's roots (workspace, project, tools, home, temp) in every text file of an export
+    with placeholders such as ``<WORKSPACE>`` — the export is a copy, the project's evidence is untouched.
+    Files under ``EVIDENCE_EXEMPT`` are left alone: they hold the *original developer's* paths, which are
+    evidence. JSON-escaped spellings (``C:\\\\Users``) are handled. Returns one row per changed file."""
+    pairs: list[tuple[str, str]] = []
+    for raw, tag in roots:
+        raw = str(raw or "").rstrip("/\\")
+        if len(raw) < 4:
+            continue
+        for variant in dict.fromkeys((raw, raw.replace("\\", "\\\\"), raw.replace("\\", "/"))):
+            pairs.append((variant, tag))
+    pairs.sort(key=lambda t: -len(t[0]))          # longest root first so <PROJECT> wins over <WORKSPACE>
+    changed: list[dict[str, Any]] = []
+    for p in sorted(root.rglob("*")):
+        if not p.is_file():
+            continue
+        rel = p.relative_to(root).as_posix()
+        if rel.startswith(EVIDENCE_EXEMPT):
+            continue
+        if p.suffix.lower() not in TEXT_EXT and p.name not in ("CMakeLists.txt", ".gitignore"):
+            continue
+        if p.stat().st_size > max_bytes:
+            continue
+        try:
+            text = p.read_text(encoding="utf-8")
+        except (OSError, UnicodeDecodeError):
+            continue
+        new = text
+        n = 0
+        for raw, tag in pairs:
+            c = new.count(raw)
+            if c:
+                new = new.replace(raw, tag)
+                n += c
+        if n:
+            p.write_text(new, encoding="utf-8")
+            changed.append({"path": rel, "replacements": n})
+    return changed

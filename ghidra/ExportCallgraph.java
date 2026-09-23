@@ -76,13 +76,19 @@ public class ExportCallgraph extends GhidraScript {
             fns.put(fi.addr, fi);
         }
         // seeds
-        Map<String, Long> seeds = new LinkedHashMap<>();
+        Map<String, Long> seeds = new LinkedHashMap<>(); Map<String, Integer> seedScore = new HashMap<>();
         for (Symbol s : currentProgram.getSymbolTable().getAllSymbols(true)) {
             String n = s.getName();
             if (n.equals("GetPluginFactory") || n.equals("ModuleEntry") || n.equals("InitDll") || n.equals("VSTPluginMain")) seeds.put(n, s.getAddress().getOffset());
             if (n.contains("processBlock") || n.contains("prepareToPlay") || n.contains("releaseResources") || n.contains("getStateInformation") || n.contains("setStateInformation") || n.contains("createEditor")) {
                 String key = n.contains("processBlock") ? "processBlock" : n.contains("prepareToPlay") ? "prepareToPlay" : n.contains("releaseResources") ? "releaseResources" : n.contains("getStateInformation") ? "getStateInformation" : n.contains("setStateInformation") ? "setStateInformation" : "createEditor";
-                seeds.putIfAbsent(key, s.getAddress().getOffset());
+                // prefer the plugin's own override: an exact leaf name inside a non-framework class namespace,
+                // over a wrapper / framework function whose name merely contains the word
+                Namespace ns = s.getParentNamespace(); String nsn = ns == null ? "" : ns.getName(true);
+                boolean framework = nsn.startsWith("juce") || nsn.startsWith("Steinberg") || nsn.startsWith("std") || nsn.isEmpty() || nsn.equals("Global");
+                int score = (n.equals(key) ? 2 : 0) + (framework ? 0 : 1) + (listing.getFunctionAt(s.getAddress()) != null ? 1 : 0);
+                Integer prev = seedScore.get(key);
+                if (prev == null || score > prev) { seeds.put(key, s.getAddress().getOffset()); seedScore.put(key, score); }
             }
         }
         // structural processBlock candidate when symbols are stripped: the function with the most

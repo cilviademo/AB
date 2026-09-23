@@ -215,7 +215,10 @@ public class ExportRTTI extends GhidraScript {
                     long off = mem.getLong(toAddr(a - 8));
                     if (off != 0 && (off > 0 || off < -65536)) continue;
                     long slots0 = a + 8;
-                    if (!isCodeSlot(mem.getLong(toAddr(slots0)))) continue;   // first slot must be code (a function, a PLT stub or an import such as __cxa_pure_virtual)
+                    // one of the first three slots must be code (a function, a PLT stub or an import such as
+                    // __cxa_pure_virtual); an abstract class's first two slots (destructors) may be null
+                    boolean code = false; for (int k = 0; k < 3 && !code; k++) code = isCodeSlot(mem.getLong(toAddr(slots0 + 8L * k)));
+                    if (!code) continue;
                     if (c.vtables.contains(a - 8)) continue;
                     c.vtables.add(a - 8);
                     List<Long> slots = new ArrayList<>(); List<String> names = new ArrayList<>();
@@ -245,9 +248,9 @@ public class ExportRTTI extends GhidraScript {
     String slotName(long v) {
         Address t = toAddr(v);
         Function f = currentProgram.getFunctionManager().getFunctionAt(t);
-        if (f != null) { if (f.isThunk() && f.getThunkedFunction(true) != null) return f.getThunkedFunction(true).getName(); return f.getName(); }
+        if (f != null) { if (f.isThunk() && f.getThunkedFunction(true) != null) return f.getThunkedFunction(true).getName(true); return f.getName(true); }
         Symbol s = currentProgram.getSymbolTable().getPrimarySymbol(t);
-        return s == null ? "" : s.getName();
+        return s == null ? "" : s.getName(true);
     }
 
     int countSlots(Address vt, List<Long> methods, List<Long> slotsOut, List<String> namesOut) {
@@ -255,16 +258,21 @@ public class ExportRTTI extends GhidraScript {
         // Itanium ABI: the vtable symbol points at {offset_to_top, typeinfo*}; the function slots start after them
         if (!currentProgram.getExecutableFormat().contains("Portable Executable")) p = p.add(2L * ptr);
         try {
+            int zeros = 0;
             for (int i = 0; i < 4096; i++) {
                 long v = ptr == 8 ? currentProgram.getMemory().getLong(p) : (currentProgram.getMemory().getInt(p) & 0xFFFFFFFFL);
-                if (!isCodeSlot(v)) break;
-                if (!methods.contains(v)) methods.add(v);
-                slotsOut.add(v); namesOut.add(slotName(v));
+                // a null slot is legal inside a table (GCC writes 0 for an abstract class's deleting destructor);
+                // trailing nulls belong to the next table's offset_to_top and are trimmed below
+                if (v != 0 && !isCodeSlot(v)) break;
+                if (v == 0) { if (++zeros > 2) break; } else zeros = 0;
+                if (v != 0 && !methods.contains(v)) methods.add(v);
+                slotsOut.add(v); namesOut.add(v == 0 ? "" : slotName(v));
                 n++; p = p.add(ptr);
                 // stop at the next symbol (another vtable / RTTI object) so tables do not run together
                 if (i > 0 && currentProgram.getSymbolTable().getPrimarySymbol(p) != null) break;
             }
         } catch (MemoryAccessException e) { /* end of readable memory */ }
+        while (n > 0 && slotsOut.get(n - 1) == 0) { slotsOut.remove(n - 1); namesOut.remove(n - 1); n--; }
         return n;
     }
 

@@ -25,15 +25,15 @@ def _symbol_build():
     base_slots, base_names = [], []
     for i, n in enumerate(BASE_NAMES):
         if n in PURE:
-            base_slots.append("0xdead0"); base_names.append("__cxa_pure_virtual")
+            base_slots.append("0xdead0"); base_names.append("<EXTERNAL>::__cxa_pure_virtual")
         else:
             a = f"0x{0x5000 + i * 0x20:x}"
-            base_slots.append(a); base_names.append(n); fps[a] = _fp(f"fw{i}", a)
+            base_slots.append(a); base_names.append("juce::AudioProcessor::" + n); fps[a] = _fp(f"fw{i}", a)
     plugin_slots, plugin_names = [], []
     for i, n in enumerate(BASE_NAMES):
         if n in PURE or (n == "processBlock" and i == 5):   # plugin overrides pure slots + processBlock(float)
             a = f"0x{0x9000 + i * 0x20:x}"
-            plugin_slots.append(a); plugin_names.append(n); fps[a] = _fp(f"pl{i}", a)
+            plugin_slots.append(a); plugin_names.append("MyPlugin::" + n); fps[a] = _fp(f"pl{i}", a)
         else:
             plugin_slots.append(base_slots[i]); plugin_names.append(base_names[i])
     classes = [{"name": "juce::AudioProcessor", "vtable_slots": [base_slots], "vtable_slot_names": [base_names], "bases": []},
@@ -74,6 +74,8 @@ def test_learn_rows_only_from_named_tables():
     assert [e["name"] for e in ap["slots"]][3:6] == ["prepareToPlay", "releaseResources", "processBlock"]
     assert ap["slots"][3]["pure"] and ap["slots"][3]["name_from"] == "MyPlugin" and "name_from" not in ap["slots"][5]
     assert [e["name"] for e in vl.learn_rows([classes[0]], fps)[0]["slots"]][3:5] == ["", ""]   # no derived class: stays blank
+    mp = next(r for r in rows if r["rtti_name"] == "MyPlugin")
+    assert mp["slots"][5]["own"] and mp["slots"][5]["owner"] == "MyPlugin" and not mp["slots"][6]["own"] and mp["slots"][6]["owner"] == "juce::AudioProcessor"
     assert all(e["fps"] for e in ap["slots"] if not e["pure"])
     # a stripped build (Ghidra default names / blanks) teaches nothing
     stripped, sfps = _stripped_build()
@@ -129,3 +131,35 @@ def test_distances_bfs():
 def test_fp_id_is_never_a_name():
     a = _fp("x", "0x1"); b = dict(_fp("x", "0x2"), name="processBlock")
     assert fp_id(a) == fp_id(b)
+
+
+def test_same_plugin_stripped_uses_its_own_layout(tmp_path):
+    """The stripped build of the very plugin the symbol build came from: the class's own layout applies and
+    the slots the symbol build attributed to the class are the seeds."""
+    db = KnowledgeDB(tmp_path)
+    classes, fps = _symbol_build()
+    db.record_vtable_layouts("a" * 64, vl.learn_rows(classes, fps))
+    stripped = [dict(c, vtable_slot_names=[[""] * len(c["vtable_slots"][0])]) for c in classes]   # same tables, no names
+    r = vl.apply(db, stripped, fps, artifact_sha256="b" * 64)
+    assert r["chosen_class"] == "MyPlugin" and r["seeds"]["processBlock"] == classes[1]["vtable_slots"][0][5]
+    assert r["seeds"]["prepareToPlay"] == classes[1]["vtable_slots"][0][3]
+
+
+def test_base_layout_synthesized_from_a_derived_class(tmp_path):
+    """The symbol build walked no vtable for juce::AudioProcessor (abstract): the derived plugin still
+    teaches the base's layout up to its last base-owned slot, so another plugin on the same framework is seeded."""
+    db = KnowledgeDB(tmp_path)
+    classes, fps = _symbol_build()
+    only_derived = [classes[1]]                               # base row absent
+    rows = vl.learn_rows(only_derived, fps)
+    ap = next(r for r in rows if r["rtti_name"] == "juce::AudioProcessor")
+    # provable lower bound: up to the last slot a base implementation sits in (slot 7, getTailLengthSeconds);
+    # the trailing pure slots the plugin overrides cannot be told from virtuals the plugin introduced
+    assert ap["synthesized_from"] == "MyPlugin" and ap["slot_count"] == 8
+    assert ap["slots"][5]["name"] == "processBlock" and ap["slots"][5]["fps"] == [] and ap["slots"][5]["name_from"] == "MyPlugin"
+    assert ap["slots"][6]["own"] and ap["slots"][6]["fps"]                       # base default implementation, fingerprinted
+    db.record_vtable_layouts("a" * 64, rows)
+    stripped, sfps = _stripped_build()
+    r = vl.apply(db, stripped, sfps, artifact_sha256="b" * 64)
+    assert r["chosen_class"] == "OtherPlugin" and r["seeds"]["processBlock"] == stripped[1]["vtable_slots"][0][5]
+    assert r["seeds"]["prepareToPlay"] == stripped[1]["vtable_slots"][0][3] and "getStateInformation" not in r["seeds"]

@@ -15,7 +15,9 @@ from __future__ import annotations
 
 import json
 import re
+import os
 import shutil
+import tempfile
 import sys
 import zipfile
 from datetime import UTC, datetime
@@ -23,7 +25,7 @@ from pathlib import Path
 from typing import Any
 
 from ab_engine import TOOL, api
-from ab_engine.bundle.scan import scan_paths, scan_secrets
+from ab_engine.bundle.scan import scan_paths, scan_secrets, scrub_machine_paths
 from ab_engine.contracts import write_json
 from ab_engine.jobs import db as jobs_db
 from ab_engine.jobs import runner
@@ -219,7 +221,7 @@ def git_ready_checks(out: Path, job: Job, path_findings: list, secret_findings: 
         {"name": "no secrets", "ok": not [f for f in secret_findings if not f["kind"].endswith("_path")], "detail": "no keys, tokens or credentials found" if not secret_findings else f"{len(secret_findings)} finding(s)"},
         {"name": "no machine paths", "ok": not [f for f in secret_findings if f["kind"].endswith("_path")], "detail": "no absolute user paths outside 01_evidence" if not [f for f in secret_findings if f["kind"].endswith("_path")] else "; ".join(f"{f['path']}:{f['line']}" for f in secret_findings if f["kind"].endswith("_path"))[:200]},
         {"name": "dependencies documented", "ok": (out / "README_RECOVERY.md").is_file() and (not recon.is_dir() or (recon / "CMakeLists.txt").is_file()), "detail": "README_RECOVERY.md and CMakeLists.txt name JUCE and the build modes"},
-        {"name": ".gitignore", "ok": (out / ".gitignore").is_file(), "detail": str(out / ".gitignore")},
+        {"name": ".gitignore", "ok": (out / ".gitignore").is_file(), "detail": ".gitignore keeps build/, JUCE/, renders and debug files out"},
         {"name": "build instructions", "ok": (out / "HANDOFF.md").is_file(), "detail": "HANDOFF.md (How to build)"},
         {"name": "provenance manifest", "ok": (out / "evidence" / "00_manifest" / "input_manifest.json").is_file() and (out / "evidence" / "00_manifest" / "hashes.json").is_file(), "detail": "evidence/00_manifest/{input_manifest,hashes,tool_versions}.json"},
         {"name": "knowledge provenance", "ok": (out / "evidence" / "knowledge_used.json").is_file() or not job.stage("DECOMPILATION_COMPLETE"), "detail": "evidence/knowledge_used.json explains every skipped-analysis decision"},
@@ -296,15 +298,33 @@ def export_job(ws: Workspace, conn: Any, job: Job, *, zip_it: bool, ctx: StageCo
 
         (out / "evidence").mkdir(exist_ok=True)
         write_json(out / "evidence" / "knowledge_used.json", "artifactbench.knowledge_used", knowledge_hooks.knowledge_used(ctx))
+    # this machine's roots never leave with the export (SPEC §14, brief: no secrets in exported bundles);
+    # tool locations and the workspace are the run's business, not the recovered project's
+    roots: list[tuple[str, str]] = [(str(pd), "<PROJECT>"), (str(ws.home), "<WORKSPACE>"), (str(ws.state), "<AB_STATE>"), (str(ws.tools), "<TOOLS>")]
+    for env in ("AB_JUCE_DIR", "AB_VST3HOST", "GHIDRA_INSTALL_DIR", "JAVA_HOME", "AB_PLUGINVAL", "AB_VALIDATOR"):
+        if os.environ.get(env):
+            roots.append((os.environ[env], f"<{env}>"))
+    try:
+        roots.append((str(Path.home()), "<HOME>"))
+    except (RuntimeError, OSError):
+        pass
+    roots.append((tempfile.gettempdir(), "<TEMP>"))
+    scrubbed = scrub_machine_paths(out, roots)
     path_findings = scan_paths(out)
     secret_findings = scan_secrets(out)
     checks = git_ready_checks(out, job, path_findings, secret_findings)
+    for c in checks:
+        if c["name"] == "no machine paths" and scrubbed:
+            c["detail"] += f"; {sum(r['replacements'] for r in scrubbed)} machine path(s) replaced by placeholders in {len(scrubbed)} file(s)"
     git_ready = all(c["ok"] is True for c in checks if c["ok"] is not None) and not any(c["ok"] is False for c in checks)
     zip_path = (ws.exports / f"{product}_RECOVERED.zip") if zip_it else None
     report = {"job_id": job.job_id, "exported": datetime.now(UTC).isoformat(), "out_dir": str(out), "files": copied, "layout": "A7 <Plugin>_RECOVERED",
               "reconstruction_exported": job.reconstruction_allowed, "path_findings": path_findings, "secret_findings": secret_findings,
-              "git_ready": git_ready, "checks": checks, "zip_path": str(zip_path) if zip_path else None}
-    write_json(out / "evidence" / "00_manifest" / "export_report.json", "artifactbench.export_report", report)
+              "git_ready": git_ready, "checks": checks, "zip_path": str(zip_path) if zip_path else None, "scrubbed": scrubbed}
+    # the file inside the export carries placeholders; the RPC/CLI answer keeps the real locations for the shell
+    on_disk = dict(report, out_dir=(f"<WORKSPACE>/{out.relative_to(ws.home).as_posix()}" if str(out).startswith(str(ws.home)) else "<EXPORT>"),
+                   zip_path=(f"<WORKSPACE>/{zip_path.relative_to(ws.home).as_posix()}" if zip_path is not None and str(zip_path).startswith(str(ws.home)) else ("<EXPORT>.zip" if zip_path else None)))
+    write_json(out / "evidence" / "00_manifest" / "export_report.json", "artifactbench.export_report", on_disk)
     if zip_path is not None:
         with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
             for p in sorted(out.rglob("*")):
@@ -338,8 +358,9 @@ def h_bundle_export(params: dict[str, Any], ws: Workspace) -> dict[str, Any]:
     rec = job.stage("EXPORT_COMPLETE")
     out_dir = Path(rec.metrics.get("out_dir", ""))
     report = json.loads((out_dir / "evidence" / "00_manifest" / "export_report.json").read_text(encoding="utf-8"))["data"]
-    return {"out_dir": report["out_dir"], "zip_path": report.get("zip_path"), "git_ready": {"ok": report["git_ready"], "checks": report["checks"]},
-            "path_findings": report["path_findings"], "secret_findings": report["secret_findings"], "files": report["files"]}
+    zip_path = ws.exports / f"{out_dir.name}.zip"
+    return {"out_dir": str(out_dir), "zip_path": str(zip_path) if (report.get("zip_path") and zip_path.is_file()) else None, "git_ready": {"ok": report["git_ready"], "checks": report["checks"]},
+            "path_findings": report["path_findings"], "secret_findings": report["secret_findings"], "files": report["files"], "scrubbed": report.get("scrubbed", [])}
 
 
 for _n, _h in {"bundle.tree": h_bundle_tree, "bundle.read": h_bundle_read, "bundle.scorecard": h_bundle_scorecard, "bundle.export": h_bundle_export}.items():

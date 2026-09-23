@@ -62,11 +62,36 @@ def learn_rows(classes: list[dict[str, Any]], fp_by_addr: dict[str, dict[str, An
             continue
         entries = []
         for i, (a, n) in enumerate(zip(slots, names)):
-            pure = any(p in (n or "") for p in PURE_VIRTUAL)
+            n = n or ""
+            pure = any(p in n for p in PURE_VIRTUAL)
             fp = fp_by_addr.get(a)
-            entries.append({"slot": i, "name": "" if pure or not n or GHIDRA_DEFAULT.match(n) else leaf(n), "pure": pure,
-                            "fps": [fp_id(fp)] if (fp and not pure) else []})
+            owner = n.rsplit("::", 1)[0] if "::" in n else ""
+            entries.append({"slot": i, "name": "" if pure or not n or GHIDRA_DEFAULT.match(leaf(n)) else leaf(n), "pure": pure,
+                            "owner": "" if pure else owner, "own": (not pure) and owner == name,   # the class's own implementation sits here
+                            "fps": [fp_id(fp)] if (fp and not pure and a not in ("0x0", "0")) else []})
         rows.append({"rtti_name": name, "slot_count": len(slots), "slots": entries, "_slots": slots, "_bases": list(c.get("bases") or [])})
+    # A base whose own vtable was not walked (abstract classes, or a framework class the image never
+    # instantiates) is still described by its derived classes: every slot a derived class does not own
+    # belongs to a base, and the Itanium ABI appends a class's new virtuals after its base's slots. So a
+    # derived class D with declared base B teaches a layout for B up to the last base-owned slot: base-owned
+    # slots keep their fingerprints (B's default implementations), D-owned slots lend their name only.
+    have = {r["rtti_name"] for r in rows}
+    synthesized: list[dict[str, Any]] = []
+    for r in rows:
+        for b in r["_bases"]:
+            if b in have or b.startswith("std::"):
+                continue
+            base_owned = [e["slot"] for e in r["slots"] if e["pure"] or (e["owner"] and e["owner"] != r["rtti_name"])]
+            if len(base_owned) < MIN_SLOTS:
+                continue
+            count = max(base_owned) + 1
+            ents = []
+            for e in r["slots"][:count]:
+                mine = e["own"]
+                ents.append({"slot": e["slot"], "name": e["name"], "pure": e["pure"], "owner": "" if mine else e["owner"], "own": (not mine) and bool(e["owner"]),
+                             "fps": [] if mine else list(e["fps"]), **({"name_from": r["rtti_name"]} if mine and e["name"] else {})})
+            synthesized.append({"rtti_name": b, "slot_count": count, "slots": ents, "_slots": r["_slots"][:count], "_bases": [], "synthesized_from": r["rtti_name"]})
+    rows.extend(synthesized)
     # A base's pure-virtual slots carry no name of their own (they point at __cxa_pure_virtual); the classes
     # deriving from it name them, and the Itanium ABI keeps a slot's meaning down the hierarchy. Fill a base's
     # blank slot names from its derived classes: declared bases, or bases inferred from shared slot functions
@@ -175,7 +200,10 @@ def apply(db: KnowledgeDB, classes: list[dict[str, Any]], fp_by_addr: dict[str, 
                 base_slots = best["base_slots"]
                 same_as_base = i < len(base_slots) and base_slots[i] == own[i]
                 own_fp = fp_of(own[i])
-                overridden = (not same_as_base) and (own_fp is None or own_fp not in set(e.get("fps") or []))
+                if best["rtti_name"] == name:
+                    overridden = bool(e.get("own"))          # the class's own layout: the symbol build said whose implementation sits here
+                else:
+                    overridden = (not same_as_base) and (own_fp is None or own_fp not in set(e.get("fps") or []))
                 m = {"slot": i, "addr": own[i], "overridden": overridden, "evidence": "INFERRED"}
                 # first overridden slot wins a name; an un-overridden one only if nothing overridden carries it
                 prev = methods.get(e["name"])
@@ -209,7 +237,7 @@ def apply(db: KnowledgeDB, classes: list[dict[str, Any]], fp_by_addr: dict[str, 
     basis = ("knowledge vtable layout (%s from %d symbol build(s), %d/%d slot fingerprints match) — CANDIDATE"
              % (chosen["applied"]["rtti_name"], chosen["applied"]["learned_from"], chosen["applied"]["matches"], chosen["applied"]["comparable"])) if chosen else "none"
     return {"seeds": seeds, "seed_detail": seed_detail, "seed_basis": basis, "chosen_class": chosen["class"] if chosen else None,
-            "ambiguous": [r["class"] for r in applied if r is not chosen and r["methods"].get("processBlock", {}).get("overridden")],
+            "ambiguous": [r["class"] for r in applied if r is not chosen and r["methods"].get("processBlock", {}).get("overridden") and not r["class"].startswith(FRAMEWORK_PREFIXES)],
             "classes": reports, "layouts_considered": considered}
 
 
