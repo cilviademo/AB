@@ -46,7 +46,7 @@ are pinned the same way. No `PIN_ME` entries remain.
 ADDENDUM A5 asks for a second fixture in iPlug2. iPlug2 targets Windows and
 macOS (Linux support is experimental and its VST3 build is not maintained), so
 `fixtures/groundtruth_iplug2/` ships the source (same parameters, DSP,
-resources and PROTECTED_SUBSYSTEM stub as the JUCE fixture, generated from the
+resources and LICENSING_AND_ENTITLEMENT_SUBSYSTEM stub (serial check + demo state) as the JUCE fixture, generated from the
 same `spec.json`) with `build_all.ps1`, but it has not been compiled here.
 Studio-PC action: run `fixtures/groundtruth_iplug2/build_all.ps1` (clones
 iPlug2 and its dependencies), then ingest `out/stripped/ABGroundTruthIP.vst3`

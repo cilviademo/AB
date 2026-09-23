@@ -2,7 +2,7 @@
 
 **Recover. Reconstruct. Rebuild.**
 
-AB is a local-first Windows desktop workbench that takes an **owned** compiled
+AB is a local-first Windows desktop workbench that takes a compiled
 audio plugin (`.vst3` / `.dll` / `.vst`) plus whatever survives around it
 (presets, DAW sessions, old builds, `.pdb`, assets, source fragments) and
 returns a portable, buildable, evidence-backed source project with a

@@ -115,7 +115,7 @@ table.grid tr:hover td { background: var(--surface-2); color: var(--text); }
 
 /* ======================================================= ownership ====== */
 
-.ownership { display: flex; gap: var(--s2); margin-top: var(--s5); }
+.context-tags { display: flex; gap: var(--s2); margin-top: var(--s5); }
 
 /* ========================================================= intake ======= */
 

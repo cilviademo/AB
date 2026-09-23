@@ -26,3 +26,15 @@ export function when(iso: string | null | undefined): string {
 export function shortHash(sha: string | null | undefined, n = 12): string {
   return sha ? sha.slice(0, n) : "—";
 }
+
+/** ADDENDUM C2: the frozen Static Recovery v2 evidence still labels licensing code PROTECTED_SUBSYSTEM; every current
+ *  AB surface shows the canonical role and keeps the original label as provenance (tooltip). */
+export const ROLE_ALIASES: Record<string, string> = { PROTECTED_SUBSYSTEM: "LICENSING_AND_ENTITLEMENT_SUBSYSTEM" };
+export function canonicalRole(role: string | null | undefined): string {
+  if (!role) return "—";
+  return ROLE_ALIASES[role] ?? role;
+}
+export function roleTitle(role: string | null | undefined): string | undefined {
+  return role && ROLE_ALIASES[role] ? `frozen static engine label: ${role} (alias)` : undefined;
+}
+

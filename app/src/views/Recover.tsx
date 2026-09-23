@@ -98,7 +98,7 @@ export function Recover({
             ))}
           </div>
 
-          <div className="ownership">
+          <div className="context-tags">
             {/* optional context tags (ADDENDUM C1): they change how reports read, never what runs */}
             <Segmented<UsageContext>
               ariaLabel="Usage context"

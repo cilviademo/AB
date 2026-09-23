@@ -1,4 +1,4 @@
-# ARTIFACT BENCH (AB) — Owned Plugin Recovery Workbench
+# ARTIFACT BENCH (AB) — Artifact Recovery Workbench
 ### SPEC.md · v1.0 · standalone Windows app (Prosody-pattern)
 
 > Product name: **Artifact Bench**, abbreviated **AB** in code, docs and logs. Recovery by evidence, never by guessing.
@@ -7,13 +7,13 @@
 
 ## 0. Product statement
 
-**Input:** an owned compiled plugin (`.vst3` / `.dll` / `.vst`) plus whatever survives around it (presets, DAW sessions, old builds, resources, partial source, `.pdb`).
+**Input:** a compiled plugin (`.vst3` / `.dll` / `.vst`) — the user's own lost-source plugin is the product target; the same pipeline runs on any artifact (rule 9) — plus whatever survives around it (presets, DAW sessions, old builds, resources, partial source, `.pdb`).
 **Output:** a portable, Git-ready, buildable source project with statement-level provenance, a behavioral comparison against the original, and a coding-agent handoff — such that a human or agent can continue the product without restarting from zero.
 
 **Success chain (the only definition of "done"):**
 
 ```
-OWNED COMPILED PLUGIN → VERIFIED RUNTIME FACTS → VERIFIED ARCHITECTURE → TARGET DSP LOCATED
+COMPILED PLUGIN → VERIFIED RUNTIME FACTS → VERIFIED ARCHITECTURE → TARGET DSP LOCATED
 → DSP RECONSTRUCTED → PROJECT BUILDS → VST3 LOADS → STATE/PARAMETERS FUNCTION
 → ORIGINAL AND REBUILD COMPARED → BEHAVIORAL MATCH MEASURED → PORTABLE SOURCE PROJECT EXPORTED
 ```

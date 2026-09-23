@@ -45,7 +45,7 @@ export function Corpus({ jobs, onOpen }: { jobs: Job[]; onOpen: (jobId: string) 
       <div style={{ marginTop: "var(--s8)" }}>
         <Section title="Plugins" meta="pick one to compute its lineage against the rest">
           <div className="data-head" style={{ gridTemplateColumns: "1fr 120px 140px 110px 100px" }}>
-            <span>Plugin</span><span>Ownership</span><span>SHA-256</span><span>Added</span><span></span>
+            <span>Plugin</span><span>Context</span><span>SHA-256</span><span>Added</span><span></span>
           </div>
           {jobs.map((j) => (
             <div key={j.job_id} className="data-row" style={{ gridTemplateColumns: "1fr 120px 140px 110px 100px" }}>

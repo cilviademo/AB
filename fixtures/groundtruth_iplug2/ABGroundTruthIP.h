@@ -8,7 +8,7 @@ using namespace iplug;
 using namespace igraphics;
 
 /** Ground-truth fixture #2 (ADDENDUM A5): the JUCE fixture's parameters, DSP, resources and
-    PROTECTED_SUBSYSTEM stub on iPlug2. Signal flow: inputGain → TptLowpass → TanhShaper
+    LICENSING_AND_ENTITLEMENT_SUBSYSTEM stub on iPlug2 (recovered, reconstructed and validated like the DSP). Signal flow: inputGain → TptLowpass → TanhShaper
     (2× oversampled when enabled; Clean bypasses the shaper, Hot doubles drive) → outputGain. */
 class ABGroundTruthIP final : public Plugin
 {

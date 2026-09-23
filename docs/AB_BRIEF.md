@@ -4,7 +4,7 @@ Received in chat at kickoff. Authoritative alongside SPEC.md and EXECUTE.md;
 where it disagrees with SPEC, DECISIONS.md records the resolution.
 
 You are now implementing AB — Artifact Bench. AB is a local-first Windows
-desktop recovery and reconstruction workbench for owned/authorized compiled
+desktop recovery and reconstruction workbench for compiled
 audio plugins and related project artifacts. Its purpose is not merely to
 inspect or decompile binaries. Its purpose is: take an owned compiled plugin
 and whatever surviving files still exist, recover the maximum verifiable
@@ -186,7 +186,7 @@ error, RMSE, max error, spectrum delta, latency delta, state compatibility.
 Structural validation states as above; BinaryData mapping name → pointer →
 size → bytes → filename; no renaming unless verified. Corpus object storage
 `objects/<sha256>`; single-project exports materialize independent files.
-Licensing code is `PROTECTED_SUBSYSTEM`; no bypass; clean replacement
+Licensing, activation, entitlement, registration, authentication and demo-state code is `LICENSING_AND_ENTITLEMENT_SUBSYSTEM` (the frozen static engine's `PROTECTED_SUBSYSTEM` label is only an alias): recovered, reconstructed, transformed and validated like DSP; a check replaced by a constant is a `TRANSFORMED_BREAKING` transformation, recorded and validated, never labelled recovery
 interface for the owner.
 
 ## UI
@@ -244,7 +244,7 @@ contracts. Schema metadata `{"schema": "artifactbench.parameters",
 `PLUGIN_CRASH` `HOST_TIMEOUT` `GHIDRA_FAILED` `RESOURCE_PARTIAL` `BUILD_FAILED`
 `VALIDATION_FAILED` `STATE_MAPPING_INCOMPLETE`. Instrument each step (elapsed,
 bytes, objects, peak memory), track outliers, stream/mmap, bounded
-concurrency. Untrusted plugin input even in owner mode; isolated helpers;
+concurrency. Untrusted plugin input even when it is the user's own plugin; isolated helpers;
 sanitized paths; never auto-execute scripts found in dropped folders; no
 secrets in bundles. Offline-first: GitHub, cloud APIs, LLMs never mandatory.
 

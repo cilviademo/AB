@@ -13,6 +13,7 @@ import json
 from pathlib import Path
 from typing import Any
 
+from ab_engine.decompile import roles as roles_mod
 from ab_engine.jobs.model import Job
 
 EQ = ("BIT_EXACT", "NUMERICALLY_EQUIVALENT", "BEHAVIORALLY_EQUIVALENT")
@@ -84,8 +85,9 @@ def next_tasks(ev: dict[str, Any]) -> list[dict[str, str]]:
         tasks.append({"task": f"Parameter sweeps reach {sw['classification']} (worst RMSE {sw['worst_rmse']:.2e}); the lead-in error (parameter smoothing) and any fractional-sample latency of the original are not modelled — add smoothing / a fractional delay only with measured evidence",
                       "evidence": "06_validation/differential_results.json modules[WaveshaperSweeps], per-render lead_in_rmse", "priority": "4"})
     for e in ev["recon"]:
-        if e.get("status") == "SCAFFOLD_ONLY" and e.get("role") not in ("GUI", "UNKNOWN", "STATE"):
-            tasks.append({"task": f"Scaffold `{e['symbol']}` (role {e.get('role')}, {e.get('structure_status', 'UNKNOWN')}): port from evidence_source/ + fit against probes; promote to Source/Active only at BEHAVIOR_MATCHED",
+        role = roles_mod.canonical_role(e.get("role"))   # the frozen v2 index may still say PROTECTED_SUBSYSTEM (ADDENDUM C2 alias)
+        if e.get("status") == "SCAFFOLD_ONLY" and role not in ("GUI", "UNKNOWN", "STATE"):
+            tasks.append({"task": f"Scaffold `{e['symbol']}` (role {role}, {e.get('structure_status', 'UNKNOWN')}): port from evidence_source/ + fit against probes; promote to Source/Active only at BEHAVIOR_MATCHED",
                           "evidence": e.get("file", ""), "priority": "5"})
     if ev["build"] and ev["build"].get("build_kind") == "SURROGATE" and ev["ident"].get("evidence") == "VERIFIED_RUNTIME":
         tasks.append({"task": "Identity is VERIFIED_RUNTIME: configure with -DAB_BUILD_KIND=FIDELITY for a session-compatible build once modules are equivalent", "evidence": "04_reconstruction/identity.cmake", "priority": "6"})

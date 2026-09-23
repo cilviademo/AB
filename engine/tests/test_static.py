@@ -59,6 +59,16 @@ def test_static_stage_via_node_writes_v2_contracts(ws, tmp_path, fixture_binary)
     assert keys["waveShapers_4_2"]["key_kind_candidate"].startswith("INTERNAL_EFFECT_PROPERTY")
     # carved assets are content-addressed in the store and materialized in the project
     assert (pd / "02_recovered_assets/fonts/ttf_000.ttf").is_file()
+    # ADDENDUM C2: the frozen v2 wording is translated at install — SerialScreen is a licensing class in SynthPlug
+    assert not (pd / "04_reconstruction/Source/RecoveredScaffolds/Protected").exists()
+    prompt = (pd / "07_agent_handoff/agent_prompt.md").read_text(encoding="utf-8")
+    assert "do not reimplement" not in prompt and "PROTECTED_SUBSYSTEM" not in prompt and "LICENSING_AND_ENTITLEMENT_SUBSYSTEM" in prompt
+    canon = json.loads((pd / "01_evidence/rtti/role_canonicalization.json").read_text(encoding="utf-8"))["data"]
+    assert "07_agent_handoff/agent_prompt.md" in canon["rewritten_files"] and all(c["original_role"] == "PROTECTED_SUBSYSTEM" for c in canon["classes"])
+    # (the frozen v2 role regex knows licen*/activ*/auth* only, so SynthPlug's SerialScreen stays UNKNOWN there; AB's own
+    #  name-token roles classify it LICENSING_AND_ENTITLEMENT_SUBSYSTEM at DECOMPILE — engine/tests/test_decompile.py)
+    v2_idx = json.loads((pd / "07_agent_handoff/reconstruction_index.json").read_text(encoding="utf-8"))["data"]
+    assert all(e.get("canonical_role") == "LICENSING_AND_ENTITLEMENT_SUBSYSTEM" for e in v2_idx if isinstance(e, dict) and e.get("role") == "PROTECTED_SUBSYSTEM")
     conn = jobs_db.connect(ws.db_path)
     assert conn.execute("SELECT COUNT(*) FROM objects").fetchone()[0] >= 7  # binary + preset + carves
     # stage.json exists with the contract

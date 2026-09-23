@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "ab-engine"
 version = "0.1.0"
-description = "AB (Artifact Bench) engine: job system, ingest, correlation, fingerprints, behaviour, reconstruction and bundle assembly for owned plugin recovery."
+description = "Artifact Bench engine: artifact ingest, recovery, correlation, reverse engineering, reconstruction, transformation, validation, knowledge storage and bundle assembly."
 requires-python = ">=3.11"
 license = { text = "Proprietary" }
 dependencies = [

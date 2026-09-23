@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import base64
 import json
+import re
 import os
 import shutil
 import sys
@@ -33,7 +34,7 @@ from ab_engine.jobs.runner import BlockedDependency, StageContext, StageFailed, 
 from ab_engine.workers.run import run_worker
 from ab_engine.workspace import Workspace
 
-STAGE_VERSION = 2  # 2: LIEF inventory + v2 cross-check + Itanium typeinfo candidates (ADDENDUM A1, D-021)
+STAGE_VERSION = 3  # 3: v2 licensing wording canonicalized at install (ADDENDUM C2); 2: LIEF inventory + v2 cross-check + Itanium typeinfo candidates (ADDENDUM A1, D-021)
 STATIC_TOOL = "static-recovery-v2"
 #: The v2 contracts SPEC §6.1 says are preserved. Anything else the port writes is extra, never fewer.
 V2_CONTRACTS = (
@@ -92,6 +93,103 @@ def _run_node(ctx: StageContext, deep: bool) -> dict[str, Any]:
     return result
 
 
+# ---- ADDENDUM C2 canonicalization of the frozen v2 bundle -------------------------------------------------------
+# The Static Recovery v2 port is frozen (diff-baseline) and still labels licensing code PROTECTED_SUBSYSTEM and tells
+# an agent not to reimplement it. AB's own layer translates that *before* anything current reads it: generated text
+# (agent prompt, handoff, scaffolds) is rewritten, the Protected/ scaffold folder becomes Licensing/, and the v2
+# reconstruction index gains original_role / canonical_role. Frozen evidence JSON (recovery.* contracts) stays verbatim.
+V2_LICENSING_LABEL = "PROTECTED_SUBSYSTEM"
+LICENSING_LABEL = "LICENSING_AND_ENTITLEMENT_SUBSYSTEM"
+LICENSING_RULE = ("Licensing, activation, entitlement, registration, authentication and demo-state components are "
+                  "LICENSING_AND_ENTITLEMENT_SUBSYSTEM: recover, reconstruct, transform and validate them under the same evidence/provenance "
+                  "rules as DSP, state, UI and build code. Preserve recovered original behaviour where supported; any intentional behavioural "
+                  "change is recorded as a transformation (TRANSFORMED_BREAKING when a check is replaced) and validated, never presented as "
+                  "recovered source.")
+_STALE_RULE = re.compile(r"Licensing code is PROTECTED_SUBSYSTEM[^\n]*")
+_V2_TEXT_DIRS = ("07_agent_handoff", "04_reconstruction")
+_V2_TEXT_FILES = ("README_RECOVERY.md",)
+_V2_TEXT_EXT = (".md", ".h", ".cpp", ".txt", ".cmake")
+_SCAFFOLD_PROTECTED = "04_reconstruction/Source/RecoveredScaffolds/Protected/"
+_SCAFFOLD_LICENSING = "04_reconstruction/Source/RecoveredScaffolds/Licensing/"
+
+
+def canonical_rel(rel: str) -> str:
+    """Install path of a v2 bundle file inside an AB project."""
+    if rel == "00_manifest/input_manifest.json":
+        return "00_manifest/static_input_manifest.json"
+    if rel.startswith(_SCAFFOLD_PROTECTED):
+        return _SCAFFOLD_LICENSING + rel[len(_SCAFFOLD_PROTECTED):]
+    return rel
+
+
+def canonicalize_v2_text(text: str) -> tuple[str, int]:
+    """Translate v2 licensing wording in generated text; returns (text, replacements)."""
+    n = 0
+    text, k = _STALE_RULE.subn(LICENSING_RULE, text)
+    n += k
+    text, k = re.subn(r"\bPROTECTED_SUBSYSTEM\b", LICENSING_LABEL, text)
+    n += k
+    text, k = re.subn(r"RecoveredScaffolds/Protected/", "RecoveredScaffolds/Licensing/", text)
+    n += k
+    return text, n
+
+
+def canonicalize_v2(project_dir: Path, written: list[str]) -> dict[str, Any]:
+    """Run after the v2 files are installed. Rewrites generated text, annotates the v2 reconstruction index and records
+    every translated class in 01_evidence/rtti/role_canonicalization.json (original_role kept for provenance)."""
+    rewritten: list[str] = []
+    for rel in written:
+        p = project_dir / rel
+        if not p.is_file():
+            continue
+        if (rel.split("/")[0] in _V2_TEXT_DIRS or rel in _V2_TEXT_FILES) and p.suffix in _V2_TEXT_EXT:
+            try:
+                text = p.read_text(encoding="utf-8")
+            except UnicodeDecodeError:
+                continue
+            new, n = canonicalize_v2_text(text)
+            if n:
+                p.write_text(new, encoding="utf-8")
+                rewritten.append(rel)
+    classes: list[dict[str, Any]] = []
+    idx = project_dir / "07_agent_handoff" / "reconstruction_index.json"
+    if idx.is_file():
+        try:
+            doc = json.loads(idx.read_text(encoding="utf-8"))
+            entries = doc.get("data") if isinstance(doc, dict) else doc
+            changed = False
+            for e in entries or []:
+                if isinstance(e, dict) and e.get("role") == V2_LICENSING_LABEL:
+                    e["original_role"] = V2_LICENSING_LABEL      # provenance: what the frozen engine said
+                    e["canonical_role"] = LICENSING_LABEL
+                    e["role"] = LICENSING_LABEL                  # what every current reader sees
+                    e["reconstruction"] = "eligible: recover / reconstruct / transform / validate like DSP (ADDENDUM C2)"
+                    if isinstance(e.get("file"), str):
+                        e["file"] = e["file"].replace("RecoveredScaffolds/Protected/", "RecoveredScaffolds/Licensing/")
+                    classes.append({"class": e.get("symbol") or e.get("class") or e.get("name"), "original_role": V2_LICENSING_LABEL, "canonical_role": LICENSING_LABEL})
+                    changed = True
+            if changed:
+                idx.write_text(json.dumps(doc, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+                rewritten.append("07_agent_handoff/reconstruction_index.json")
+        except (OSError, ValueError):
+            pass
+    rtti = project_dir / "01_evidence" / "rtti" / "classes.json"
+    if rtti.is_file():
+        try:
+            for c in (json.loads(rtti.read_text(encoding="utf-8")).get("data") or []):
+                if isinstance(c, dict) and c.get("role") == V2_LICENSING_LABEL and not any(x["class"] == c.get("recovered_name") for x in classes):
+                    classes.append({"class": c.get("recovered_name"), "original_role": V2_LICENSING_LABEL, "canonical_role": LICENSING_LABEL})
+        except (OSError, ValueError):
+            pass
+    report = {"rule": LICENSING_RULE, "v2_label": V2_LICENSING_LABEL, "canonical_label": LICENSING_LABEL, "classes": classes, "rewritten_files": rewritten,
+              "scaffold_dir": {"v2": "RecoveredScaffolds/Protected/", "canonical": "RecoveredScaffolds/Licensing/"},
+              "note": "frozen v2 evidence JSON (recovery.* contracts) keeps its original labels; every current AB report, instruction and export uses the canonical one"}
+    if classes or rewritten:
+        write_json(project_dir / "01_evidence" / "rtti" / "role_canonicalization.json", "artifactbench.role_canonicalization", report)
+        written.append("01_evidence/rtti/role_canonicalization.json")
+    return report
+
+
 def _install(ctx: StageContext, result: dict[str, Any], out_dir: Path | None, entries_b64: list[dict[str, Any]] | None) -> dict[str, Any]:
     """Copy the plan into the project folder; carved bytes go through the object store."""
     counts = {"files": 0, "carved_objects": 0}
@@ -99,8 +197,9 @@ def _install(ctx: StageContext, result: dict[str, Any], out_dir: Path | None, en
 
     def target(rel: str) -> str:
         # AB's ingest manifest (usage_context / source_availability, ADDENDUM C1) lives at 00_manifest/input_manifest.json;
-        # the frozen v2 bundle writes a file of the same name — keep it beside, never over, the AB one
-        return "00_manifest/static_input_manifest.json" if rel == "00_manifest/input_manifest.json" else rel
+        # the frozen v2 bundle writes a file of the same name — keep it beside, never over, the AB one.
+        # Protected/ scaffolds land in Licensing/ (ADDENDUM C2; the original role is kept in role_canonicalization.json)
+        return canonical_rel(rel)
 
     if out_dir is not None:
         for f in result.get("files", []):
@@ -147,6 +246,10 @@ def _install(ctx: StageContext, result: dict[str, Any], out_dir: Path | None, en
         check_envelope(doc)
         if doc["schema_version"] != 2 or doc["tool"] != STATIC_TOOL:
             raise StageFailed("CONTRACT_MISMATCH", f"{rel} is not a Static Recovery v2 contract")
+    # ADDENDUM C2: translate the frozen v2 licensing wording before anything current reads the project
+    canon = canonicalize_v2(ctx.project_dir, written)
+    counts["licensing_canonicalized"] = len(canon["classes"])
+    counts["v2_text_rewritten"] = len(canon["rewritten_files"])
     for rel in written:
         ctx.output(rel)
     return counts

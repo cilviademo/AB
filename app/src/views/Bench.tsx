@@ -5,7 +5,7 @@ import { api, shell } from "../lib/api";
 import {
   Advanced, Button, Ev, KeyValues, Note, Scorecard, Section, StageRail, type RailStage,
 } from "../components/ui";
-import { bytes, ms, shortHash } from "../lib/format";
+import { bytes, canonicalRole, ms, roleTitle, shortHash } from "../lib/format";
 
 export type BenchScreen =
   | "overview" | "evidence" | "params" | "architecture" | "dsp" | "resources"
@@ -420,7 +420,7 @@ function Architecture({ job }: { job: Job }) {
                 <td><Ev state={c.structure_status ?? "UNKNOWN"} /></td>
                 <td className="mono">{c.vtables?.length ? `${c.vtables.join(" ")} · ${c.slot_counts?.join("/")}` : "—"}</td>
                 <td className="mono">{c.bases?.length ? c.bases.join(", ") : <span className="faint">UNKNOWN</span>}</td>
-                <td>{c.role ?? "—"} {c.role && c.role !== "UNKNOWN" ? <Ev state={c.role_status ?? "CANDIDATE"} /> : null}</td>
+                <td title={roleTitle(c.role)}>{canonicalRole(c.role)} {c.role && c.role !== "UNKNOWN" ? <Ev state={c.role_status ?? "CANDIDATE"} /> : null}</td>
               </tr>
             ))}
           </tbody>
@@ -467,7 +467,7 @@ function Architecture({ job }: { job: Job }) {
                 <div key={n.addr} className="stage" data-status="ok">
                   <span className="g mono">{n.dist}</span>
                   <span className="nm mono">{n.addr}</span>
-                  <span className="dt">{n.role} <Ev state={n.role_status} /> · {n.class || "—"} · <span className="mono">{n.name}</span></span>
+                  <span className="dt" title={roleTitle(n.role)}>{canonicalRole(n.role)} <Ev state={n.role_status} /> · {n.class || "—"} · <span className="mono">{n.name}</span></span>
                 </div>
               ))}
             </div>
@@ -496,7 +496,7 @@ function Dsp({ job }: { job: Job }) {
               {cands.slice(0, 60).map((c, i) => (
                 <tr key={c.addr}>
                   <td className="mono">{i + 1}</td><td className="mono">{c.priority}</td>
-                  <td>{c.role} <Ev state={c.role_status} /></td><td className="mono">{c.dist_from_processBlock}</td>
+                  <td title={roleTitle(c.role)}>{canonicalRole(c.role)} <Ev state={c.role_status} /></td><td className="mono">{c.dist_from_processBlock}</td>
                   <td className="mono">{c.class || "—"}</td><td className="mono">{c.name} <span className="faint">@{c.addr}</span></td>
                   <td className="faint">{c.role_basis.join("; ")}</td>
                 </tr>
@@ -636,7 +636,7 @@ function Compare({ job }: { job: Job }) {
             <tbody>
               {diff.modules.map((m) => (
                 <tr key={m.module}>
-                  <td className="mono">{m.module}</td><td>{m.role}</td><td><Ev state={m.classification} /></td><td className="mono">{m.renders}</td>
+                  <td className="mono">{m.module}</td><td title={roleTitle(m.role)}>{canonicalRole(m.role)}</td><td><Ev state={m.classification} /></td><td className="mono">{m.renders}</td>
                   <td className="mono">{m.worst_rmse == null ? "—" : m.worst_rmse.toExponential(2)}</td>
                   <td className="mono">{m.worst_spectrum_diff_db == null ? "—" : `${m.worst_spectrum_diff_db.toFixed(3)} dB`}</td>
                   <td className="mono">{m.worst_lead_in_rmse == null ? "—" : m.worst_lead_in_rmse.toExponential(2)}</td>
