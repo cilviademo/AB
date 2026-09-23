@@ -183,6 +183,14 @@ def stage_ingested(ctx: StageContext) -> None:
         by_hash.setdefault(i["sha256"], []).append(i["path"])
     dupes = [v for v in by_hash.values() if len(v) > 1]
 
+    # ADDENDUM B4: the universal router identifies every stored input (magic + container + extension + context),
+    # matches capabilities from the registry and records relationships with confidence; unknowns stay as records
+    from ab_engine.ingest import router as router_mod  # noqa: PLC0415
+
+    routed = router_mod.route([{"path": i["path"], "size": i["size"], "sha256": i["sha256"], "fs_path": str(ctx.store.get_path(i["sha256"])) if ctx.store.has(i["sha256"]) else None} for i in inputs])
+    write_json(ctx.project_dir / "00_manifest" / "artifact_routes.json", "artifactbench.artifact_routes", routed)
+    ctx.output("00_manifest/artifact_routes.json")
+    route_by = {r["path"]: r for r in routed["records"]}
     manifest = {
         "job_id": job.job_id, "name": job.name,
         # ADDENDUM C1: interpretation metadata only — no stage reads it to decide what runs (D-026)
@@ -193,8 +201,10 @@ def stage_ingested(ctx: StageContext) -> None:
         # ADDENDUM A5: every dropped item is identified (magic + extension + LIEF for binaries) and kept; types AB has no
         # parser for are stored in the object store and listed as PRESERVED_UNPARSED — never silently dropped
         "inputs": [{"path": i["path"], "size": i["size"], "sha256": i["sha256"], "kind": i["kind"],
-                    "status": "PRESERVED_UNPARSED" if i["kind"] in ("other", "obj") else "IDENTIFIED"} for i in inputs],
-        "attachments": attachments, "preserved_unparsed": [i["path"] for i in inputs if i["kind"] in ("other", "obj")],
+                    "artifact_type": route_by.get(i["path"], {}).get("type", "UNKNOWN"), "capabilities": route_by.get(i["path"], {}).get("capabilities", ["preserve"]),
+                    "status": ("IDENTIFIED" if route_by.get(i["path"], {}).get("status") == "ROUTED" else route_by.get(i["path"], {}).get("status", "PRESERVED_UNPARSED"))} for i in inputs],
+        "relationships": routed["relationships"], "route_counts": routed["counts"],
+        "attachments": attachments, "preserved_unparsed": [r["path"] for r in routed["records"] if r["status"] != "ROUTED"],
         "ignored": int(meta.get("ignored", 0)), "ignored_note": "skip-dir contents (node_modules, .git, JUCE/modules, build/_deps) and unreadable files; everything else is stored",
         "duplicates": dupes,
         "bundle_key": meta.get("bundle_key", ""), "source_roots": meta.get("source_roots", []),
@@ -331,6 +341,28 @@ def _cli_ingest(p):
                                              "ownership": args.ownership, "name": args.name}, ws)
         sys.stdout.write(json.dumps({"ok": True, "data": result}, indent=2) + "\n")
         return 0 if result["jobs"] else 1
+    p.set_defaults(func=run)
+
+
+@subcommand("route", "preview how a drop would be routed without ingesting (ab-cli route <paths...>)")
+def _cli_route(p):
+    p.add_argument("paths", nargs="+")
+
+    def run(args, ws):
+        from ab_engine.ingest import router as router_mod  # noqa: PLC0415
+
+        files, ignored = walk(args.paths, ws.tmp / "route-preview")
+        rows = []
+        for f in files:
+            sha, _ = sha256_file(Path(f["fs_path"]))
+            rows.append({"path": f["path"], "size": f["size"], "sha256": sha, "fs_path": f["fs_path"]})
+        r = router_mod.route(rows)
+        for rec in r["records"]:
+            sys.stdout.write(f"{rec['status']:<19} {rec['type']:<14} {rec['confidence']:<5} {rec['path']}   [{', '.join(rec['capabilities'])}]\n")
+        for e in r["relationships"]:
+            sys.stdout.write(f"  {e['kind']:<24} {e['a']} ↔ {e['b']}  ({e['confidence']}) {e['basis']}\n")
+        sys.stdout.write(f"{r['counts']} · ignored {ignored}\n")
+        return 0
     p.set_defaults(func=run)
 
 
