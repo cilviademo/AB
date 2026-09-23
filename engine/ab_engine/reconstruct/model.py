@@ -352,7 +352,7 @@ def build(project: Path, *, build_kind: str = "SURROGATE") -> dict[str, Any]:
     ws = waveshaper_model(project, params)
     classes = owned_classes(project)
     covered = {c["name"] for c in classes if c["role"] == "WAVESHAPER"} if ws and ws["active"] else set()
-    scaffolds = [c for c in classes if c["role"] in roles_mod.DSP_ROLES | {"PROTECTED_SUBSYSTEM", "UNKNOWN", "GUI", "STATE"} and c["name"] not in covered]
+    scaffolds = [c for c in classes if c["role"] in roles_mod.DSP_ROLES | {roles_mod.LICENSING_ROLE, "UNKNOWN", "GUI", "STATE"} and c["name"] not in covered]
     return {"build_kind": build_kind, "identity": ident, "parameters": params, "state": state_model(project, params), "modules": [ws] if ws else [],
             "scaffolds": scaffolds, "dsp_functions": dsp_functions(project)[:50], "covers": sorted(covered)}
 

@@ -150,6 +150,35 @@ def stage_validate(ctx: StageContext) -> None:
     for rel in ("06_validation/differential_results.json", "06_validation/cross_load.json"):
         ctx.output(rel)
 
+    # ---- licensing / entitlement subsystem (ADDENDUM C2): validated like everything else ------
+    from ab_engine.transform import licensing as lic_mod  # noqa: PLC0415
+
+    idx0 = _load(ctx.project_dir / "07_agent_handoff" / "reconstruction_index.json") or []
+    lic_entries = [e for e in idx0 if isinstance(e, dict) and lic_mod.is_licensing_role(e.get("role"))]
+    lic_keys = [k for k in (cross.get("keys") or []) if lic_mod.looks_like_license_state(k)] if isinstance(cross, dict) else []
+    state_keys = [f.get("key") or f.get("id") for f in (model.get("state") or {}).get("fields", []) if isinstance(f, dict)] if isinstance(model.get("state"), dict) else []
+    lic_state_keys = [k for k in state_keys if k and lic_mod.looks_like_license_state(k)]
+    rec_dir = ctx.project_dir / "04_reconstruction"
+    bypass = []
+    for sub in ("Source/Active", "transformed_source", "recovered_source", "human_source"):
+        bypass += lic_mod.scan_tree(rec_dir / sub, symbols=[e["symbol"] for e in lic_entries] or None, evidence_root=rec_dir / "evidence_source")
+    lic_rows = []
+    for e in lic_entries:
+        if e.get("compiled") and cross.get("classification") == "CROSS_LOAD_VALIDATED" and lic_state_keys:
+            state, why = "LICENSE_STATE_COMPATIBLE", f"licence state fields {lic_state_keys} round-trip in the state cross-load"
+        elif e.get("compiled"):
+            state, why = "LICENSE_REQUIRES_MANUAL_REVIEW", "compiled, but no licence state field was cross-loaded and no licence-state probe set exists yet (valid/invalid/expired/missing/trial)"
+        else:
+            state, why = "LICENSE_REQUIRES_MANUAL_REVIEW", f"{e.get('status', 'SCAFFOLD_ONLY')}: interface and relationships recovered, implementation not yet reconstructed"
+        lic_rows.append({"symbol": e.get("symbol"), "file": e.get("file"), "reconstruction_status": e.get("status"), "state": state, "reason": why})
+    licensing_report = {"subsystem": "LICENSING_AND_ENTITLEMENT_SUBSYSTEM", "entries": lic_rows, "license_state_fields": lic_state_keys,
+                        "bypass_findings": bypass, "states": list(lic_mod.LICENSE_STATES),
+                        "rule": "recovered, reconstructed and validated like DSP; a check replaced by a constant is TRANSFORMED_BREAKING, never recovery (ADDENDUM C2)"}
+    write_json(val / "licensing_validation.json", "artifactbench.licensing_validation", licensing_report)
+    ctx.output("06_validation/licensing_validation.json")
+    for f in bypass:
+        ctx.warn("TRANSFORMED_BREAKING" if f["status"] == "TRANSFORMED_BREAKING" else "LICENSE_REQUIRES_MANUAL_REVIEW", f"{f['file']}: {f['symbol']} {f['kind']}")
+
     # ---- update the reconstruction index ----------------------------------------------------
     idx_path = ctx.project_dir / "07_agent_handoff" / "reconstruction_index.json"
     idx = _load(idx_path)
@@ -183,10 +212,14 @@ def stage_validate(ctx: StageContext) -> None:
         li_s = "" if x["worst_lead_in_rmse"] is None else f"{x['worst_lead_in_rmse']:.2e}"
         md.append(f"| {x['module']} | {x['role']} | {x['classification']} | {x['renders']} | {rm_s} | {sp_s} | {li_s} | {', '.join(x['failing'][:6])} |")
     md += ["", "Renders that are not ≥ BEHAVIORALLY_EQUIVALENT are kept under rebuild_renders/ for inspection; every render's rebuild audio is in the object store.", ""]
+    md += ["## Licensing / entitlement subsystem", ""]
+    md += [f"- `{r['symbol']}` — {r['reconstruction_status']} → **{r['state']}**: {r['reason']}" for r in lic_rows] or ["- no LICENSING_AND_ENTITLEMENT_SUBSYSTEM class in the reconstruction index"]
+    md += [f"- **{f['status']}** `{f['file']}` `{f['symbol']}` ({f['kind']}): {f['reason']}" for f in bypass]
+    md += [""]
     (val / "VALIDATION.md").write_text("\n".join(md), encoding="utf-8")
     ctx.output("06_validation/VALIDATION.md")
     ws_mod = next((x for x in modules if x["module"] == "Waveshaper"), None)
-    ctx.metrics.update({"renders": len(renders), "overall": overall, "cross_load": cross["classification"],
+    ctx.metrics.update({"renders": len(renders), "overall": overall, "cross_load": cross["classification"], "licensing": {r["symbol"]: r["state"] for r in lic_rows}, "bypass_findings": len(bypass),
                         "modules": {x["module"]: x["classification"] for x in modules},
                         "waveshaper_rmse": (f"{ws_mod['worst_rmse']:.2e}" if ws_mod and ws_mod.get("worst_rmse") is not None else "n/a")})
     if not renders:

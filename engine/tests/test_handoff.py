@@ -24,7 +24,7 @@ def _job(tmp_path: Path) -> Job:
     write_json(pd / "07_agent_handoff/reconstruction_index.json", "artifactbench.reconstruction_index",
                [{"symbol": "ab_rebuild::Waveshaper", "role": "WAVESHAPER", "file": "04_reconstruction/human_source/Waveshaper.h", "status": "BEHAVIOR_MATCHED", "compiled": True, "validation": "BEHAVIORALLY_EQUIVALENT", "validation_sweeps": "PERCEPTUALLY_CLOSE", "todos": ["t1"]},
                 {"symbol": "ns::Filt", "role": "FILTER", "file": "04_reconstruction/Source/RecoveredScaffolds/DSP/Filt.h", "status": "SCAFFOLD_ONLY", "compiled": False, "structure_status": "VERIFIED_VTABLE"},
-                {"symbol": "ns::Lic", "role": "PROTECTED_SUBSYSTEM", "file": "x", "status": "SCAFFOLD_ONLY", "compiled": False}])
+                {"symbol": "ns::Lic", "role": "LICENSING_AND_ENTITLEMENT_SUBSYSTEM", "file": "x", "status": "SCAFFOLD_ONLY", "compiled": False}])
     write_json(pd / "04_reconstruction/reconstruction_model.json", "artifactbench.reconstruction_model",
                {"modules": [{"name": "Waveshaper", "family": "tanh", "rmse": 1e-5, "modulation": [{"key": "cut", "law": "unmodeled", "basis": "filter"}, {"key": "g", "law": "db", "basis": "x"}, {"key": "t", "law": "table", "basis": "y"}]}]})
     job = Job(job_id="ab-1", name="P", primary="x.so", artifact_sha256="a" * 64, usage_context="USER_RECOVERY", project_dir=str(pd), created="now")
@@ -47,11 +47,11 @@ def test_handoff_files_are_evidence_driven(tmp_path):
     assert any("`cut` is not a static transfer effect" in t for t in texts)
     assert any("`FrequencyResponse` is FAILED" in t for t in texts)
     assert any("sweeps reach PERCEPTUALLY_CLOSE" in t for t in texts)
-    assert any("Scaffold `ns::Filt`" in t for t in texts) and not any("ns::Lic" in t for t in texts)  # protected subsystem is never a porting task
+    assert any("Scaffold `ns::Filt`" in t for t in texts) and any("Scaffold `ns::Lic`" in t for t in texts)  # licensing is a normal porting task (ADDENDUM C2)
     assert any("FIDELITY" in t for t in texts)
     prio = [int(t["priority"]) for t in tasks]
     assert prio == sorted(prio)
     u = (pd / "07_agent_handoff/UNRECOVERABLE.md").read_text()
     assert "no .pdb" in u and "`t` between measured positions" in u
     a = (pd / "07_agent_handoff/agent_prompt.md").read_text()
-    assert "PROTECTED_SUBSYSTEM" in a and "human_source/Waveshaper.h" in a and "PERCEPTUALLY_CLOSE" in a
+    assert "LICENSING_AND_ENTITLEMENT_SUBSYSTEM" in a and "TRANSFORMED_BREAKING" in a and "human_source/Waveshaper.h" in a and "PERCEPTUALLY_CLOSE" in a

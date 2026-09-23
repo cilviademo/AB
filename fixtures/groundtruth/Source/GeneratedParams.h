@@ -17,6 +17,6 @@ inline juce::AudioProcessorValueTreeState::ParameterLayout makeLayout()
 }
 
 struct StateOnly { const char* id; float value; };
-inline const StateOnly kStateOnly[] = { { "waveShapers_0_1", 0.25f }, { "uiScale", 1.0f } };
+inline const StateOnly kStateOnly[] = { { "waveShapers_0_1", 0.25f }, { "uiScale", 1.0f }, { "demoMode", 1.0f }, { "serialChecksum", 384.0f } };
 inline constexpr const char* kStateTreeType = "PARAMETERS";
 } // namespace abgt

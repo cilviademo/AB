@@ -81,8 +81,10 @@ def compare(job: Job, truth: dict[str, Any], *, phase: int = 1) -> dict[str, Any
     dsp_expect = {"TptLowpass": "FILTER", "TanhShaper": "WAVESHAPER"}
     role_hits = sum(1 for k, v in dsp_expect.items() if roles.get(k) == v)
     metrics["dsp_role_candidates"] = {"expected": len(dsp_expect), "matched": role_hits, "basis": "name tokens (CANDIDATE)"}
-    prot = roles.get("LicenseStub")
-    metrics["protected_subsystem_flagged"] = {"class": "abgt::LicenseStub", "role": prot, "flagged": prot == "PROTECTED_SUBSYSTEM"}
+    lic = roles.get("LicenseStub")
+    # ADDENDUM C2: the licensing stub is classified LICENSING_AND_ENTITLEMENT_SUBSYSTEM (v2 still says PROTECTED_SUBSYSTEM: alias)
+    lic_truth = truth.get("licensing") or {}
+    metrics["licensing_subsystem_classified"] = {"class": lic_truth.get("class", "abgt::LicenseStub"), "role": lic, "classified": lic in ("LICENSING_AND_ENTITLEMENT_SUBSYSTEM", "PROTECTED_SUBSYSTEM")}
 
     # ---- static: serialized keys and state fields ---------------------------
     # The frozen v2 extractor reads <PARAM id= value=> entries; JUCE stores non-parameter

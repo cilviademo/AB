@@ -7,7 +7,9 @@ ABGroundTruthIP::ABGroundTruthIP (const InstanceInfo& info)
     : Plugin (info, MakeConfig (kNumParams, 1))
 {
     ABGT_INIT_PARAMS();
-    (void) license.isLicensed();
+    license.checkSerial ("ABGT-0000-0000-0000");   // starts in demo state (ADDENDUM C2)
+    demoMode = license.isDemo() ? 1.0f : 0.0f;
+    serialChecksum = (float) license.lastSerialChecksum();
 
 #if IPLUG_EDITOR
     mMakeGraphicsFunc = [&]() { return MakeGraphics (*this, PLUG_WIDTH, PLUG_HEIGHT, PLUG_FPS, GetScaleForScreen (PLUG_WIDTH, PLUG_HEIGHT)); };
@@ -47,6 +49,7 @@ void ABGroundTruthIP::updateFromParameters()
 
 void ABGroundTruthIP::ProcessBlock (sample** inputs, sample** outputs, int nFrames)
 {
+    license.noteRender();   // demo render budget (no audible effect)
     const int nCh = NOutChansConnected() < 2 ? NOutChansConnected() : 2;
     if (GetParam (kBypass)->Bool())
     {
@@ -77,7 +80,8 @@ bool ABGroundTruthIP::SerializeState (IByteChunk& chunk) const
     bool ok = SerializeParams (chunk);
     for (const auto& f : kStateOnly)
     {
-        const float v = (std::string (f.id) == "waveShapers_0_1") ? waveShapers_0_1 : uiScale;
+        const std::string id (f.id);
+        const float v = id == "waveShapers_0_1" ? waveShapers_0_1 : id == "demoMode" ? demoMode : id == "serialChecksum" ? serialChecksum : uiScale;
         chunk.PutStr (f.id);
         chunk.Put (&v);
     }
@@ -94,7 +98,8 @@ int ABGroundTruthIP::UnserializeState (const IByteChunk& chunk, int startPos)
         pos = chunk.GetStr (id, pos);
         pos = chunk.Get (&v, pos);
         if (pos < 0) break;
-        if (std::string (id.Get()) == "waveShapers_0_1") waveShapers_0_1 = v; else uiScale = v;
+        const std::string key (id.Get());
+        if (key == "waveShapers_0_1") waveShapers_0_1 = v; else if (key == "demoMode") demoMode = v; else if (key == "serialChecksum") serialChecksum = v; else uiScale = v;
     }
     OnReset();
     return pos;

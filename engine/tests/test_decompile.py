@@ -20,7 +20,7 @@ def test_role_scoring_prefers_reachable_owned_dsp():
     noise = roles.score(_fn(name="__cxa_throw"), None, class_static_role=None, is_owned=False, param_refs=0, noise=True, wrapper=False, demangled="__cxa_throw")
     assert noise["priority"] == 0.0 and noise["role_basis"] == ["noise suppression"]
     lic = roles.score(_fn(float_ops=0, loops=0, libm_calls=0), None, class_static_role=None, is_owned=True, param_refs=0, noise=False, wrapper=False, demangled="abgt::LicenseStub::isLicensed()")
-    assert lic["role"] == "PROTECTED_SUBSYSTEM"
+    assert lic["role"] == "LICENSING_AND_ENTITLEMENT_SUBSYSTEM"   # ADDENDUM C2 (PROTECTED_SUBSYSTEM is only the frozen v2 alias)
     coeff = roles.score(_fn(), {"CONSTANT_SIGNATURE": ["3.14159265", "48000"]}, class_static_role=None, is_owned=True, param_refs=0, noise=False, wrapper=False, demangled="FUN_2000")
     assert coeff["role"] == "FILTER_COEFFICIENT" and coeff["constants"].get("pi") == 1
 

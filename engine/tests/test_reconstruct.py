@@ -122,7 +122,7 @@ def test_generate_writes_active_only_for_validated_modules(tmp_path):
     ws_entry = next(e for e in out["index"] if e.get("role") == "WAVESHAPER")
     assert ws_entry["compiled"] and ws_entry["status"] == "BEHAVIOR_MATCHED" and ws_entry["validation"].startswith("PENDING")
     lic = next(e for e in out["index"] if e["symbol"] == "test::Lic")
-    assert lic["compiled"] is False and "never" in lic["promotion"]
+    assert lic["compiled"] is False and lic["subsystem"] == "LICENSING_AND_ENTITLEMENT_SUBSYSTEM" and "TRANSFORMED_BREAKING" in lic["promotion"]   # v2 PROTECTED_SUBSYSTEM input → aliased
     # a weak fit stays out of Active
     m["modules"][0]["active"] = False
     out2 = generate.generate(p, m)

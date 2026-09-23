@@ -19,7 +19,11 @@ ABGroundTruthAudioProcessor::ABGroundTruthAudioProcessor()
     for (const auto& f : abgt::kStateOnly)
         apvts.state.setProperty (f.id, f.value, nullptr);
 
-    (void) license.isLicensed();
+    // Licensing stub (ADDENDUM C2): an (invalid) serial is checked at construction, so the fixture starts in
+    // demo state; the ValueTree records the state-only fields demoMode / serialChecksum the stub produced.
+    license.checkSerial (juce::String ("ABGT-0000-0000-0000"));
+    apvts.state.setProperty ("demoMode", license.isDemo() ? 1.0f : 0.0f, nullptr);
+    apvts.state.setProperty ("serialChecksum", (float) license.lastSerialChecksum(), nullptr);
 }
 
 void ABGroundTruthAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
@@ -55,6 +59,7 @@ void ABGroundTruthAudioProcessor::updateFromParameters()
 
 void ABGroundTruthAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer&)
 {
+    license.noteRender();   // demo render budget (no audible effect in the fixture)
     juce::ScopedNoDenormals noDenormals;
     updateFromParameters();
 

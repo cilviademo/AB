@@ -1,5 +1,5 @@
 {
-  "note": "Single source of truth for the ground-truth fixture (SPEC §12). gen.py derives Source/GeneratedParams.h and truth.json from it, so the answer key and the plugin cannot drift.",
+  "note": "Single source of truth for the ground-truth fixture (SPEC \u00a712). gen.py derives Source/GeneratedParams.h and truth.json from it, so the answer key and the plugin cannot drift.",
   "product": "ABGroundTruth",
   "company": "Multibanded",
   "manufacturer_code": "Mbnd",
@@ -9,32 +9,171 @@
   "namespace": "abgt",
   "state_tree_type": "PARAMETERS",
   "parameters": [
-    {"id": "bypass",     "name": "Bypass",      "type": "bool",   "default": false},
-    {"id": "mode",       "name": "Mode",        "type": "choice", "choices": ["Clean", "Warm", "Hot"], "default": 1},
-    {"id": "inputGain",  "name": "Input Gain",  "type": "float",  "min": -24.0, "max": 24.0, "default": 0.0, "units": "dB", "skew": 1.0},
-    {"id": "cutoff",     "name": "Cutoff",      "type": "float",  "min": 20.0, "max": 20000.0, "default": 8000.0, "units": "Hz", "skew": 0.3},
-    {"id": "drive",      "name": "Drive",       "type": "float",  "min": 1.0, "max": 20.0, "default": 4.0, "units": "", "skew": 0.5},
-    {"id": "oversample", "name": "Oversample",  "type": "bool",   "default": true},
-    {"id": "outputGain", "name": "Output Gain", "type": "float",  "min": -24.0, "max": 24.0, "default": -6.0, "units": "dB", "skew": 1.0}
+    {
+      "id": "bypass",
+      "name": "Bypass",
+      "type": "bool",
+      "default": false
+    },
+    {
+      "id": "mode",
+      "name": "Mode",
+      "type": "choice",
+      "choices": [
+        "Clean",
+        "Warm",
+        "Hot"
+      ],
+      "default": 1
+    },
+    {
+      "id": "inputGain",
+      "name": "Input Gain",
+      "type": "float",
+      "min": -24.0,
+      "max": 24.0,
+      "default": 0.0,
+      "units": "dB",
+      "skew": 1.0
+    },
+    {
+      "id": "cutoff",
+      "name": "Cutoff",
+      "type": "float",
+      "min": 20.0,
+      "max": 20000.0,
+      "default": 8000.0,
+      "units": "Hz",
+      "skew": 0.3
+    },
+    {
+      "id": "drive",
+      "name": "Drive",
+      "type": "float",
+      "min": 1.0,
+      "max": 20.0,
+      "default": 4.0,
+      "units": "",
+      "skew": 0.5
+    },
+    {
+      "id": "oversample",
+      "name": "Oversample",
+      "type": "bool",
+      "default": true
+    },
+    {
+      "id": "outputGain",
+      "name": "Output Gain",
+      "type": "float",
+      "min": -24.0,
+      "max": 24.0,
+      "default": -6.0,
+      "units": "dB",
+      "skew": 1.0
+    }
   ],
   "state_only_fields": [
-    {"id": "waveShapers_0_1", "note": "indexed decoy: serialized in the ValueTree but NOT an exported parameter (EXECUTE 2.2 gate)", "value": 0.25},
-    {"id": "uiScale", "note": "UI_ONLY_CONTROL stored in state, never exported", "value": 1.0}
+    {
+      "id": "waveShapers_0_1",
+      "note": "indexed decoy: serialized in the ValueTree but NOT an exported parameter (EXECUTE 2.2 gate)",
+      "value": 0.25
+    },
+    {
+      "id": "uiScale",
+      "note": "UI_ONLY_CONTROL stored in state, never exported",
+      "value": 1.0
+    },
+    {
+      "id": "demoMode",
+      "note": "LICENSING_AND_ENTITLEMENT_SUBSYSTEM state: 1 = demo (no valid serial), written by the processor from LicenseStub::isDemo()",
+      "value": 1.0,
+      "subsystem": "LICENSING_AND_ENTITLEMENT_SUBSYSTEM"
+    },
+    {
+      "id": "serialChecksum",
+      "note": "LICENSING_AND_ENTITLEMENT_SUBSYSTEM state: checksum LicenseStub computed for the last serial checked (ABGT-0000-0000-0000 \u2192 0x180)",
+      "value": 384.0,
+      "subsystem": "LICENSING_AND_ENTITLEMENT_SUBSYSTEM"
+    }
   ],
   "dsp": {
-    "filter": {"class": "abgt::TptLowpass", "kind": "TPT one-pole low-pass (Zavalishin), cutoff from 'cutoff'"},
-    "waveshaper": {"class": "abgt::TanhShaper", "kind": "y = tanh(drive * x) / tanh(drive)", "params": ["drive", "mode"]},
-    "oversampling": {"class": "juce::dsp::Oversampling<float>", "factor": 2, "when": "oversample == true"},
-    "signal_flow": ["inputGain", "TptLowpass", "TanhShaper (oversampled when enabled)", "outputGain"],
-    "mode_effect": "Clean: shaper bypassed · Warm: tanh · Hot: tanh with 2x drive"
+    "filter": {
+      "class": "abgt::TptLowpass",
+      "kind": "TPT one-pole low-pass (Zavalishin), cutoff from 'cutoff'"
+    },
+    "waveshaper": {
+      "class": "abgt::TanhShaper",
+      "kind": "y = tanh(drive * x) / tanh(drive)",
+      "params": [
+        "drive",
+        "mode"
+      ]
+    },
+    "oversampling": {
+      "class": "juce::dsp::Oversampling<float>",
+      "factor": 2,
+      "when": "oversample == true"
+    },
+    "signal_flow": [
+      "inputGain",
+      "TptLowpass",
+      "TanhShaper (oversampled when enabled)",
+      "outputGain"
+    ],
+    "mode_effect": "Clean: shaper bypassed \u00b7 Warm: tanh \u00b7 Hot: tanh with 2x drive"
   },
   "resources": [
-    {"name": "knob_png", "file": "Resources/knob.png"},
-    {"name": "ABMono_ttf", "file": "Resources/ABMono.ttf"},
-    {"name": "Init_xml", "file": "Presets/Init.xml"}
+    {
+      "name": "knob_png",
+      "file": "Resources/knob.png"
+    },
+    {
+      "name": "ABMono_ttf",
+      "file": "Resources/ABMono.ttf"
+    },
+    {
+      "name": "Init_xml",
+      "file": "Presets/Init.xml"
+    }
   ],
-  "protected_subsystem": {"class": "abgt::LicenseStub", "note": "deliberate PROTECTED_SUBSYSTEM-style stub: strings 'isLicensed', 'serial_number'; always returns true; must be mapped, never reimplemented"},
-  "classes_expected": ["abgt::TptLowpass", "abgt::TanhShaper", "abgt::LicenseStub", "ABGroundTruthAudioProcessor", "ABGroundTruthAudioProcessorEditor"],
-  "latency_samples": {"oversample_off": 0, "oversample_on": "juce::dsp::Oversampling<float> 2x FIR latency (reported by getLatencySamples)"},
-  "buses": {"input": "stereo", "output": "stereo"}
+  "classes_expected": [
+    "abgt::TptLowpass",
+    "abgt::TanhShaper",
+    "abgt::LicenseStub",
+    "ABGroundTruthAudioProcessor",
+    "ABGroundTruthAudioProcessorEditor"
+  ],
+  "latency_samples": {
+    "oversample_off": 0,
+    "oversample_on": "juce::dsp::Oversampling<float> 2x FIR latency (reported by getLatencySamples)"
+  },
+  "buses": {
+    "input": "stereo",
+    "output": "stereo"
+  },
+  "licensing": {
+    "class": "abgt::LicenseStub",
+    "classification": "LICENSING_AND_ENTITLEMENT_SUBSYSTEM",
+    "functions": [
+      "checkSerial",
+      "checksumOf",
+      "isLicensed",
+      "isDemo",
+      "demoRendersRemaining",
+      "lastSerialChecksum",
+      "noteRender",
+      "serialNumberBackground"
+    ],
+    "state_fields": [
+      "demoMode",
+      "serialChecksum"
+    ],
+    "serial_format": "ABGT-XXXX-XXXX-CCCC; CCCC = hex16(sum of the 8 middle characters' ASCII codes)",
+    "demo_state": "not licensed \u2192 demoRenders counts down from 100000 per processBlock (no audible effect)",
+    "processBlock_calls": [
+      "LicenseStub::noteRender"
+    ],
+    "note": "deliberate licensing stub (ADDENDUM C2): strings 'isLicensed', 'serial_number', 'demo'; recovered, reconstructed and validated like the DSP; a checkSerial \u2192 true edit is TRANSFORMED_BREAKING"
+  }
 }

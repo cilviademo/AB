@@ -99,7 +99,7 @@ def after_decompile(ctx: StageContext, *, pre: dict[str, Any], ghidra_fps: list[
             r = role_by.get(fp.get("addr"), {})
             if r.get("noise_kind") == "FRAMEWORK_PLUMBING" or (r.get("role") == "FRAMEWORK"):
                 return "KNOWN_FRAMEWORK"
-            return kind_from_name(fp.get("name")) or (None if r.get("noise") else ("KNOWN_PLUGIN_SPECIFIC" if r.get("role") in ("WAVESHAPER", "FILTER", "AUDIO_LOOP", "PARAMETER_UPDATE", "STATE", "GAIN", "LICENSING") else None))
+            return kind_from_name(fp.get("name")) or (None if r.get("noise") else ("KNOWN_PLUGIN_SPECIFIC" if r.get("role") in ("WAVESHAPER", "FILTER", "AUDIO_LOOP", "PARAMETER_UPDATE", "STATE", "GAIN", "LICENSING_AND_ENTITLEMENT_SUBSYSTEM") else None))
 
         a = db.record_functions(ctx.job.artifact_sha256, pre_fns, source="capstone", tool_version=pre.get("tool", "capstone"), evidence_version=f"decompile-stage-v{stage_version}", kind_of=kind_pre)
         b = db.record_functions(ctx.job.artifact_sha256, ghidra_fps, source="ghidra", tool_version="ghidra/Fingerprint.java", evidence_version=f"decompile-stage-v{stage_version}",

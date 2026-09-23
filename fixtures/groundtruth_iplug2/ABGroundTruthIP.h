@@ -35,4 +35,5 @@ private:
     float smoothCoef = 0.0f;
     float waveShapers_0_1 = 0.25f;           // STATE_SCHEMA_FIELD decoy
     float uiScale = 1.0f;                    // UI_ONLY_CONTROL
+    float demoMode = 1.0f, serialChecksum = 0.0f;   // LICENSING_AND_ENTITLEMENT_SUBSYSTEM state fields
 };

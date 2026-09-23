@@ -24,4 +24,4 @@ enum EParams
   GetParam(kOutputGain)->InitDouble("Output Gain", -6.0, -24.0, 24.0, 0.001, "dB", 0, "", IParam::ShapeLinear());
 
 struct StateOnly { const char* id; float value; };
-static const StateOnly kStateOnly[] = { { "waveShapers_0_1", 0.25f }, { "uiScale", 1.0f } };
+static const StateOnly kStateOnly[] = { { "waveShapers_0_1", 0.25f }, { "uiScale", 1.0f }, { "demoMode", 1.0f }, { "serialChecksum", 384.0f } };

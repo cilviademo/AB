@@ -49,11 +49,11 @@ def main() -> int:
             "tier": "VST3_EXPORTED_PARAMETER", "vst3_param_id": i,
         } for i, p in enumerate(spec["parameters"])],
         "state_fields": [{"id": p["id"], "tier": "VST3_EXPORTED_PARAMETER"} for p in spec["parameters"]] +
-                        [{"id": f["id"], "tier": "STATE_SCHEMA_FIELD" if f["id"].startswith("waveShapers") else "UI_ONLY_CONTROL", "note": f["note"]} for f in spec["state_only_fields"]],
+                        [{"id": f["id"], "tier": "STATE_SCHEMA_FIELD" if (f["id"].startswith("waveShapers") or f.get("subsystem")) else "UI_ONLY_CONTROL", "note": f["note"], **({"subsystem": f["subsystem"]} if f.get("subsystem") else {})} for f in spec["state_only_fields"]],
         "state_tree_type": None, "state_format": "iPlug2 IByteChunk (parameter values then state-only fields)",
         "classes": ["abgt::TptLowpass", "abgt::TanhShaper", "abgt::LicenseStub", "ABGroundTruthIP"],
         "dsp": spec["dsp"],
-        "protected_subsystem": spec["protected_subsystem"],
+        "licensing": spec["licensing"],
         "resources": [{"binarydata_name": None, "platform_resource": r["name"], "file": "../groundtruth/" + r["file"],
                        "sha256": hashlib.sha256((JUCE / r["file"]).read_bytes()).hexdigest() if (JUCE / r["file"]).is_file() else None} for r in spec["resources"]],
         "buses": spec["buses"], "latency": spec["latency_samples"],

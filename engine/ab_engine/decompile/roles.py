@@ -15,12 +15,20 @@ from typing import Any
 
 ROLES = ("AUDIO_LOOP", "GAIN", "WAVESHAPER", "FILTER", "FILTER_COEFFICIENT", "OVERSAMPLER", "COMPRESSOR", "LIMITER", "GATE",
          "DELAY", "REVERB", "CONVOLUTION", "PITCH_TIME", "MODULATION", "METER", "PARAMETER_UPDATE", "STATE", "GUI", "RESOURCE",
-         "FRAMEWORK", "RUNTIME", "PROTECTED_SUBSYSTEM", "UNKNOWN")
+         "FRAMEWORK", "RUNTIME", "LICENSING_AND_ENTITLEMENT_SUBSYSTEM", "UNKNOWN")
+#: ADDENDUM C2: licensing / activation / entitlement code is a normal subsystem. The frozen static engine still
+#: emits PROTECTED_SUBSYSTEM; it is an alias of LICENSING_AND_ENTITLEMENT_SUBSYSTEM everywhere AB writes.
+LICENSING_ROLE = "LICENSING_AND_ENTITLEMENT_SUBSYSTEM"
+ROLE_ALIASES = {"PROTECTED_SUBSYSTEM": LICENSING_ROLE}
+
+
+def canonical_role(role: str | None) -> str | None:
+    return ROLE_ALIASES.get(role or "", role)
 
 #: v2 static (name-token) roles → final vocabulary (DECISIONS D-010)
 STATIC_TO_FINAL = {"DELAY_REVERB": "DELAY", "ENVELOPE": "COMPRESSOR", "STATE_CONTROL": "STATE", "GUI": "GUI", "WAVESHAPER": "WAVESHAPER",
                    "FILTER": "FILTER", "OVERSAMPLER": "OVERSAMPLER", "LIMITER": "LIMITER", "COMPRESSOR": "COMPRESSOR", "GATE": "GATE",
-                   "METER": "METER", "PROTECTED_SUBSYSTEM": "PROTECTED_SUBSYSTEM", "UNKNOWN": "UNKNOWN"}
+                   "METER": "METER", "PROTECTED_SUBSYSTEM": "LICENSING_AND_ENTITLEMENT_SUBSYSTEM", "UNKNOWN": "UNKNOWN"}
 
 DSP_ROLES = {"AUDIO_LOOP", "GAIN", "WAVESHAPER", "FILTER", "FILTER_COEFFICIENT", "OVERSAMPLER", "COMPRESSOR", "LIMITER", "GATE",
              "DELAY", "REVERB", "CONVOLUTION", "PITCH_TIME", "MODULATION"}
@@ -67,7 +75,7 @@ def score(fn: dict[str, Any], fp: dict[str, Any] | None, *, class_static_role: s
     if strs > 6 and fo == 0:
         role, _ = ("GUI", basis.append("many string refs, no float work")) if re.search(r" (paint|resized|button|slider|label|component|colour|font|draw) ", tokens) else ("STATE", basis.append("string refs, no float work"))
     elif re.search(r" (licen\w*|serial|activat\w*|unlock|trial|hwid) ", tokens):
-        role = "PROTECTED_SUBSYSTEM"; basis.append("licence tokens")
+        role = LICENSING_ROLE; basis.append("licence / activation tokens")
     elif re.search(r" (get state|set state|state information|value tree|xml|preset) ", tokens):
         role = "STATE"; basis.append("state tokens")
     elif fo + so > 0 and loops > 0 and dist >= 0:

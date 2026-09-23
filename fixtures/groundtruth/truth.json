@@ -144,6 +144,18 @@
         "id": "uiScale",
         "tier": "UI_ONLY_CONTROL",
         "note": "UI_ONLY_CONTROL stored in state, never exported"
+      },
+      {
+        "id": "demoMode",
+        "tier": "STATE_SCHEMA_FIELD",
+        "note": "LICENSING_AND_ENTITLEMENT_SUBSYSTEM state: 1 = demo (no valid serial), written by the processor from LicenseStub::isDemo()",
+        "subsystem": "LICENSING_AND_ENTITLEMENT_SUBSYSTEM"
+      },
+      {
+        "id": "serialChecksum",
+        "tier": "STATE_SCHEMA_FIELD",
+        "note": "LICENSING_AND_ENTITLEMENT_SUBSYSTEM state: checksum LicenseStub computed for the last serial checked (ABGT-0000-0000-0000 \u2192 0x180)",
+        "subsystem": "LICENSING_AND_ENTITLEMENT_SUBSYSTEM"
       }
     ],
     "state_tree_type": "PARAMETERS",
@@ -180,9 +192,29 @@
       ],
       "mode_effect": "Clean: shaper bypassed \u00b7 Warm: tanh \u00b7 Hot: tanh with 2x drive"
     },
-    "protected_subsystem": {
+    "licensing": {
       "class": "abgt::LicenseStub",
-      "note": "deliberate PROTECTED_SUBSYSTEM-style stub: strings 'isLicensed', 'serial_number'; always returns true; must be mapped, never reimplemented"
+      "classification": "LICENSING_AND_ENTITLEMENT_SUBSYSTEM",
+      "functions": [
+        "checkSerial",
+        "checksumOf",
+        "isLicensed",
+        "isDemo",
+        "demoRendersRemaining",
+        "lastSerialChecksum",
+        "noteRender",
+        "serialNumberBackground"
+      ],
+      "state_fields": [
+        "demoMode",
+        "serialChecksum"
+      ],
+      "serial_format": "ABGT-XXXX-XXXX-CCCC; CCCC = hex16(sum of the 8 middle characters' ASCII codes)",
+      "demo_state": "not licensed \u2192 demoRenders counts down from 100000 per processBlock (no audible effect)",
+      "processBlock_calls": [
+        "LicenseStub::noteRender"
+      ],
+      "note": "deliberate licensing stub (ADDENDUM C2): strings 'isLicensed', 'serial_number', 'demo'; recovered, reconstructed and validated like the DSP; a checkSerial \u2192 true edit is TRANSFORMED_BREAKING"
     },
     "resources": [
       {
@@ -210,6 +242,6 @@
       "oversample_on": "juce::dsp::Oversampling<float> 2x FIR latency (reported by getLatencySamples)"
     },
     "generated_from": "spec.json",
-    "spec_sha256": "4c54637ea4873d549804683a04e024a72260ed193796f2cd2ec48312985221a5"
+    "spec_sha256": "aff0e69f447a839c776439a3934830dc180dc8691b4e0a79640698554ec6bef4"
   }
 }

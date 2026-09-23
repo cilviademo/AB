@@ -84,7 +84,7 @@ def next_tasks(ev: dict[str, Any]) -> list[dict[str, str]]:
         tasks.append({"task": f"Parameter sweeps reach {sw['classification']} (worst RMSE {sw['worst_rmse']:.2e}); the lead-in error (parameter smoothing) and any fractional-sample latency of the original are not modelled — add smoothing / a fractional delay only with measured evidence",
                       "evidence": "06_validation/differential_results.json modules[WaveshaperSweeps], per-render lead_in_rmse", "priority": "4"})
     for e in ev["recon"]:
-        if e.get("status") == "SCAFFOLD_ONLY" and e.get("role") not in ("PROTECTED_SUBSYSTEM", "GUI", "UNKNOWN", "STATE"):
+        if e.get("status") == "SCAFFOLD_ONLY" and e.get("role") not in ("GUI", "UNKNOWN", "STATE"):
             tasks.append({"task": f"Scaffold `{e['symbol']}` (role {e.get('role')}, {e.get('structure_status', 'UNKNOWN')}): port from evidence_source/ + fit against probes; promote to Source/Active only at BEHAVIOR_MATCHED",
                           "evidence": e.get("file", ""), "priority": "5"})
     if ev["build"] and ev["build"].get("build_kind") == "SURROGATE" and ev["ident"].get("evidence") == "VERIFIED_RUNTIME":
@@ -194,7 +194,7 @@ Rules:
 - Only Source/Active is compiled. Promote a scaffold only when it is BEHAVIOR_MATCHED at ≥ BEHAVIORALLY_EQUIVALENT on the differential harness.
 - Keep 04_reconstruction buildable at every commit (SURROGATE identity until FIDELITY is justified by VERIFIED_RUNTIME identity).
 - After changing any DSP: rebuild, re-run the COMPARE stage, and record the per-module result in reconstruction_index.json (validation, rmse, failing renders).
-- Licensing / protection code is PROTECTED_SUBSYSTEM: document its architecture, never reimplement or bypass it.
+- Licensing / activation / entitlement code is LICENSING_AND_ENTITLEMENT_SUBSYSTEM: recover, reconstruct and validate it like DSP (licence states original vs rebuild). Replacing a check with a constant is a TRANSFORMED_BREAKING transformation: record it in the transformation graph, never label it recovery.
 - Do not search for what UNRECOVERABLE.md lists; recreate it.
 
 Measured state of this bundle: {'; '.join(f"{k.replace('_COMPLETE', '')} {v}" for k, v in ev['stages'].items())}.

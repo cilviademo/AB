@@ -2,7 +2,7 @@
 
 Same content as `fixtures/groundtruth` (the JUCE fixture) — 7 parameters, one TPT low-pass, one
 normalised tanh waveshaper, 2× oversampling toggle, a PNG, a TTF, a preset XML and a deliberate
-`PROTECTED_SUBSYSTEM`-style stub — built with **iPlug2** so the engine is proven not to be
+`LICENSING_AND_ENTITLEMENT_SUBSYSTEM` stub (serial check + demo state) — built with **iPlug2** so the engine is proven not to be
 "JUCE recovery". `gen.py` derives `GeneratedParams.h` and `truth.json` from the *same*
 `../groundtruth/spec.json`; only the framework, the product name (`ABGroundTruthIP`) and the
 plugin code (`Abgi`) differ.
