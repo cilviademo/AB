@@ -1,0 +1,8 @@
+{
+  "note": "Regression fixture per SPEC §13. The binary is NOT in git (BLOCKERS B-001): drop it at the path below, then run: ab-cli diff-baseline --init TimeMachine",
+  "binary": "fixtures/static_v2/binaries/TimeMachine.vst3/Contents/x86_64-win/TimeMachine.vst3",
+  "logical_path": "TimeMachine.vst3/Contents/x86_64-win/TimeMachine.vst3",
+  "key": "TimeMachine.vst3",
+  "format": "PE",
+  "sha256": null
+}

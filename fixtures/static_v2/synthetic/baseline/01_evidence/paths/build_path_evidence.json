@@ -1,0 +1,36 @@
+{
+  "schema": "recovery.build_path_evidence",
+  "schema_version": 2,
+  "tool": "static-recovery-v2",
+  "generated": "2026-09-23T01:04:25.570Z",
+  "data": [
+    {
+      "path": "JUCE v7.0.5",
+      "kind": "FRAMEWORK"
+    },
+    {
+      "path": "C:\\dev\\SynthPlug\\Source\\PluginProcessor.cpp",
+      "kind": "PROJECT_SOURCE"
+    },
+    {
+      "path": "C:\\dev\\SynthPlug\\Source\\DSP\\Clipper.h",
+      "kind": "PROJECT_SOURCE"
+    },
+    {
+      "path": "C:\\JUCE\\modules\\juce_dsp\\juce_dsp.h",
+      "kind": "FRAMEWORK"
+    },
+    {
+      "path": "D:\\a\\1\\s\\build\\x64\\Release\\junk.obj",
+      "kind": "BUILD_MACHINE"
+    },
+    {
+      "path": "C:\\Program Files (x86)\\Windows Kits\\10\\Include\\ucrt\\corecrt_internal_strtox.h",
+      "kind": "CRT"
+    },
+    {
+      "path": "C:\\dev\\SynthPlug\\build\\SynthPlug.pdb",
+      "kind": "UNKNOWN"
+    }
+  ]
+}

@@ -1,0 +1,8 @@
+{
+  "note": "Regression fixture per SPEC §13. The binary is NOT in git (BLOCKERS B-001): drop it at the path below, then run: ab-cli diff-baseline --init Twin_Panda_FX",
+  "binary": "fixtures/static_v2/binaries/Twin Panda FX.vst3/Contents/x86_64-win/Twin Panda FX.vst3",
+  "logical_path": "Twin Panda FX.vst3/Contents/x86_64-win/Twin Panda FX.vst3",
+  "key": "Twin Panda FX.vst3",
+  "format": "PE",
+  "sha256": null
+}

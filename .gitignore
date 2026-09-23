@@ -42,3 +42,4 @@ fixtures/static_v2/binaries/
 *.component
 *.dylib
 !fixtures/**/*.json
+!fixtures/synthetic/SynthPlug.vst3

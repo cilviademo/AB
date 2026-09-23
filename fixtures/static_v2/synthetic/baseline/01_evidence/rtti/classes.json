@@ -1,0 +1,147 @@
+{
+  "schema": "recovery.classes",
+  "schema_version": 2,
+  "tool": "static-recovery-v2",
+  "generated": "2026-09-23T01:04:25.570Z",
+  "data": [
+    {
+      "recovered_name": "synth::SynthClipper",
+      "kind": "PLUGIN_OWNED_CANDIDATE",
+      "role": "WAVESHAPER",
+      "role_status": "CANDIDATE",
+      "role_basis": [
+        "name tokens"
+      ],
+      "inferred_base": null,
+      "base_status": "UNKNOWN",
+      "safe_name": "SynthClipper",
+      "name_status": "VERIFIED_RTTI_NAME",
+      "source": "RTTI type descriptor string"
+    },
+    {
+      "recovered_name": "synth::SynthFilter",
+      "kind": "PLUGIN_OWNED_CANDIDATE",
+      "role": "FILTER",
+      "role_status": "CANDIDATE",
+      "role_basis": [
+        "name tokens"
+      ],
+      "inferred_base": null,
+      "base_status": "UNKNOWN",
+      "safe_name": "SynthFilter",
+      "name_status": "VERIFIED_RTTI_NAME",
+      "source": "RTTI type descriptor string"
+    },
+    {
+      "recovered_name": "SynthPlugAudioProcessor",
+      "kind": "PLUGIN_OWNED_CANDIDATE",
+      "role": "UNKNOWN",
+      "role_status": "UNKNOWN",
+      "role_basis": [],
+      "inferred_base": "juce::AudioProcessor",
+      "base_status": "INFERRED",
+      "safe_name": "SynthPlugAudioProcessor",
+      "name_status": "VERIFIED_RTTI_NAME",
+      "source": "RTTI type descriptor string"
+    },
+    {
+      "recovered_name": "SynthLookAndFeel",
+      "kind": "PLUGIN_OWNED_CANDIDATE",
+      "role": "GUI",
+      "role_status": "CANDIDATE",
+      "role_basis": [
+        "name tokens"
+      ],
+      "inferred_base": "juce::LookAndFeel_V4",
+      "base_status": "INFERRED",
+      "safe_name": "SynthLookAndFeel",
+      "name_status": "VERIFIED_RTTI_NAME",
+      "source": "RTTI type descriptor string"
+    },
+    {
+      "recovered_name": "SerialScreen",
+      "kind": "PLUGIN_OWNED_CANDIDATE",
+      "role": "UNKNOWN",
+      "role_status": "UNKNOWN",
+      "role_basis": [],
+      "inferred_base": null,
+      "base_status": "UNKNOWN",
+      "safe_name": "SerialScreen",
+      "name_status": "VERIFIED_RTTI_NAME",
+      "source": "RTTI type descriptor string"
+    },
+    {
+      "recovered_name": "juce::Slider",
+      "kind": "FRAMEWORK",
+      "role": null,
+      "role_status": "UNKNOWN",
+      "role_basis": [],
+      "inferred_base": null,
+      "base_status": "UNKNOWN",
+      "safe_name": null,
+      "name_status": "VERIFIED_RTTI_NAME",
+      "source": "RTTI type descriptor string"
+    },
+    {
+      "recovered_name": "juce::AudioProcessor",
+      "kind": "FRAMEWORK",
+      "role": null,
+      "role_status": "UNKNOWN",
+      "role_basis": [],
+      "inferred_base": null,
+      "base_status": "UNKNOWN",
+      "safe_name": null,
+      "name_status": "VERIFIED_RTTI_NAME",
+      "source": "RTTI type descriptor string"
+    },
+    {
+      "recovered_name": "soundtouch::SoundTouch",
+      "kind": "THIRD_PARTY",
+      "library": "soundtouch",
+      "role": null,
+      "role_status": "UNKNOWN",
+      "role_basis": [],
+      "inferred_base": null,
+      "base_status": "UNKNOWN",
+      "safe_name": null,
+      "name_status": "VERIFIED_RTTI_NAME",
+      "source": "RTTI type descriptor string"
+    },
+    {
+      "recovered_name": "std::basic_string",
+      "kind": "OS_RUNTIME",
+      "role": null,
+      "role_status": "UNKNOWN",
+      "role_basis": [],
+      "inferred_base": null,
+      "base_status": "UNKNOWN",
+      "safe_name": null,
+      "name_status": "VERIFIED_RTTI_NAME",
+      "source": "RTTI type descriptor string"
+    },
+    {
+      "recovered_name": "IUnknown",
+      "kind": "OS_RUNTIME",
+      "role": null,
+      "role_status": "UNKNOWN",
+      "role_basis": [],
+      "inferred_base": null,
+      "base_status": "UNKNOWN",
+      "safe_name": null,
+      "name_status": "VERIFIED_RTTI_NAME",
+      "source": "RTTI type descriptor string"
+    },
+    {
+      "recovered_name": "ab",
+      "kind": "FALSE_POSITIVE",
+      "role": null,
+      "role_status": "UNKNOWN",
+      "role_basis": [],
+      "inferred_base": null,
+      "base_status": "UNKNOWN",
+      "safe_name": null,
+      "name_status": "VERIFIED_RTTI_NAME",
+      "source": "RTTI type descriptor string"
+    }
+  ]
+}

@@ -1,0 +1,64 @@
+{
+  "instrumentation": {
+    "tool": "static-recovery-v2",
+    "port": "ab-static-engine 1.0.0",
+    "deep": false,
+    "elapsed_ms": 90,
+    "bytes_processed": 61440,
+    "objects_found": 21,
+    "peak_rss_mb": 71,
+    "stages_ms": {
+      "pe_parse": 1,
+      "string_scan": 6,
+      "classify_rtti_paths_xml": 26,
+      "resource_carve": 37,
+      "constant_scan": 12,
+      "resource_validate": 3
+    },
+    "strings": 274,
+    "resources": 7,
+    "completeness": "FAST_SCAN_COMPLETE",
+    "xml_scan_status": "FAST_SCAN_COMPLETE (all anchors examined)"
+  },
+  "summary": {
+    "binary": "SynthPlug.vst3",
+    "format": "VST3",
+    "arch": "x64",
+    "juce": "7.0.5",
+    "classes": {
+      "PLUGIN_OWNED": 5,
+      "FRAMEWORK": 2,
+      "THIRD_PARTY": 1,
+      "OS_RUNTIME": 2,
+      "FALSE_POSITIVE": 1
+    },
+    "plugin_owned": 5,
+    "parameters": {
+      "verified": 3,
+      "withValues": 3,
+      "candidateStrings": 13
+    },
+    "resources": {
+      "VALID_EXACT": 6,
+      "INVALID": 1
+    },
+    "valid_resources": 6,
+    "paths": {
+      "FRAMEWORK": 2,
+      "PROJECT_SOURCE": 2,
+      "BUILD_MACHINE": 1,
+      "CRT": 1,
+      "UNKNOWN": 1
+    },
+    "pdb": "C:\\dev\\SynthPlug\\build\\SynthPlug.pdb",
+    "pdbFound": false,
+    "binarydata": {
+      "verified": 1,
+      "inferred": 0,
+      "unresolved": 1
+    },
+    "xml_scan_status": "FAST_SCAN_COMPLETE (all anchors examined)",
+    "consts": 5,
+    "strings": 274
+  }
+}

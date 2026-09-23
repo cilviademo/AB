@@ -1,0 +1,37 @@
+{
+  "schema": "recovery.recovery_summary",
+  "schema_version": 2,
+  "tool": "static-recovery-v2",
+  "generated": "2026-09-23T01:04:25.570Z",
+  "data": {
+    "binary": "SynthPlug.vst3",
+    "format": "VST3",
+    "arch": "x64",
+    "juce": "7.0.5",
+    "classes": {
+      "PLUGIN_OWNED": 5,
+      "FRAMEWORK": 2,
+      "THIRD_PARTY": 1,
+      "OS_RUNTIME": 2,
+      "FALSE_POSITIVE": 1
+    },
+    "parameters": {
+      "verified": 3,
+      "withValues": 3,
+      "candidateStrings": 13
+    },
+    "resources": {
+      "VALID_EXACT": 6,
+      "INVALID": 1
+    },
+    "paths": {
+      "FRAMEWORK": 2,
+      "PROJECT_SOURCE": 2,
+      "BUILD_MACHINE": 1,
+      "CRT": 1,
+      "UNKNOWN": 1
+    },
+    "pdb": "C:\\dev\\SynthPlug\\build\\SynthPlug.pdb",
+    "pdbFound": false
+  }
+}

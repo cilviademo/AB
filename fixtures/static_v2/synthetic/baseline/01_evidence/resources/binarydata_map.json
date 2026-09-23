@@ -1,0 +1,20 @@
+{
+  "schema": "recovery.binarydata_map",
+  "schema_version": 2,
+  "tool": "static-recovery-v2",
+  "generated": "2026-09-23T01:04:25.570Z",
+  "data": [
+    {
+      "binarydata_name": "knob_png",
+      "carved": null,
+      "mapping_status": "UNRESOLVED (2 candidate assets of this type; needs Phase 3 getNamedResource decompile)"
+    },
+    {
+      "binarydata_name": "SynthSans_ttf",
+      "carved": "ttf_000.ttf",
+      "offset": 53136,
+      "size": 2300,
+      "mapping_status": "VERIFIED (font name table: \"Synth Sans\")"
+    }
+  ]
+}

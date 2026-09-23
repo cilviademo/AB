@@ -1,0 +1,8 @@
+{
+  "note": "Regression fixture per SPEC §13. The binary is NOT in git (BLOCKERS B-001): drop it at the path below, then run: ab-cli diff-baseline --init Rhino_Reverb",
+  "binary": "fixtures/static_v2/binaries/Rhino Reverb.vst3/Contents/x86_64-win/Rhino Reverb.vst3",
+  "logical_path": "Rhino Reverb.vst3/Contents/x86_64-win/Rhino Reverb.vst3",
+  "key": "Rhino Reverb.vst3",
+  "format": "PE",
+  "sha256": null
+}

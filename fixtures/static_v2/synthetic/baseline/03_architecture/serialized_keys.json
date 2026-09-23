@@ -1,0 +1,69 @@
+{
+  "schema": "recovery.serialized_keys",
+  "schema_version": 2,
+  "tool": "static-recovery-v2",
+  "generated": "2026-09-23T01:04:25.570Z",
+  "data": [
+    {
+      "name": "drive",
+      "serialized_key_status": "VERIFIED_XML (embedded in binary)",
+      "runtime_parameter_status": "UNVERIFIED",
+      "key_kind_candidate": "XML_PARAMETER_KEY (may or may not be an exported VST parameter)",
+      "source": "XML embedded in binary",
+      "observed_serialized_values": [
+        0.75,
+        0.5
+      ],
+      "observed_min": 0.5,
+      "observed_max": 0.75,
+      "value_representation": "UNKNOWN",
+      "legal_range": "UNKNOWN",
+      "factory_default": "UNKNOWN",
+      "units": "UNKNOWN",
+      "step_count": "UNKNOWN",
+      "type_status": "TYPE_UNKNOWN",
+      "type_basis": "insufficient observations",
+      "note": "existence in serialized state is verified; automatability, representation (normalized/plain/enum), range and default require the runtime host and state-differential test"
+    },
+    {
+      "name": "oversample",
+      "serialized_key_status": "VERIFIED_XML (embedded in binary)",
+      "runtime_parameter_status": "UNVERIFIED",
+      "key_kind_candidate": "XML_PARAMETER_KEY (may or may not be an exported VST parameter)",
+      "source": "XML embedded in binary",
+      "observed_serialized_values": [
+        1
+      ],
+      "observed_min": 1,
+      "observed_max": 1,
+      "value_representation": "UNKNOWN",
+      "legal_range": "UNKNOWN",
+      "factory_default": "UNKNOWN",
+      "units": "UNKNOWN",
+      "step_count": "UNKNOWN",
+      "type_status": "TYPE_UNKNOWN (discrete candidate from name)",
+      "type_basis": "single observed value",
+      "note": "existence in serialized state is verified; automatability, representation (normalized/plain/enum), range and default require the runtime host and state-differential test"
+    },
+    {
+      "name": "waveShapers_4_2",
+      "serialized_key_status": "VERIFIED_XML (embedded in binary)",
+      "runtime_parameter_status": "UNVERIFIED",
+      "key_kind_candidate": "INTERNAL_EFFECT_PROPERTY (indexed array element)",
+      "source": "XML embedded in binary",
+      "observed_serialized_values": [
+        0.25
+      ],
+      "observed_min": 0.25,
+      "observed_max": 0.25,
+      "value_representation": "UNKNOWN",
+      "legal_range": "UNKNOWN",
+      "factory_default": "UNKNOWN",
+      "units": "UNKNOWN",
+      "step_count": "UNKNOWN",
+      "type_status": "TYPE_UNKNOWN",
+      "type_basis": "insufficient observations",
+      "note": "existence in serialized state is verified; automatability, representation (normalized/plain/enum), range and default require the runtime host and state-differential test"
+    }
+  ]
+}

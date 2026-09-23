@@ -1,0 +1,8 @@
+{
+  "note": "TEST DATA, NEVER EVIDENCE. Deterministic synthetic PE (DECISIONS D-007) standing in until the four corpus binaries are supplied (BLOCKERS B-001).",
+  "generator": ["python3", "fixtures/synthetic/make_fixture.py", "<out>"],
+  "logical_path": "SynthPlug.vst3/Contents/x86_64-win/SynthPlug.vst3",
+  "key": "SynthPlug.vst3",
+  "format": "PE",
+  "sha256": null
+}

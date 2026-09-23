@@ -1,0 +1,158 @@
+{
+  "schema": "recovery.reconstruction_index",
+  "schema_version": 2,
+  "tool": "static-recovery-v2",
+  "generated": "2026-09-23T01:04:25.571Z",
+  "data": [
+    {
+      "symbol": "SynthPlugAudioProcessor",
+      "file": "04_reconstruction/Source/Active/PluginProcessor.cpp",
+      "status": "SCAFFOLD_ONLY",
+      "compiled": true,
+      "evidence": [
+        "JUCE_TEMPLATE"
+      ],
+      "parameters": [
+        "drive",
+        "oversample",
+        "waveShapers_4_2"
+      ],
+      "placeholders": [
+        "acceptsMidi",
+        "producesMidi",
+        "getTailLengthSeconds",
+        "getNumPrograms",
+        "hasEditor",
+        "bus layout",
+        "state serialization",
+        "all parameter ranges/defaults"
+      ],
+      "todos": [
+        "Phase 2: replace GENERATED_BUILD_PLACEHOLDER values and GENERATED_PLACEHOLDER_RANGE from vst3host",
+        "Phase 2: state-differential test before trusting APVTS serialization",
+        "Phase 3: port processBlock from decompiler evidence"
+      ]
+    },
+    {
+      "symbol": "SerialScreen",
+      "safe_name": "SerialScreen",
+      "file": "04_reconstruction/Source/RecoveredScaffolds/Unclassified/SerialScreen.cpp",
+      "status": "SCAFFOLD_ONLY",
+      "compiled": false,
+      "role": "UNKNOWN",
+      "role_status": "UNKNOWN",
+      "role_basis": [],
+      "base": null,
+      "base_status": "UNKNOWN",
+      "evidence": [
+        "RTTI_TYPE_DESCRIPTOR"
+      ],
+      "binary_addresses": [],
+      "promotion": "SCAFFOLD_ONLY → STATIC_RECONSTRUCTED → BEHAVIOR_MATCHED → Source/Active",
+      "todos": [
+        "confirm base/role from Ghidra RTTI + callgraph",
+        "recover members",
+        "port method bodies",
+        "behavioural validation"
+      ]
+    },
+    {
+      "symbol": "SynthLookAndFeel",
+      "safe_name": "SynthLookAndFeel",
+      "file": "04_reconstruction/Source/RecoveredScaffolds/UI/SynthLookAndFeel.cpp",
+      "status": "SCAFFOLD_ONLY",
+      "compiled": false,
+      "role": "GUI",
+      "role_status": "CANDIDATE",
+      "role_basis": [
+        "name tokens"
+      ],
+      "base": "juce::LookAndFeel_V4",
+      "base_status": "INFERRED",
+      "evidence": [
+        "RTTI_TYPE_DESCRIPTOR"
+      ],
+      "binary_addresses": [],
+      "promotion": "SCAFFOLD_ONLY → STATIC_RECONSTRUCTED → BEHAVIOR_MATCHED → Source/Active",
+      "todos": [
+        "confirm base/role from Ghidra RTTI + callgraph",
+        "recover members",
+        "port method bodies",
+        "behavioural validation"
+      ]
+    },
+    {
+      "symbol": "SynthPlugAudioProcessor",
+      "safe_name": "SynthPlugAudioProcessor",
+      "file": "04_reconstruction/Source/RecoveredScaffolds/Unclassified/SynthPlugAudioProcessor.cpp",
+      "status": "SCAFFOLD_ONLY",
+      "compiled": false,
+      "role": "UNKNOWN",
+      "role_status": "UNKNOWN",
+      "role_basis": [],
+      "base": "juce::AudioProcessor",
+      "base_status": "INFERRED",
+      "evidence": [
+        "RTTI_TYPE_DESCRIPTOR"
+      ],
+      "binary_addresses": [],
+      "promotion": "SCAFFOLD_ONLY → STATIC_RECONSTRUCTED → BEHAVIOR_MATCHED → Source/Active",
+      "todos": [
+        "confirm base/role from Ghidra RTTI + callgraph",
+        "recover members",
+        "port method bodies",
+        "behavioural validation"
+      ]
+    },
+    {
+      "symbol": "synth::SynthClipper",
+      "safe_name": "SynthClipper",
+      "file": "04_reconstruction/Source/RecoveredScaffolds/DSP/SynthClipper.cpp",
+      "status": "SCAFFOLD_ONLY",
+      "compiled": false,
+      "role": "WAVESHAPER",
+      "role_status": "CANDIDATE",
+      "role_basis": [
+        "name tokens"
+      ],
+      "base": null,
+      "base_status": "UNKNOWN",
+      "evidence": [
+        "RTTI_TYPE_DESCRIPTOR"
+      ],
+      "binary_addresses": [],
+      "promotion": "SCAFFOLD_ONLY → STATIC_RECONSTRUCTED → BEHAVIOR_MATCHED → Source/Active",
+      "todos": [
+        "confirm base/role from Ghidra RTTI + callgraph",
+        "recover members",
+        "port method bodies",
+        "behavioural validation"
+      ]
+    },
+    {
+      "symbol": "synth::SynthFilter",
+      "safe_name": "SynthFilter",
+      "file": "04_reconstruction/Source/RecoveredScaffolds/DSP/SynthFilter.cpp",
+      "status": "SCAFFOLD_ONLY",
+      "compiled": false,
+      "role": "FILTER",
+      "role_status": "CANDIDATE",
+      "role_basis": [
+        "name tokens"
+      ],
+      "base": null,
+      "base_status": "UNKNOWN",
+      "evidence": [
+        "RTTI_TYPE_DESCRIPTOR"
+      ],
+      "binary_addresses": [],
+      "promotion": "SCAFFOLD_ONLY → STATIC_RECONSTRUCTED → BEHAVIOR_MATCHED → Source/Active",
+      "todos": [
+        "confirm base/role from Ghidra RTTI + callgraph",
+        "recover members",
+        "port method bodies",
+        "behavioural validation"
+      ]
+    }
+  ]
+}

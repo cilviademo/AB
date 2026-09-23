@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
 import type { BackendStatus, Env, Job, Ownership, ProgressEvent } from "./lib/types";
 import { api, backendStatus, onProgress, saveWindow } from "./lib/api";
+import { runStaticInWorker } from "./lib/staticWorker";
 import { Recover } from "./views/Recover";
 import { Bench, type BenchScreen } from "./views/Bench";
 import { Corpus } from "./views/Corpus";
@@ -128,6 +129,17 @@ export default function App() {
       setTab("bench");
       setScreen("overview");
       setDropped([]);
+      // The static stage runs in the webview worker (SPEC §2) and is handed to the engine;
+      // every later stage is the engine's. A worker failure is a STATIC failure, not a crash.
+      const staticDone = first.stages.some((s) => s.stage === "STATIC_COMPLETE" && s.status === "OK");
+      if (!staticDone) {
+        try {
+          setEvents((prev) => [...prev, { id: 0, stage: "STATIC", status: "running", detail: "starting worker", extra: {} }]);
+          await runStaticInWorker(first.job_id, (m) => setEvents((prev) => [...prev, { id: 0, stage: "STATIC", status: "running", detail: m, extra: {} }]));
+        } catch (e) {
+          setEvents((prev) => [...prev, { id: 0, stage: "STATIC", status: "failed", detail: `STATIC_WORKER: ${String((e as Error).message ?? e)}`, extra: {} }]);
+        }
+      }
       const ran = await api.runJob(first.job_id);
       setJob(ran);
       refreshJobs();

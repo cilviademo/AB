@@ -96,3 +96,18 @@ SPEC fixes Python 3.11. Contracts are JSON Schema files under
 them in code. Prosody's pydantic pattern was not adopted because the contracts
 are shared with the TS engine and Ghidra scripts, which read the schema files
 directly.
+
+## D-012 The v2 bundle plan omits `recovery_kit/`; the kit stays frozen in `handoff/kit`
+The browser bundle shipped `recovery_kit/{vst_recover.py, ExportDecompiled.java,
+run_recovery.ps1, run_recovery.sh}` as the interim desktop stage (pedalboard +
+Ghidra). AB *is* that desktop stage, so the port does not emit the kit into
+recovery bundles (it would tell an agent to run tools AB already runs). The
+frozen kit remains in `handoff/kit/`; `vst_recover.py`'s pedalboard path stays
+available as a diagnostic fallback only. `recovery_kit/` is not a §6.1
+contract, so baselines are unaffected. Also not part of the plan: the archive
+root prefix (`<Name>_RECOVERED/`) — the engine names project folders.
+
+## D-013 Short BinaryData names
+v2's BinaryData-name rule needs ≥ 3 characters before the `_ext` suffix, so a
+resource named `bg_png` is not recognised statically. Kept as-is (frozen);
+Phase 3's `namedResourceList` decompile recovers such names from the binary.

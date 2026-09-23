@@ -1,0 +1,48 @@
+{
+  "schema": "recovery.dsp_constants",
+  "schema_version": 2,
+  "tool": "static-recovery-v2",
+  "generated": "2026-09-23T01:04:25.570Z",
+  "data": [
+    {
+      "label": "π",
+      "value": 3.141592653589793,
+      "count": 1,
+      "offsets": [
+        "0xc930"
+      ]
+    },
+    {
+      "label": "44.1 kHz",
+      "value": 44100,
+      "count": 1,
+      "offsets": [
+        "0xc938"
+      ]
+    },
+    {
+      "label": "1/√2 (Butterworth Q)",
+      "value": 0.7071067811865476,
+      "count": 1,
+      "offsets": [
+        "0xc93c"
+      ]
+    },
+    {
+      "label": "0.7071",
+      "value": 0.7071,
+      "count": 1,
+      "offsets": [
+        "0xc93c"
+      ]
+    },
+    {
+      "label": "2π",
+      "value": 6.283185307179586,
+      "count": 1,
+      "offsets": [
+        "0xc940"
+      ]
+    }
+  ]
+}

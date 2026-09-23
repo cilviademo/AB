@@ -1,0 +1,69 @@
+{
+  "schema": "recovery.classes",
+  "schema_version": 2,
+  "tool": "static-recovery-v2",
+  "generated": "2026-09-23T01:04:25.570Z",
+  "data": [
+    {
+      "name": "SerialScreen",
+      "safe_name": "SerialScreen",
+      "role": "UNKNOWN",
+      "role_status": "UNKNOWN",
+      "role_basis": [],
+      "inferred_base": null,
+      "file": "04_reconstruction/Source/RecoveredScaffolds/Unclassified/SerialScreen.cpp",
+      "status": "SCAFFOLD_ONLY",
+      "compiled": false
+    },
+    {
+      "name": "SynthLookAndFeel",
+      "safe_name": "SynthLookAndFeel",
+      "role": "GUI",
+      "role_status": "CANDIDATE",
+      "role_basis": [
+        "name tokens"
+      ],
+      "inferred_base": "juce::LookAndFeel_V4",
+      "file": "04_reconstruction/Source/RecoveredScaffolds/UI/SynthLookAndFeel.cpp",
+      "status": "SCAFFOLD_ONLY",
+      "compiled": false
+    },
+    {
+      "name": "SynthPlugAudioProcessor",
+      "safe_name": "SynthPlugAudioProcessor",
+      "role": "UNKNOWN",
+      "role_status": "UNKNOWN",
+      "role_basis": [],
+      "inferred_base": "juce::AudioProcessor",
+      "file": "04_reconstruction/Source/RecoveredScaffolds/Unclassified/SynthPlugAudioProcessor.cpp",
+      "status": "SCAFFOLD_ONLY",
+      "compiled": false
+    },
+    {
+      "name": "synth::SynthClipper",
+      "safe_name": "SynthClipper",
+      "role": "WAVESHAPER",
+      "role_status": "CANDIDATE",
+      "role_basis": [
+        "name tokens"
+      ],
+      "inferred_base": null,
+      "file": "04_reconstruction/Source/RecoveredScaffolds/DSP/SynthClipper.cpp",
+      "status": "SCAFFOLD_ONLY",
+      "compiled": false
+    },
+    {
+      "name": "synth::SynthFilter",
+      "safe_name": "SynthFilter",
+      "role": "FILTER",
+      "role_status": "CANDIDATE",
+      "role_basis": [
+        "name tokens"
+      ],
+      "inferred_base": null,
+      "file": "04_reconstruction/Source/RecoveredScaffolds/DSP/SynthFilter.cpp",
+      "status": "SCAFFOLD_ONLY",
+      "compiled": false
+    }
+  ]
+}
