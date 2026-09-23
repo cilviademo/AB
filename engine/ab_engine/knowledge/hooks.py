@@ -176,14 +176,16 @@ def after_validation(ctx: StageContext, *, modules: list[dict[str, Any]], index:
             if m is None:
                 continue
             members = [fp_id(fp_by_addr[r["addr"]]) for r in roles if r.get("role") == e["role"] and r["addr"] in fp_by_addr and not r.get("noise")][:32]
-            impl_id = hashlib.sha256((e["role"] + "|" + "|".join(sorted(members)) + "|" + (e.get("family") or "")).encode()).hexdigest()[:24]
+            # ADDENDUM C3 tiers: a transformed implementation is its own row, never written over the recovered one
+            tier = "TRANSFORMED_IMPLEMENTATION_KNOWLEDGE" if e.get("variant") == "TRANSFORMED" else "RECOVERED_IMPLEMENTATION_KNOWLEDGE"
+            impl_id = hashlib.sha256((tier + "|" + e["role"] + "|" + "|".join(sorted(members)) + "|" + (e.get("family") or "")).encode()).hexdigest()[:24]
             cls = m["classification"]
             state = "BEHAVIOR_MATCHED" if cls in ("BIT_EXACT", "NUMERICALLY_EQUIVALENT", "BEHAVIORALLY_EQUIVALENT") else ("RUNTIME_SUPPORTED" if cls == "PERCEPTUALLY_CLOSE" else "STATIC_SUPPORTED")
             bid = db.record_behavior(impl_id, artifact_sha256=ctx.job.artifact_sha256, probe_set_hash=measurements_hash, metrics_ref="06_validation/differential_results.json", result_state=cls)
             db.record_implementation(impl_id, name_hint=f"{e['role']}:{e.get('family') or e['symbol']}", member_fp_ids=members, artifact_sha256=ctx.job.artifact_sha256, state=state, behavior_ref=bid,
-                                     tool_version=TOOL, evidence_version="validation-stage")
-            db.record_reconstruction(impl_id, evidence_source_ref="04_reconstruction/evidence_source", human_source_ref=e.get("file"), validation_state=cls, rmse=e.get("rmse"))
-            e["knowledge"] = {"implementation": impl_id, "state": state, "members": len(members), "behavior": bid}
+                                     tool_version=TOOL, evidence_version="validation-stage", tier=tier)
+            db.record_reconstruction(impl_id, evidence_source_ref="04_reconstruction/evidence_source", recovered_source_ref=e.get("file"), validation_state=cls, rmse=e.get("rmse"))
+            e["knowledge"] = {"implementation": impl_id, "state": state, "members": len(members), "behavior": bid, "tier": tier}
             n += 1
         ctx.metrics["knowledge"] = {"implementations": n}
     _safe(ctx, "after_validation", go)

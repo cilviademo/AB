@@ -237,7 +237,7 @@ def export_job(ws: Workspace, conn: Any, job: Job, *, zip_it: bool, ctx: StageCo
 
         <Plugin>_RECOVERED/
           Source/ (Active + RecoveredScaffolds) · Resources/ · CMakeLists.txt · identity.cmake
-          human_source/ · evidence_source/              (04_reconstruction, when reconstruction is allowed)
+          recovered_source/ · evidence_source/              (04_reconstruction, when reconstruction is allowed)
           evidence/   (00_manifest, 01_evidence immutable, 02_recovered_assets, 03_architecture, 05_reference_behavior, knowledge_used.json)
           validation/ (06_validation)
           HANDOFF.md · TODO.md · agent_prompt.md · reconstruction_index.json · UNRECOVERABLE.md · README_RECOVERY.md · .gitignore
@@ -278,9 +278,9 @@ def export_job(ws: Workspace, conn: Any, job: Job, *, zip_it: bool, ctx: StageCo
     copy_tree(pd / "06_validation", out / "validation")
     rec = pd / "04_reconstruction"
     if rec.is_dir():
-        for d in ("Source", "Resources", "human_source", "evidence_source"):
+        for d in ("Source", "Resources", "recovered_source", "transformed_source", "evidence_source"):
             copy_tree(rec / d, out / d)
-        for f in ("CMakeLists.txt", "identity.cmake", "RECONSTRUCTION.md", "reconstruction_model.json", "identifier_map.json", "IDENTIFIER_MAP.md"):
+        for f in ("CMakeLists.txt", "identity.cmake", "RECONSTRUCTION.md", "reconstruction_model.json", "identifier_map.json", "IDENTIFIER_MAP.md", "transformation_graph.json"):
             copy_file(rec / f, out / f)
     for f in ("HANDOFF.md", "TODO.md", "agent_prompt.md", "reconstruction_index.json", "UNRECOVERABLE.md", "binary_symbol_map.json"):
         copy_file(pd / "07_agent_handoff" / f, out / f)

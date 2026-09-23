@@ -20,7 +20,7 @@
 4. Commit format `phase-N: <area>: <change>`.
 
 ## Stage pipeline (rail)
-INGEST → STATIC (frozen v2) → RUNTIME (`vst3host`) → DECOMPILE (Ghidra headless) → PROBE (behaviour renders + fits) → RECONSTRUCT (`ab_engine.reconstruct`: evidence model → human_source/evidence_source/Source/Active, gates) → BUILD (`ab_engine.build`: CMake in an isolated worker, pluginval) → COMPARE (`ab_engine.validate`: differential harness + state cross-load) → EXPORT (bundle, scanners, GIT_READY, agent handoff). Every stage can run alone: `ab-cli run <job> --stage <STAGE> [--option k=v]`; project-folder CLIs exist for the Phase 4 pieces (`ab-cli reconstruct <project_dir>`, `ab-cli build <project_dir>`, `ab-cli compare-wav a b`, `ab-cli handoff <job>`).
+INGEST → STATIC (frozen v2) → RUNTIME (`vst3host`) → DECOMPILE (Ghidra headless) → PROBE (behaviour renders + fits) → RECONSTRUCT (`ab_engine.reconstruct`: evidence model → recovered_source/evidence_source/Source/Active, gates) → BUILD (`ab_engine.build`: CMake in an isolated worker, pluginval) → COMPARE (`ab_engine.validate`: differential harness + state cross-load) → EXPORT (bundle, scanners, GIT_READY, agent handoff). Every stage can run alone: `ab-cli run <job> --stage <STAGE> [--option k=v]`; project-folder CLIs exist for the Phase 4 pieces (`ab-cli reconstruct <project_dir>`, `ab-cli build <project_dir>`, `ab-cli compare-wav a b`, `ab-cli handoff <job>`).
 
 Local Phase 4 loop on the fixture (Linux):
 ```

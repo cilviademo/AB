@@ -195,7 +195,7 @@ def agent_prompt(job: Job, ev: dict[str, Any]) -> str:
 Start here:
 1. 07_agent_handoff/reconstruction_index.json — every symbol with status, file, evidence, addresses, validation and todos. Work TODOs in confidence order (TODO.md).
 2. 04_reconstruction/RECONSTRUCTION.md and 06_validation/VALIDATION.md — what is compiled, what passed, what failed and on which renders.
-3. {'04_reconstruction/human_source/Waveshaper.h — the fitted module (' + str(ws_mod.get('validation')) + ' at the default; sweeps ' + str(ws_mod.get('validation_sweeps')) + ')' if ws_mod else '04_reconstruction/human_source/ — fitted modules (none yet)'}.
+3. {'04_reconstruction/recovered_source/Waveshaper.h — the fitted module (' + str(ws_mod.get('validation')) + ' at the default; sweeps ' + str(ws_mod.get('validation_sweeps')) + ')' if ws_mod else '04_reconstruction/recovered_source/ — fitted modules (none yet)'}.
 
 Rules:
 - Treat 01_evidence/ as immutable. Never edit it.

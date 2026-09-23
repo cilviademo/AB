@@ -1,6 +1,6 @@
 import { useCallback, useState } from "react";
 import { open } from "@tauri-apps/plugin-dialog";
-import type { Job, NamingMode, UsageContext, SourceAvailability, RecoveryContext } from "../lib/types";
+import type { Job, NamingMode, RecoveryGoal, UsageContext, SourceAvailability, RecoveryContext } from "../lib/types";
 import { CONTEXT_LABEL } from "../lib/types";
 import { Button, Note, Segmented } from "../components/ui";
 import { shortHash, when } from "../lib/format";
@@ -36,13 +36,14 @@ export function Recover({
   recent: Job[];
   busy: boolean;
   error: string | null;
-  onRecover: (paths: string[], context: RecoveryContext, name?: string, naming?: NamingMode) => void;
+  onRecover: (paths: string[], context: RecoveryContext, name?: string, naming?: NamingMode, goal?: RecoveryGoal) => void;
   onOpen: (jobId: string) => void;
 }) {
   const [hot, setHot] = useState(false);
   const [usageContext, setUsageContext] = useState<UsageContext>("USER_RECOVERY");
   const [sourceAvail, setSourceAvail] = useState<SourceAvailability>("SOURCE_UNKNOWN");
   const [naming, setNaming] = useState<NamingMode>("PRESERVE_ORIGINAL_NAMES");
+  const [goal, setGoal] = useState<RecoveryGoal>("PRESERVE_ORIGINAL");
 
   const chooseFiles = useCallback(async () => {
     const chosen = await open({ multiple: true, directory: false });
@@ -124,6 +125,18 @@ export function Recover({
               ]}
             />
             <p className="faint" style={{ margin: "var(--s2) 0 0" }}>Tags describe how results are read (binary-derived vs validated against known source). Every stage runs on every artifact.</p>
+            {/* Recovery goal (ADDENDUM C3): PRESERVE ORIGINAL is the default and produces no transformation nodes */}
+            <Segmented<RecoveryGoal>
+              ariaLabel="Recovery goal"
+              value={goal}
+              onChange={setGoal}
+              options={[
+                { value: "PRESERVE_ORIGINAL", label: "Preserve original", caption: "recovered implementation" },
+                { value: "MODERNIZE", label: "Modernize", caption: "same behaviour, current idioms" },
+                { value: "REFACTOR", label: "Refactor", caption: "same behaviour, modules" },
+                { value: "MIGRATE", label: "Migrate", caption: "not available yet" },
+              ]}
+            />
             {/* Naming (docs/NAMING_CANONICALIZATION.md §20): evidence keeps every original name; this decides what the source calls things */}
             <Segmented<NamingMode>
               ariaLabel="Naming"
@@ -138,7 +151,7 @@ export function Recover({
           </div>
 
           <div className="row" style={{ marginTop: "var(--s6)" }}>
-            <Button variant="primary" size="lg" disabled={busy || !hasBinary} onClick={() => onRecover(dropped, { usage_context: usageContext, source_availability: sourceAvail }, undefined, naming)}>
+            <Button variant="primary" size="lg" disabled={busy || !hasBinary} onClick={() => onRecover(dropped, { usage_context: usageContext, source_availability: sourceAvail }, undefined, naming, goal)}>
               RECOVER PROJECT
             </Button>
             <Button variant="quiet" disabled={busy} onClick={() => onDropped([])}>Clear</Button>

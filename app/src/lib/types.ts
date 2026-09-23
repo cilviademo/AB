@@ -25,6 +25,11 @@ export type SourceAvailability = "SOURCE_UNKNOWN" | "SOURCE_UNAVAILABLE" | "SOUR
 export interface RecoveryContext { usage_context: UsageContext; source_availability: SourceAvailability }
 // docs/NAMING_CANONICALIZATION.md §5, §20 — evidence always keeps original names; this only decides what the source calls things
 export type NamingMode = "PRESERVE_ORIGINAL_NAMES" | "CANONICALIZE_NAMES" | "CUSTOM_RENAME_MAP";
+// ADDENDUM C3 — recovery goal; PRESERVE_ORIGINAL produces no transformation nodes
+export type RecoveryGoal = "PRESERVE_ORIGINAL" | "MODERNIZE" | "MIGRATE" | "REFACTOR" | "PORT" | "REBUILD";
+export interface TransformationGraph { goal: RecoveryGoal; goal_text: string; available: boolean; not_available_reason?: string | null; active_variant: "RECOVERED" | "TRANSFORMED"; validated_variant?: string; transformation_nodes: number;
+  subsystems: { subsystem: string; module?: string; symbol?: string; status: string; behavioral_compatibility: string; transformation?: string | null; preserve?: string | null; nodes: { node: string; ref: string | null; status?: string }[]; intentional_behavioral_changes: { change: string; status: string }[] }[];
+  comparisons?: { pair: string; renders: number; classification?: string; worst_rmse?: number | null }[]; intentional_behavioral_changes?: { subsystem: string; symbol?: string; change: string; status: string }[] }
 export interface IdentifierRow { original: string; kind: string; original_address: string | null; evidence_status: string; category: string; semantic: string; active: string; reason: string; collision?: { with: string[]; resolved_by: string } }
 export interface IdentifierMap { mode: NamingMode; terms: Record<string, string>; identifiers: IdentifierRow[]; parameters: { runtime_param_id: string | number; original_display_name: string; transformed_display_name: string }[]; state_keys: { legacy: string; new: string; migration_status: string }[]; resources: { original_binarydata_name: string; original_filename: string; new_filename: string }[] }
 export const CONTEXT_LABEL: Record<UsageContext, string> = {

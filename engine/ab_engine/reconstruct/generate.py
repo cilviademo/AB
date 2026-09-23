@@ -2,7 +2,7 @@
 
 Writes, from the evidence model (``reconstruct.model``):
 
-* ``human_source/``            concise idiomatic JUCE/C++ per module, evidence tags in comments
+* ``recovered_source/``        concise idiomatic JUCE/C++ per module (formerly human_source/); ``transformed_source/`` per goal, evidence tags in comments
 * ``evidence_source/``         decompiler pseudo-C for the DSP-role classes (copied from 01_evidence)
 * ``Source/Active/``           ONLY what passed its gate: parameter layout (VERIFIED_RUNTIME ids),
                                processor/editor shell, and modules at ≥ BEHAVIORALLY_EQUIVALENT
@@ -167,13 +167,17 @@ def parameters_source(params: list[dict[str, Any]], state: dict[str, Any]) -> st
     return "\n".join(lines)
 
 
-def processor_header(cls: str, product: str, m: dict[str, Any]) -> str:
+def processor_header(cls: str, product: str, m: dict[str, Any], *, variant: str = "RECOVERED") -> str:
     ident = m["identity"]
     lat = ident.get("latency_samples") or 0
+    active = bool(m["modules"] and m["modules"][0]["active"])
+    include = ('#include "DSP/Saturation.h"' if variant == "TRANSFORMED" else '#include "DSP/Waveshaper.h"') if active else '// Waveshaper module did not reach BEHAVIORALLY_EQUIVALENT: see recovered_source/ (not compiled)'
+    member = ('ab_transformed::SaturationStage shaper;' if variant == "TRANSFORMED" else 'ab_rebuild::Waveshaper shaper;') if active else ''
     return f"""{HEADER}#pragma once
 #include <juce_audio_processors/juce_audio_processors.h>
+{'#include <juce_dsp/juce_dsp.h>' if variant == "TRANSFORMED" else ''}
 #include "Parameters.h"
-{'#include "DSP/Waveshaper.h"' if m["modules"] and m["modules"][0]["active"] else '// Waveshaper module did not reach BEHAVIORALLY_EQUIVALENT: see human_source/ (not compiled)'}
+{include}
 
 class {cls} : public juce::AudioProcessor
 {{
@@ -204,15 +208,15 @@ public:
 
 private:
     static constexpr int reportedLatency = {lat};   // VERIFIED_RUNTIME (getLatencySamples of the original); reproduced with a plain delay — cause (oversampling FIR) is a scaffold TODO
-    {'ab_rebuild::Waveshaper shaper;' if m["modules"] and m["modules"][0]["active"] else ''}
-    std::vector<std::vector<float>> delayBuf;
-    std::vector<int> delayPos;
+    {member}
+    {'juce::dsp::DelayLine<float, juce::dsp::DelayLineInterpolationTypes::None> latencyLine;   // transformed: the recovered ring buffer as a juce::dsp delay line (integer delay, same samples)' if variant == "TRANSFORMED" else 'std::vector<std::vector<float>> delayBuf;'}
+    {'' if variant == "TRANSFORMED" else 'std::vector<int> delayPos;'}
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR ({cls})
 }};
 """
 
 
-def processor_source(cls: str, editor_cls: str, m: dict[str, Any]) -> str:
+def processor_source(cls: str, editor_cls: str, m: dict[str, Any], *, variant: str = "RECOVERED") -> str:
     ident = m["identity"]
     buses = ident.get("buses") or {}
     n_in = (buses.get("input_audio") or [{}])[0].get("channel_count", 2) if buses.get("input_audio") else 2
@@ -246,9 +250,28 @@ def processor_source(cls: str, editor_cls: str, m: dict[str, Any]) -> str:
             else d[i] = y;
         }
     }"""
+        if active and variant != "TRANSFORMED" else
+        """    shaper.update();
+    if (shaper.isPassthrough())
+        return;  // measured: the bypassed original passes input through without the reported latency
+    juce::dsp::AudioBlock<float> block (buffer);
+    shaper.process (juce::dsp::ProcessContextReplacing<float> (block));
+    if (reportedLatency > 0)
+        latencyLine.process (juce::dsp::ProcessContextReplacing<float> (block));
+    juce::ignoreUnused (channels, n);"""
         if active else
         """    // No module reached BEHAVIORALLY_EQUIVALENT: the Active build is a verified shell (parameters, state, buses, latency) that passes audio through.
     juce::ignoreUnused (channels, n);""")
+    prepare_body = (
+        """    juce::dsp::ProcessSpec spec { sampleRate, (juce::uint32) juce::jmax (1, maximumBlockSize), (juce::uint32) juce::jmax (1, getTotalNumOutputChannels()) };
+    latencyLine.setMaximumDelayInSamples (juce::jmax (1, reportedLatency));
+    latencyLine.prepare (spec);
+    latencyLine.setDelay ((float) reportedLatency);
+    latencyLine.reset();""" + ("\n    shaper.prepare (apvts);" if active else "")
+        if variant == "TRANSFORMED" else
+        """    delayBuf.assign ((size_t) juce::jmax (1, getTotalNumOutputChannels()), std::vector<float> ((size_t) juce::jmax (1, reportedLatency), 0.0f));
+    delayPos.assign (delayBuf.size(), 0);""")
+    channels_line = ("    const int channels = buffer.getNumChannels();" if variant == "TRANSFORMED" else "    const int channels = juce::jmin (buffer.getNumChannels(), (int) delayBuf.size());")
     return f"""{HEADER}#include "PluginProcessor.h"
 #include "PluginEditor.h"
 
@@ -267,16 +290,16 @@ bool {cls}::isBusesLayoutSupported (const BusesLayout& layouts) const
         && layouts.getMainOutputChannelSet() == juce::AudioChannelSet::canonicalChannelSet ({n_out});
 }}
 
-void {cls}::prepareToPlay (double, int)
+void {cls}::prepareToPlay (double sampleRate, int maximumBlockSize)
 {{
-    delayBuf.assign ((size_t) juce::jmax (1, getTotalNumOutputChannels()), std::vector<float> ((size_t) juce::jmax (1, reportedLatency), 0.0f));
-    delayPos.assign (delayBuf.size(), 0);
+    juce::ignoreUnused (sampleRate, maximumBlockSize);
+{prepare_body}
 }}
 
 void {cls}::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer&)
 {{
     juce::ScopedNoDenormals noDenormals;
-    const int channels = juce::jmin (buffer.getNumChannels(), (int) delayBuf.size());
+{channels_line}
     const int n = buffer.getNumSamples();
 {process_body}
 }}
@@ -394,10 +417,20 @@ def _write(path: Path, text: str, written: list[str], root: Path) -> None:
     written.append(path.relative_to(root).as_posix())
 
 
-def generate(project: Path, m: dict[str, Any]) -> dict[str, Any]:
-    """Write the reconstruction tree; return {index, written, target, summary}."""
+def generate(project: Path, m: dict[str, Any], *, plan: dict[str, Any] | None = None, imap: dict[str, Any] | None = None) -> dict[str, Any]:
+    """Write the reconstruction tree; return {index, written, target, summary}.
+
+    ``plan`` (transform.goals.plan) decides the variant Source/Active is built from: RECOVERED
+    (recovered_source/, the closest reconstruction of the original) or TRANSFORMED (transformed_source/,
+    generated for MODERNIZE / REFACTOR). Both trees are always kept; ``imap`` supplies canonical names."""
+    from ab_engine.transform import goals as goals_mod  # noqa: PLC0415
+    from ab_engine.transform import modernize  # noqa: PLC0415
+
+    plan = plan or goals_mod.plan("PRESERVE_ORIGINAL", dict(goals_mod.SWITCHES))
+    variant = plan.get("active_variant", "RECOVERED")
     rec = project / "04_reconstruction"
     active = rec / "Source" / "Active"
+    shutil.rmtree(rec / "human_source", ignore_errors=True)   # renamed to recovered_source (SPEC §9, Addendum C3)
     written: list[str] = []
     ident = m["identity"]
     product = ident.get("product") or project.name
@@ -408,22 +441,35 @@ def generate(project: Path, m: dict[str, Any]) -> dict[str, Any]:
     index: list[dict[str, Any]] = []
 
     # ---- modules --------------------------------------------------------------------------
+    active_name = next((r["active"] for r in (imap or {}).get("identifiers", []) if r.get("role") == "WAVESHAPER" and r.get("active") != r.get("original", "").split("::")[-1]), "SaturationStage")
     for ws in m["modules"]:
         src = waveshaper_source(ws, params)
-        _write(rec / "human_source" / "Waveshaper.h", src, written, project)
+        _write(rec / "recovered_source" / "Waveshaper.h", src, written, project)
+        tsrc = None
+        if variant == "TRANSFORMED":
+            tsrc = modernize.saturation_source(ws, params, class_name="SaturationStage")
+            _write(rec / "transformed_source" / "DSP" / "Saturation.h", tsrc, written, project)
         if ws["active"]:
-            _write(active / "DSP" / "Waveshaper.h", src, written, project)
+            _write(active / "DSP" / ("Saturation.h" if variant == "TRANSFORMED" else "Waveshaper.h"), tsrc or src, written, project)
+        if tsrc is not None:
+            index.append({"symbol": "ab_transformed::SaturationStage", "role": ws["role"], "variant": "TRANSFORMED", "transformation": plan["goal"], "recovered_symbol": "ab_rebuild::Waveshaper",
+                          "file": "04_reconstruction/transformed_source/DSP/Saturation.h", "active_file": "04_reconstruction/Source/Active/DSP/Saturation.h" if ws["active"] else None, "compiled": ws["active"],
+                          "status": "TRANSFORMED", "transformation_status": "PENDING_VALIDATION", "family": ws["family"],
+                          "changes": ["block-processing API (juce::dsp ProcessorBase shape)", "parameter handles cached at prepare()", "noexcept / [[nodiscard]] / constexpr", "canonical name " + active_name],
+                          "evidence": ["derived from ab_rebuild::Waveshaper (same fit, same laws)"], "validation": "PENDING (differential harness: ORIGINAL ↔ TRANSFORMED)",
+                          "promotion": "MODERNIZED_EQUIVALENT only at ≥ BEHAVIORALLY_EQUIVALENT on the differential harness; otherwise TRANSFORMED_COMPATIBLE / TRANSFORMED_BREAKING",
+                          "todos": []})
         laws = [{"parameter": mo["key"], "law": mo["law"], "knob": mo["knob"], "status": mo["status"], "worst_rmse_ref": mo["worst_rmse_ref"], "basis": mo["basis"],
                  "points": [{k: r[k] for k in ("normalized", "knob", "factor", "rmse", "max_error") if k in r} | ({"value": r["value"]} if "value" in r else {}) | ({"linear_slope": r["linear"]["slope"]} if r.get("is_linear") else {})
                             for r in mo["points"]]} for mo in ws["modulation"]]
-        index.append({"symbol": "ab_rebuild::Waveshaper", "role": ws["role"], "file": "04_reconstruction/human_source/Waveshaper.h",
-                      "active_file": "04_reconstruction/Source/Active/DSP/Waveshaper.h" if ws["active"] else None, "compiled": ws["active"],
+        index.append({"symbol": "ab_rebuild::Waveshaper", "role": ws["role"], "variant": "RECOVERED", "file": "04_reconstruction/recovered_source/Waveshaper.h",
+                      "active_file": ("04_reconstruction/Source/Active/DSP/Waveshaper.h" if variant == "RECOVERED" else None) if ws["active"] else None, "compiled": ws["active"] and variant == "RECOVERED",
                       "status": ws["status"], "classification": ws["classification_at_default"], "rmse": ws["rmse"], "max_error": ws["max_error"], "correlation": ws["correlation"],
                       "family": ws["family"], "fit_params": ws["params"], "candidates": ws["candidates"], "family_basis": ws["family_basis"],
                       "evidence": ["BEHAVIOR_MATCHED (transfer curve, amplitude ramp, vst3host render of the original)", "VST3_EXPORTED_PARAMETER laws measured one-at-a-time"],
                       "reference": ws["reference"], "binary_addresses": [], "parameters": [mo["key"] for mo in ws["modulation"] if mo["law"] not in ("none", "unmodeled")],
                       "laws": laws, "validation": "PENDING (differential harness fills this in)",
-                      "promotion": "Source/Active (fit ≤ 1e-4 RMSE = BEHAVIORALLY_EQUIVALENT gate)" if ws["active"] else f"human_source only: fit RMSE {ws['rmse']:.2e} > {ACTIVE_RMSE:g}",
+                      "promotion": "Source/Active (fit ≤ 1e-4 RMSE = BEHAVIORALLY_EQUIVALENT gate)" if ws["active"] else f"recovered_source only: fit RMSE {ws['rmse']:.2e} > {ACTIVE_RMSE:g}",
                       "todos": [f"{mo['key']}: {mo['basis']}" for mo in ws["modulation"] if mo["law"] == "unmodeled"]
                       + ["combined parameter settings are INFERRED (separable model); extend probes to pairs to verify",
                          "parameter smoothing of the original (~20 ms measured settle) is not modelled"]})
@@ -443,12 +489,18 @@ def generate(project: Path, m: dict[str, Any]) -> dict[str, Any]:
                 copied += 1
     _write(ev_dir / "README.md", "# evidence_source\n\n" + (
         f"{copied} decompiler evidence file(s) copied from 01_evidence/decompiler/classes for the plugin-owned DSP-role classes. This is pseudo-C with binary addresses, kept close to decompiler semantics and never compiled; port into human_source/ only with evidence (reconstruction_index.json).\n"
-        if copied else "No decompiler evidence is available for this job (DECOMPILATION_COMPLETE did not run or found no plugin-owned DSP classes). human_source/ modules are behaviour-fitted only.\n"), written, project)
+        if copied else "No decompiler evidence is available for this job (DECOMPILATION_COMPLETE did not run or found no plugin-owned DSP classes). recovered_source/ modules are behaviour-fitted only.\n"), written, project)
 
     # ---- Active shell -------------------------------------------------------------------------
     _write(active / "Parameters.h", parameters_source(params, m["state"]), written, project)
-    _write(active / "PluginProcessor.h", processor_header(cls, product, m), written, project)
-    _write(active / "PluginProcessor.cpp", processor_source(cls, editor_cls, m), written, project)
+    _write(active / "PluginProcessor.h", processor_header(cls, product, m, variant=variant), written, project)
+    _write(active / "PluginProcessor.cpp", processor_source(cls, editor_cls, m, variant=variant), written, project)
+    if variant == "TRANSFORMED":
+        _write(rec / "transformed_source" / "PluginProcessor.h", processor_header(cls, product, m, variant="TRANSFORMED"), written, project)
+        _write(rec / "transformed_source" / "PluginProcessor.cpp", processor_source(cls, editor_cls, m, variant="TRANSFORMED"), written, project)
+        _write(rec / "transformed_source" / "README.md", f"# transformed_source — goal {plan['goal']}\n\n{plan['goal_text']}.\n\nSource/Active is built from this tree; recovered_source/ keeps the closest reconstruction of the original. Status per subsystem: 04_reconstruction/transformation_graph.json (filled by COMPARE).\n", written, project)
+    else:
+        _write(rec / "transformed_source" / "README.md", "# transformed_source\n\nRecovery goal PRESERVE_ORIGINAL: no transformation was requested, so this tree is empty and Source/Active is the recovered implementation (ADDENDUM C3).\n", written, project)
     eh, es = editor_sources(cls, editor_cls, m)
     _write(active / "PluginEditor.h", eh, written, project)
     _write(active / "PluginEditor.cpp", es, written, project)
@@ -505,7 +557,7 @@ def generate(project: Path, m: dict[str, Any]) -> dict[str, Any]:
                       "promotion": "SCAFFOLD_ONLY → STATIC_RECONSTRUCTED → BEHAVIOR_MATCHED → Source/Active" + (" (licensing: validated against the original's licence states — LICENSE_BEHAVIOR_MATCHED / LICENSE_STATE_COMPATIBLE; a validate → true edit is TRANSFORMED_BREAKING)" if c["role"] == roles_mod.LICENSING_ROLE else ""),
                       "subsystem": "LICENSING_AND_ENTITLEMENT_SUBSYSTEM" if c["role"] == roles_mod.LICENSING_ROLE else ("UI" if c["role"] == "GUI" else "DSP" if c["role"] in roles_mod.DSP_ROLES else "STATE" if c["role"] == "STATE" else "UNKNOWN"),
                       "todos": ["recover members/method bodies from evidence_source", "behavioural validation before promotion"] + (["recover the serial/entitlement/demo state relationships; test valid, invalid, expired, missing, trial states original vs reconstruction where the original runs"] if c["role"] == roles_mod.LICENSING_ROLE else [])})
-    summary = {"target": target, "build_kind": m["build_kind"], "modules_active": sum(1 for ws in m["modules"] if ws["active"]), "modules": len(m["modules"]),
+    summary = {"target": target, "build_kind": m["build_kind"], "goal": plan["goal"], "active_variant": variant, "modules_active": sum(1 for ws in m["modules"] if ws["active"]), "modules": len(m["modules"]),
                "parameters": sum(1 for p in params if p.get("generate")), "scaffolds": len(m["scaffolds"]), "resources": len(resources), "evidence_files": copied}
     return {"index": index, "written": written, "target": target, "summary": summary, "resources": resources}
 

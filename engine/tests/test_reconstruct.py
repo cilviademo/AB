@@ -108,7 +108,7 @@ def test_generate_writes_active_only_for_validated_modules(tmp_path):
     m = model.build(p)
     out = generate.generate(p, m)
     rec = p / "04_reconstruction"
-    assert (rec / "Source/Active/DSP/Waveshaper.h").is_file() and (rec / "human_source/Waveshaper.h").is_file()
+    assert (rec / "Source/Active/DSP/Waveshaper.h").is_file() and (rec / "recovered_source/Waveshaper.h").is_file()
     src = (rec / "Source/Active/DSP/Waveshaper.h").read_text()
     assert "std::tanh (u) / std::tanh (drive)" in src
     assert 'decibelsToGain (apvts.getRawParameterValue ("gainIn")->load() - 0.0f)' in src

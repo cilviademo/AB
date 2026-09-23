@@ -45,7 +45,7 @@ CREATE TABLE IF NOT EXISTS function (function_fp_id TEXT PRIMARY KEY, raw_sha256
 CREATE INDEX IF NOT EXISTS idx_function_norm ON function(norm_sha256);
 CREATE INDEX IF NOT EXISTS idx_function_cfg ON function(cfg_sig);
 CREATE TABLE IF NOT EXISTS function_occurrence (function_fp_id TEXT, artifact_sha256 TEXT, address TEXT, source TEXT, PRIMARY KEY (function_fp_id, artifact_sha256, address));
-CREATE TABLE IF NOT EXISTS implementation (impl_id TEXT PRIMARY KEY, name_hint TEXT, member_fp_ids TEXT, family_id TEXT, state TEXT, behavior_ref TEXT, first_seen TEXT, last_verified TEXT, source_hashes TEXT);
+CREATE TABLE IF NOT EXISTS implementation (impl_id TEXT PRIMARY KEY, name_hint TEXT, member_fp_ids TEXT, family_id TEXT, state TEXT, behavior_ref TEXT, first_seen TEXT, last_verified TEXT, source_hashes TEXT, tier TEXT DEFAULT 'RECOVERED_IMPLEMENTATION_KNOWLEDGE');
 CREATE TABLE IF NOT EXISTS family (family_id TEXT PRIMARY KEY, label TEXT, method TEXT, state TEXT, first_seen TEXT);
 CREATE TABLE IF NOT EXISTS resource (sha256 TEXT PRIMARY KEY, ext TEXT, dims TEXT, binarydata_name TEXT, mapping_status TEXT, first_seen TEXT, source_hashes TEXT);
 CREATE TABLE IF NOT EXISTS parameter (artifact_sha256 TEXT, param_id INTEGER, title TEXT, units TEXT, step_count INTEGER, default_norm REAL, flags INTEGER, tier TEXT, PRIMARY KEY (artifact_sha256, param_id));
@@ -89,6 +89,9 @@ class KnowledgeDB:
         self.db.row_factory = sqlite3.Row
         self.db.executescript(SCHEMA)
         self.db.execute("INSERT OR IGNORE INTO meta VALUES ('schema_version', ?)", (str(SCHEMA_VERSION),))
+        # ADDENDUM C3 tiers on databases created before them (old evidence never discarded)
+        if "tier" not in {r[1] for r in self.db.execute("PRAGMA table_info(implementation)")}:
+            self.db.execute("ALTER TABLE implementation ADD COLUMN tier TEXT DEFAULT 'RECOVERED_IMPLEMENTATION_KNOWLEDGE'")
 
     # ---- history / states ----------------------------------------------------------------
     def history(self, entity_type: str, entity_id: str, previous: str | None, current: str, reason: str, *, tool_version: str = "", evidence_version: str = "") -> None:
@@ -328,12 +331,13 @@ class KnowledgeDB:
 
     # ---- implementations / behaviour / reconstruction (promotion) ------------------------------
     def record_implementation(self, impl_id: str, *, name_hint: str, member_fp_ids: list[str], artifact_sha256: str, state: str, behavior_ref: str | None = None,
-                              tool_version: str = "", evidence_version: str = "") -> None:
+                              tool_version: str = "", evidence_version: str = "", tier: str = "RECOVERED_IMPLEMENTATION_KNOWLEDGE") -> None:
         prev = self.db.execute("SELECT state, source_hashes FROM implementation WHERE impl_id=?", (impl_id,)).fetchone()
         hashes = set(json.loads(prev["source_hashes"])) if prev else set()
         hashes.add(artifact_sha256)
         if prev is None:
-            self.db.execute("INSERT INTO implementation VALUES (?,?,?,?,?,?,?,?,?)", (impl_id, name_hint, json.dumps(member_fp_ids), None, state, behavior_ref, _now(), _now(), json.dumps(sorted(hashes))))
+            self.db.execute("INSERT INTO implementation (impl_id, name_hint, member_fp_ids, family_id, state, behavior_ref, first_seen, last_verified, source_hashes, tier) VALUES (?,?,?,?,?,?,?,?,?,?)",
+                            (impl_id, name_hint, json.dumps(member_fp_ids), None, state, behavior_ref, _now(), _now(), json.dumps(sorted(hashes)), tier))
             self.history("implementation", impl_id, None, state, f"first recorded from {artifact_sha256[:12]}", tool_version=tool_version, evidence_version=evidence_version)
         else:
             self.db.execute("UPDATE implementation SET member_fp_ids=?, behavior_ref=COALESCE(?, behavior_ref), last_verified=?, source_hashes=? WHERE impl_id=?",

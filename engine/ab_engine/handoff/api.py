@@ -29,7 +29,7 @@ def h_loop_run(params: dict[str, Any], ws: Workspace) -> dict[str, Any]:
 
     Re-derives 04_reconstruction from the current evidence, rebuilds, replays every probe, then
     regenerates the handoff so the next target (locate error → patch) is named with its evidence.
-    Nothing is patched automatically: the loop reports, a person or agent edits human_source/.
+    Nothing is patched automatically: the loop reports, a person or agent edits recovered_source/.
     """
     from ab_engine.jobs import runner  # noqa: PLC0415
 

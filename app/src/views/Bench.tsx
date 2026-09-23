@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import type { BundleEntry, IdentifierMap, Job, ProgressEvent, StageKey } from "../lib/types";
+import type { BundleEntry, IdentifierMap, Job, ProgressEvent, StageKey, TransformationGraph } from "../lib/types";
 import { CONTEXT_LABEL, STAGE_KEYS, STAGE_OF } from "../lib/types";
 import { api, shell } from "../lib/api";
 import {
@@ -401,6 +401,7 @@ interface FlowNode { addr: string; name: string; role: string; role_status: stri
 function Architecture({ job }: { job: Job }) {
   const classes = useDoc<ClassRow[]>(job, "03_architecture/classes.json");
   const imap = useDoc<IdentifierMap>(job, "04_reconstruction/identifier_map.json");
+  const tg = useDoc<TransformationGraph>(job, "04_reconstruction/transformation_graph.json");
   const flow = useDoc<{ seed: string | null; seed_basis: string; evidence: string; nodes: FlowNode[]; edges: { from: string; to: string }[] }>(job, "03_architecture/signal_flow.json");
   const lineage = useDoc<unknown>(job, "LINEAGE_REPORT.md");
   void lineage;
@@ -426,6 +427,25 @@ function Architecture({ job }: { job: Job }) {
         </table>
       </Section>
       <div style={{ marginTop: "var(--s8)" }}>
+        <Section title="Transformation" meta={tg ? `goal ${tg.goal} · Active = ${tg.active_variant}${tg.validated_variant ? ` · validated ${tg.validated_variant}` : ""} · ${tg.transformation_nodes} transformation node(s)` : "RECONSTRUCT stage not run"}>
+          {tg ? (
+            <>
+              {tg.not_available_reason ? <p className="copy faint">Goal not available: {tg.not_available_reason}</p> : null}
+              <table className="tbl">
+                <thead><tr><th>subsystem</th><th>status</th><th>compatibility</th><th>transformation</th><th>preserve</th><th>chain</th></tr></thead>
+                <tbody>
+                  {tg.subsystems.filter((s) => s.subsystem !== "Scaffold").map((s, i) => (
+                    <tr key={i}><td>{s.subsystem}{s.module ? ` · ${s.module}` : ""}{s.symbol ? ` · ${s.symbol}` : ""}</td><td className="mono">{s.status}</td><td>{s.behavioral_compatibility}</td><td>{s.transformation ?? "—"}</td><td>{s.preserve ?? "—"}</td><td className="faint">{s.nodes.map((n) => n.node.replace(/_/g, " ").toLowerCase()).join(" → ")}</td></tr>
+                  ))}
+                </tbody>
+              </table>
+              {tg.comparisons?.length ? <p className="copy faint">Comparisons: {tg.comparisons.map((c) => `${c.pair}: ${c.classification ?? "see modules"} (${c.renders})`).join(" · ")}</p> : null}
+              {tg.intentional_behavioral_changes?.length ? (
+                <ul className="copy">{tg.intentional_behavioral_changes.map((c, i) => <li key={i}><span className="mono">{c.status}</span> {c.subsystem}{c.symbol ? ` ${c.symbol}` : ""}: {c.change}</li>)}</ul>
+              ) : <p className="copy faint">No behavioural change recorded.</p>}
+            </>
+          ) : null}
+        </Section>
         <Section title="Names" meta={imap ? `${imap.mode} · ${imap.identifiers.filter((r) => r.active !== r.original.split("::").pop()).length} renamed · reversible` : "RECONSTRUCT stage not run"}>
           {imap && imap.identifiers.some((r) => r.active !== r.original.split("::").pop()) ? (
             <table className="tbl">
@@ -531,7 +551,7 @@ function Build({ job }: { job: Job }) {
             ["Build kind", <><Ev state={kindState} title={model.build_kind} /> {model.build_kind === "SURROGATE" ? "temporary identity — never session-compatible" : "original identity"}</>],
             ["Identity", <>{model.identity.manufacturer_code ?? "—"}/{model.identity.plugin_code ?? "—"} <span className="faint">{model.identity.codes_status ?? ""}</span>{model.identity.fidelity_refused ? <div className="faint">{model.identity.fidelity_refused}</div> : null}</>],
             ["Parameters", `${model.parameters.filter((p) => p.generate).length} generated (${model.parameters.filter((p) => p.generate && (p.id_status ?? "").startsWith("VERIFIED")).length} ids VERIFIED_RUNTIME)`],
-            ["Modules", model.modules.length ? model.modules.map((m) => `${m.name}: ${m.family} · rmse ${m.rmse.toExponential(2)} · ${m.active ? "Source/Active" : "human_source only"}`).join("; ") : "none fitted"],
+            ["Modules", model.modules.length ? model.modules.map((m) => `${m.name}: ${m.family} · rmse ${m.rmse.toExponential(2)} · ${m.active ? "Source/Active" : "recovered_source only"}`).join("; ") : "none fitted"],
           ]} />
         ) : <Note>Run the RECONSTRUCT stage to derive Source/Active from the evidence; only VERIFIED_RUNTIME parameters and BEHAVIOR_MATCHED modules are compiled.</Note>}
         {model?.modules.map((m) => (

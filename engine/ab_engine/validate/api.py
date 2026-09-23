@@ -33,7 +33,7 @@ from ab_engine.runtime.host import HostError, Vst3Host
 from ab_engine.validate import harness
 from ab_engine.workspace import Workspace
 
-STAGE_VERSION = 3  # 3: windowed ramp comparison, unity-peak scaling, module split (default vs sweeps)
+STAGE_VERSION = 4  # 4: per-variant behaviour, three-way comparisons, transformation graph + licensing states (C2/C3); 3: windowed ramp comparison, unity-peak scaling, module split (default vs sweeps)
 
 
 def _load(p: Path) -> Any:
@@ -67,6 +67,12 @@ def stage_validate(ctx: StageContext) -> None:
             laws[mo["key"]] = mo["law"]
             laws["_titles"][mo["key"]] = mo["title"]
     val = ctx.project_dir / "06_validation"
+    # ADDENDUM C3: which implementation this build is (RECOVERED or TRANSFORMED); its behaviour is stored apart
+    graph_path = ctx.project_dir / "04_reconstruction" / "transformation_graph.json"
+    graph = _load(graph_path) or {}
+    variant = str(graph.get("active_variant") or model.get("active_variant") or "RECOVERED").upper()
+    beh_dir = val / f"{variant.lower()}_behavior"
+    beh_dir.mkdir(parents=True, exist_ok=True)
     keep_dir = val / "rebuild_renders"
     keep_dir.mkdir(parents=True, exist_ok=True)
     tmp = ctx.ws.tmp / f"validate-{ctx.job.job_id}"
@@ -107,6 +113,28 @@ def stage_validate(ctx: StageContext) -> None:
             per_module.setdefault(mod, []).append(cmp["classification"])
             per_module_rows.setdefault(mod, []).append(item["id"])
     shutil.rmtree(tmp, ignore_errors=True)
+    # the variant's behaviour, kept apart from the original's (05_reference_behavior) and from the other variant's
+    write_json(beh_dir / "renders.json", "artifactbench.variant_behavior", {"variant": variant, "behavior": f"{variant}_BEHAVIOR", "renders": [{"id": r["id"], "object": r.get("object"), "classification": r.get("classification")} for r in renders]})
+    ctx.output(f"06_validation/{variant.lower()}_behavior/renders.json")
+    # three-way comparisons (C3): ORIGINAL ↔ this variant is what `renders` holds; RECOVERED ↔ TRANSFORMED when both exist
+    comparisons: list[dict[str, Any]] = [{"pair": f"ORIGINAL↔{variant}", "renders": len(renders), "source": "06_validation/differential_results.json"}]
+    other = "TRANSFORMED" if variant == "RECOVERED" else "RECOVERED"
+    other_doc = _load(val / f"{other.lower()}_behavior" / "renders.json") or {}
+    other_by = {r["id"]: r.get("object") for r in other_doc.get("renders", []) if r.get("object")}
+    if other_by:
+        pair_rows = []
+        for r in renders:
+            if r.get("object") and r["id"] in other_by and ctx.store.has(other_by[r["id"]]) and ctx.store.has(r["object"]):
+                ya, _ = m.read_wav(ctx.store.get_path(r["object"]))
+                yb, _ = m.read_wav(ctx.store.get_path(other_by[r["id"]]))
+                item = next((x for x in items if x["id"] == r["id"]), {})
+                window = (probes.ramp_lead_in(int(item.get("frames", 0))), int(item.get("frames", 0))) if item.get("probe") == "ramp" else None
+                c2 = harness.compare_renders(ya[0] if ya.shape[0] else ya.reshape(-1), yb[0] if yb.shape[0] else yb.reshape(-1), float(r["sr"]), 0, 0, window=window)
+                pair_rows.append({"id": r["id"], "classification": c2["classification"], "rmse": c2.get("rmse")})
+        if pair_rows:
+            comparisons.append({"pair": "RECOVERED↔TRANSFORMED", "renders": len(pair_rows), "classification": harness.worst([x["classification"] for x in pair_rows]),
+                                "worst_rmse": max((x["rmse"] for x in pair_rows if x.get("rmse") is not None), default=None), "rows": pair_rows[:200],
+                                "note": "a modernization may differ architecturally while preserving external behaviour; this measures it"})
 
     by_id = {r["id"]: r for r in renders}
     modules = []
@@ -144,7 +172,7 @@ def stage_validate(ctx: StageContext) -> None:
 
     overall = harness.worst([x["classification"] for x in modules]) if modules else "NOT_VALIDATED"
     write_json(val / "differential_results.json", "artifactbench.differential_results",
-               {"original": str(orig), "rebuild": str(reb), "renders": renders, "modules": modules, "overall": overall, "cross_load": cross["classification"],
+               {"original": str(orig), "rebuild": str(reb), "variant": variant, "comparisons": comparisons, "renders": renders, "modules": modules, "overall": overall, "cross_load": cross["classification"],
                 "thresholds": {"BEHAVIORALLY_EQUIVALENT": "RMSE ≤ 1e-4, spectrum ≤ 0.1 dB to 20 kHz, latency delta 0", "PERCEPTUALLY_CLOSE": "RMSE ≤ 1e-2, spectrum ≤ 1 dB",
                                "level": "signals hotter than unity are scaled to the original's peak", "ramp": "classified on the measurement window after the settle lead-in (D-017); lead-in error reported per render"}})
     for rel in ("06_validation/differential_results.json", "06_validation/cross_load.json"):
@@ -160,7 +188,7 @@ def stage_validate(ctx: StageContext) -> None:
     lic_state_keys = [k for k in state_keys if k and lic_mod.looks_like_license_state(k)]
     rec_dir = ctx.project_dir / "04_reconstruction"
     bypass = []
-    for sub in ("Source/Active", "transformed_source", "recovered_source", "human_source"):
+    for sub in ("Source/Active", "transformed_source", "recovered_source", "recovered_source"):
         bypass += lic_mod.scan_tree(rec_dir / sub, symbols=[e["symbol"] for e in lic_entries] or None, evidence_root=rec_dir / "evidence_source")
     lic_rows = []
     for e in lic_entries:
@@ -176,6 +204,15 @@ def stage_validate(ctx: StageContext) -> None:
                         "rule": "recovered, reconstructed and validated like DSP; a check replaced by a constant is TRANSFORMED_BREAKING, never recovery (ADDENDUM C2)"}
     write_json(val / "licensing_validation.json", "artifactbench.licensing_validation", licensing_report)
     ctx.output("06_validation/licensing_validation.json")
+    if graph:
+        from ab_engine.transform import graph as graph_mod  # noqa: PLC0415
+
+        graph = graph_mod.update_with_validation(graph, variant=variant, modules=modules, cross=cross, licensing=licensing_report, comparisons=comparisons)
+        write_json(graph_path, "artifactbench.transformation_graph", graph)
+        ctx.output("04_reconstruction/transformation_graph.json")
+        for ch in graph.get("intentional_behavioral_changes", []):
+            if ch.get("status") == "TRANSFORMED_BREAKING":
+                ctx.warn("TRANSFORMED_BREAKING", f"{ch.get('subsystem')} {ch.get('symbol') or ''}: {ch.get('change')}")
     for f in bypass:
         ctx.warn("TRANSFORMED_BREAKING" if f["status"] == "TRANSFORMED_BREAKING" else "LICENSE_REQUIRES_MANUAL_REVIEW", f"{f['file']}: {f['symbol']} {f['kind']}")
 
@@ -198,13 +235,18 @@ def stage_validate(ctx: StageContext) -> None:
             if e.get("symbol", "").endswith("AudioProcessor") and e.get("compiled"):
                 e["validation"] = overall
                 e["state_compatibility"] = cross["classification"]
+            if e.get("variant") == "TRANSFORMED" and "Waveshaper" in mod_by:
+                w = mod_by["Waveshaper"]
+                e["validation"] = w["classification"]
+                e["transformation_status"] = "MODERNIZED_EQUIVALENT" if w["classification"] in ("BIT_EXACT", "NUMERICALLY_EQUIVALENT", "BEHAVIORALLY_EQUIVALENT") else "TRANSFORMED_COMPATIBLE" if w["classification"] == "PERCEPTUALLY_CLOSE" else "TRANSFORMED_BREAKING"
         from ab_engine.knowledge import hooks as knowledge_hooks  # noqa: PLC0415
 
         knowledge_hooks.after_validation(ctx, modules=modules, index=idx, measurements_hash=hashlib.sha256(json.dumps(meas.get("probe_set")).encode()).hexdigest()[:16])
         write_json(idx_path, "artifactbench.reconstruction_index", idx)
         ctx.output("07_agent_handoff/reconstruction_index.json")
 
-    md = ["# 06_validation — differential harness", "", f"Original `{orig.name}` vs rebuild `{reb.name}` on {len(renders)} identical renders.", "",
+    md = ["# 06_validation — differential harness", "", f"Original `{orig.name}` vs rebuild `{reb.name}` ({variant} variant) on {len(renders)} identical renders.", "",
+          "Comparisons: " + "; ".join(f"{c['pair']}: {c.get('classification', 'see modules')} ({c['renders']} renders)" for c in comparisons), "",
           f"**Overall: {overall}** · state cross-load: **{cross['classification']}**", "", "| module | role | class | renders | worst RMSE | worst Δspectrum dB | worst lead-in RMSE | failing |", "|---|---|---|---|---|---|---|---|"]
     for x in modules:
         rm_s = "" if x["worst_rmse"] is None else f"{x['worst_rmse']:.2e}"
@@ -219,7 +261,7 @@ def stage_validate(ctx: StageContext) -> None:
     (val / "VALIDATION.md").write_text("\n".join(md), encoding="utf-8")
     ctx.output("06_validation/VALIDATION.md")
     ws_mod = next((x for x in modules if x["module"] == "Waveshaper"), None)
-    ctx.metrics.update({"renders": len(renders), "overall": overall, "cross_load": cross["classification"], "licensing": {r["symbol"]: r["state"] for r in lic_rows}, "bypass_findings": len(bypass),
+    ctx.metrics.update({"renders": len(renders), "overall": overall, "cross_load": cross["classification"], "variant": variant, "comparisons": [c["pair"] for c in comparisons], "licensing": {r["symbol"]: r["state"] for r in lic_rows}, "bypass_findings": len(bypass),
                         "modules": {x["module"]: x["classification"] for x in modules},
                         "waveshaper_rmse": (f"{ws_mod['worst_rmse']:.2e}" if ws_mod and ws_mod.get("worst_rmse") is not None else "n/a")})
     if not renders:

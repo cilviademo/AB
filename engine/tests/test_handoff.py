@@ -22,7 +22,7 @@ def _job(tmp_path: Path) -> Job:
                             {"module": "WaveshaperSweeps", "role": "WAVESHAPER_LAWS", "classification": "PERCEPTUALLY_CLOSE", "renders": 5, "worst_rmse": 3e-4, "worst_spectrum_diff_db": 0.0, "failing": ["ramp_x_1.0"]}]})
     write_json(pd / "06_validation/build_report.json", "artifactbench.build_report", {"build_kind": "SURROGATE", "status": "BUILT"})
     write_json(pd / "07_agent_handoff/reconstruction_index.json", "artifactbench.reconstruction_index",
-               [{"symbol": "ab_rebuild::Waveshaper", "role": "WAVESHAPER", "file": "04_reconstruction/human_source/Waveshaper.h", "status": "BEHAVIOR_MATCHED", "compiled": True, "validation": "BEHAVIORALLY_EQUIVALENT", "validation_sweeps": "PERCEPTUALLY_CLOSE", "todos": ["t1"]},
+               [{"symbol": "ab_rebuild::Waveshaper", "role": "WAVESHAPER", "file": "04_reconstruction/recovered_source/Waveshaper.h", "status": "BEHAVIOR_MATCHED", "compiled": True, "validation": "BEHAVIORALLY_EQUIVALENT", "validation_sweeps": "PERCEPTUALLY_CLOSE", "todos": ["t1"]},
                 {"symbol": "ns::Filt", "role": "FILTER", "file": "04_reconstruction/Source/RecoveredScaffolds/DSP/Filt.h", "status": "SCAFFOLD_ONLY", "compiled": False, "structure_status": "VERIFIED_VTABLE"},
                 {"symbol": "ns::Lic", "role": "LICENSING_AND_ENTITLEMENT_SUBSYSTEM", "file": "x", "status": "SCAFFOLD_ONLY", "compiled": False}])
     write_json(pd / "04_reconstruction/reconstruction_model.json", "artifactbench.reconstruction_model",
@@ -54,4 +54,4 @@ def test_handoff_files_are_evidence_driven(tmp_path):
     u = (pd / "07_agent_handoff/UNRECOVERABLE.md").read_text()
     assert "no .pdb" in u and "`t` between measured positions" in u
     a = (pd / "07_agent_handoff/agent_prompt.md").read_text()
-    assert "LICENSING_AND_ENTITLEMENT_SUBSYSTEM" in a and "TRANSFORMED_BREAKING" in a and "human_source/Waveshaper.h" in a and "PERCEPTUALLY_CLOSE" in a
+    assert "LICENSING_AND_ENTITLEMENT_SUBSYSTEM" in a and "TRANSFORMED_BREAKING" in a and "recovered_source/Waveshaper.h" in a and "PERCEPTUALLY_CLOSE" in a
