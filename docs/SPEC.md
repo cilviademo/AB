@@ -1,7 +1,7 @@
-# PALIMPSEST — Owned Plugin Recovery Workbench
+# ARTIFACT BENCH (AB) — Owned Plugin Recovery Workbench
 ### SPEC.md · v1.0 · standalone Windows app (Prosody-pattern)
 
-> Working name only. A palimpsest is a manuscript scraped clean and written over; the original is recovered by evidence, never by guessing. Rename freely; nothing below depends on it.
+> Product name: **Artifact Bench**, abbreviated **AB** in code, docs and logs. Recovery by evidence, never by guessing.
 
 ---
 
@@ -34,7 +34,7 @@ OWNED COMPILED PLUGIN → VERIFIED RUNTIME FACTS → VERIFIED ARCHITECTURE → T
 6. **Cache never poisons.** A known-library match is downgraded and re-analysed if any fingerprint, vtable shape, constant, parameter reference, or behavior disagrees. "We already know `MorphCompressor`" by name is forbidden.
 7. **Evidence is immutable.** `01_evidence/` is written once per stage and never edited by later stages.
 8. **Scaffolds never enter `Active/`.** Evidence gates in §10 decide promotion.
-9. **Owner mode only.** The app reconstructs and exports for owned/authorized binaries. Third-party binaries get architecture/behavior documentation and corpus signatures only. Licensing code is `PROTECTED_SUBSYSTEM`: mapped, never reimplemented or bypassed; owner supplies a replacement interface.
+9. **Artifact-driven recovery, no ownership gate.** AB exposes the same pipeline (static, runtime, decompile, fingerprint, probe, reconstruct, transform, compare, export) to every artifact based on technical capability. AB makes no ownership or legal determination and does not assume one. Two orthogonal metadata fields describe how results are *interpreted*, never what may *run*: `usage_context` = `USER_RECOVERY` (default) · `KNOWN_SOURCE_FIXTURE` · `BLACK_BOX_REFERENCE` · `SOURCE_AVAILABLE_REFERENCE` · `UNKNOWN_CONTEXT`; and `source_availability` = `SOURCE_UNKNOWN` · `SOURCE_UNAVAILABLE` · `SOURCE_PARTIAL` · `SOURCE_AVAILABLE` · `KNOWN_SOURCE_GROUND_TRUTH`. Reports therefore say "binary-derived reconstruction" or "validated against known source" and never confuse the two. Licence text/metadata for external references is stored and shown (`PERMISSIVE | COPYLEFT | PROPRIETARY | UNKNOWN`), never used to block. Licensing, activation, entitlement, registration, demo-state and authentication code is classified `LICENSING_AND_ENTITLEMENT_SUBSYSTEM` (the frozen static engine's `PROTECTED_SUBSYSTEM` label aliases to it) and is recovered, reconstructed, transformed and validated under the **same** evidence discipline as DSP, state, UI and build code. Reconstruction preserves supported original behavior; silently replacing validation logic with unconditional success is a behavioral modification and must be recorded as a transformation, never presented as recovery. Reference evidence stays reference evidence: reconstructed third-party licensing is never auto-exported into a user project.
 10. **Performance optimizations must record completeness.** Every fast path emits `FAST_SCAN_COMPLETE` / `FAST_SCAN_EARLY_TERMINATED` / `DEEP_SCAN_COMPLETE` / `SCAN_INCOMPLETE`; a deep pass is available on demand and auto-triggered on inconsistency (§6.3).
 
 ---
@@ -47,10 +47,10 @@ OWNED COMPILED PLUGIN → VERIFIED RUNTIME FACTS → VERIFIED ARCHITECTURE → T
 | Static engine | TypeScript, ported verbatim from Static Recovery v2 | Runs in a Web Worker inside the webview; frozen behavior, versioned |
 | Orchestrator / analysis | **Python 3.11** sidecar (bundled, no system Python) | Job system, fingerprints, fits, reports, bundle assembly |
 | Native host | **`vst3host.exe`** — C++17 on Steinberg VST3 SDK hosting classes | Separate process, JSON over stdio, hard timeout |
-| Decompiler | **Ghidra** headless + JDK 21 | Downloaded on first use into `%LOCALAPPDATA%\Palimpsest\tools\` |
+| Decompiler | **Ghidra** headless + JDK 21 | Downloaded on first use into `%LOCALAPPDATA%\ArtifactBench\tools\` |
 | Validation | **pluginval**, CMake + MSVC Build Tools (optional) | Detected, not required; build stage degrades gracefully |
-| Distribution | ZIP → `Palimpsest.exe`, no dev tooling required | Later: installer, auto-update |
-| CLI | `palimpsest-cli` (Python) kept for diagnostics and CI | Every GUI action has a CLI equivalent |
+| Distribution | ZIP → `ArtifactBench.exe`, no dev tooling required | Later: installer, auto-update |
+| CLI | `ab-cli` (Python) kept for diagnostics and CI | Every GUI action has a CLI equivalent |
 
 **Licensing note (decide before distribution):** VST3 SDK hosting code is GPLv3 or Steinberg proprietary. Internal Multibanded use is fine under either; distribution requires choosing.
 
@@ -59,7 +59,7 @@ OWNED COMPILED PLUGIN → VERIFIED RUNTIME FACTS → VERIFIED ARCHITECTURE → T
 ## 3. Repository layout
 
 ```
-palimpsest/
+artifact-bench/
 ├── app/                      # Tauri + React (Prosody shell fork)
 │   ├── src/                  # screens, evidence viewer, job monitor
 │   ├── src-tauri/            # Rust: process supervision, IPC, fs sandbox
@@ -70,7 +70,7 @@ palimpsest/
 │   ├── fingerprint/          # function/class/resource fingerprints
 │   ├── lineage/              # family clustering, known-library cache
 │   ├── behavior/             # probes, fits, differential
-│   ├── reconstruct/          # evidence_source / human_source generators, gates
+│   ├── reconstruct/          # evidence_source / recovered_source / transformed_source generators, gates
 │   └── bundle/               # 00_..07_ writers, GIT_READY checks
 ├── native/vst3host/          # C++ host (introspect, state, render)
 ├── ghidra/                   # ExportRTTI.java, ExportCallgraph.java, Fingerprint.java
@@ -87,7 +87,7 @@ palimpsest/
 ## 4. Process architecture
 
 ```
-Palimpsest.exe (Tauri GUI, never touches a plugin binary directly)
+ArtifactBench.exe (Tauri GUI, never touches a plugin binary directly)
  ├─ static worker      (webview Web Worker; TS)            → 01_evidence/{binary,rtti,strings,paths,resources,presets}
  ├─ engine sidecar     (Python; supervised by Rust)         → jobs, cache, correlation, reports, bundles
  │    ├─ vst3host.exe  (C++; per call, timeout 60 s)        → 01_evidence/vst3/*, 05_reference_behavior/*
@@ -157,7 +157,7 @@ Each stage record: `input_hashes[]`, `tool_versions{}`, `config_hash`, `started/
 `RAW_BYTE_HASH` · `NORMALIZED_INSTRUCTION_HASH` (operands masked: relocations, absolute addresses, stack offsets normalized) · `CFG_SIGNATURE` (basic-block count, edge shape hash) · `CALLGRAPH_SIGNATURE` (callee fingerprint multiset, depth 1) · `CONSTANT_SIGNATURE` (sorted float/int immediates) · `STRING_XREF_SIGNATURE` · `RTTI_XREF` · `VTABLE_SLOT` (class, index).
 Class fingerprint = RTTI name + vtable slot fingerprints + ctor/dtor fingerprints + member-offset access pattern.
 
-**8.2 Function role scoring:** distance from `processBlock`, float/SIMD density, buffer/channel loops, sample-rate refs, DSP constant refs, libm calls, parameter reads, delay-line/FFT patterns. Classes: `AUDIO_LOOP, GAIN, WAVESHAPER, FILTER, FILTER_COEFFICIENT, OVERSAMPLER, COMPRESSOR, LIMITER, GATE, DELAY, REVERB, CONVOLUTION, METER, PARAMETER_UPDATE, STATE, GUI, RESOURCE, FRAMEWORK, RUNTIME, PROTECTED_SUBSYSTEM, UNKNOWN`, each with `role_status: CANDIDATE|VERIFIED_CALLGRAPH` and `role_basis[]`.
+**8.2 Function role scoring:** distance from `processBlock`, float/SIMD density, buffer/channel loops, sample-rate refs, DSP constant refs, libm calls, parameter reads, delay-line/FFT patterns. Classes: `AUDIO_LOOP, GAIN, WAVESHAPER, FILTER, FILTER_COEFFICIENT, OVERSAMPLER, COMPRESSOR, LIMITER, GATE, DELAY, REVERB, CONVOLUTION, METER, PARAMETER_UPDATE, STATE, GUI, RESOURCE, FRAMEWORK, RUNTIME, LICENSING_AND_ENTITLEMENT_SUBSYSTEM, UNKNOWN`, each with `role_status: CANDIDATE|VERIFIED_CALLGRAPH` and `role_basis[]`.
 
 **8.3 Noise suppression / wrapper collapse:** CRT init, security cookies, allocators, EH machinery, refcounting, JUCE plumbing, RTTI helpers, import thunks, destructor thunks, forward-only wrappers are hidden from human output; addresses retained in provenance.
 
@@ -185,11 +185,13 @@ Separate screen ("Library"), never mixed into per-plugin evidence.
 ```
 04_reconstruction/
   evidence_source/     close to decompiler semantics; uncertain fields kept; auditable
-  human_source/        concise idiomatic JUCE/C++; wrappers collapsed; equivalent expressions simplified
-  Source/Active/       ONLY validated code compiled into the rebuild
+  recovered_source/    closest semantic reconstruction of the ORIGINAL (formerly human_source/)
+  transformed_source/  modernized / migrated / ported implementation chosen by the recovery goal
+  Source/Active/       the implementation currently being built (recovered or transformed, per goal)
   Source/RecoveredScaffolds/   credible architecture, not compiled
   CMakeLists.txt       FIDELITY (needs VERIFIED_RUNTIME identity) | SURROGATE (temporary identity, never session-compatible)
 ```
+Transformation status per module: `RECOVERED_EXACT · RECONSTRUCTED · MODERNIZED_EQUIVALENT · TRANSFORMED_COMPATIBLE · TRANSFORMED_WITH_MIGRATION · TRANSFORMED_BREAKING · UNRECOVERABLE`. `ORIGINAL_BEHAVIOR`, `RECOVERED_BEHAVIOR` and `TRANSFORMED_BEHAVIOR` are stored separately; comparisons run ORIGINAL↔RECOVERED, RECOVERED↔TRANSFORMED and ORIGINAL↔TRANSFORMED. See EXECUTE_ADDENDUM_C.
 
 | Artifact | Gate to generate as production source |
 |---|---|
@@ -214,7 +216,7 @@ Differential harness: original vs rebuild on identical probes/state → classifi
 
 ## 12. Ground-truth fixture (built first, before any owned binary)
 
-`fixtures/groundtruth/` — a small JUCE plugin **with source**: 5–8 parameters (one bool, one enum, one gain, one filter cutoff, one drive), one TPT filter, one `tanh` waveshaper, oversampling toggle (JUCE `dsp::Oversampling`), APVTS state, one PNG, one TTF, one preset XML, a deliberate `PROTECTED_SUBSYSTEM`-style stub. Built three ways: Debug+PDB, Release+PDB, Release stripped. The stripped build is the recovery input; the source is the answer key.
+`fixtures/groundtruth/` — a small JUCE plugin **with source**: 5–8 parameters (one bool, one enum, one gain, one filter cutoff, one drive), one TPT filter, one `tanh` waveshaper, oversampling toggle (JUCE `dsp::Oversampling`), APVTS state, one PNG, one TTF, one preset XML, a deliberate `LICENSING_AND_ENTITLEMENT_SUBSYSTEM` stub (serial check + demo state) so licensing recovery is measured too. Built three ways: Debug+PDB, Release+PDB, Release stripped. The stripped build is the recovery input; the source is the answer key.
 
 `GROUND_TRUTH_REPORT.json` metrics: identity correct; param IDs/types/defaults/units recovered; state fields mapped; RTTI classes recovered; ownership accuracy; processBlock path accuracy; DSP-function identification accuracy; resource recovery accuracy; fingerprint stability across the three builds; false positives; false negatives. This report is the CI gate for Phases 1–4.
 
@@ -231,7 +233,7 @@ Differential harness: original vs rebuild on identical probes/state → classifi
 **Principle:** the user sees milestones, not forensics. One primary button.
 
 **Screens**
-1. **Recover** — drop zone (`.vst3/.dll/.vst`, presets, folders, zips), ownership declaration (`My plugin` / `Authorized` / `Third-party: analysis only`), big **RECOVER PROJECT**. Stage rail: `STATIC · RUNTIME · DECOMPILE · PROBE · RECONSTRUCT · BUILD · COMPARE · EXPORT`, each with status chip, elapsed time, and a "details" drawer (logs, warnings, completeness flags).
+1. **Recover** — drop zone (`.vst3/.dll/.vst`, presets, folders, zips), optional context tags (`usage_context`, `source_availability`; defaults `USER_RECOVERY` / `SOURCE_UNKNOWN`), recovery goal (`PRESERVE ORIGINAL` default · `MODERNIZE` · `MIGRATE` · `REFACTOR` · `PORT` · `REBUILD`), big **RECOVER PROJECT**. Stage rail: `STATIC · RUNTIME · DECOMPILE · PROBE · RECONSTRUCT · BUILD · COMPARE · EXPORT`, each with status chip, elapsed time, and a "details" drawer (logs, warnings, completeness flags).
 2. **Scorecard** — the v2 scorecard extended: Identity, Runtime parameters, State schema, UI assets, Class architecture, Signal flow, DSP structure, DSP numerical match, Source symbols, Original source (always 0%). Each score opens the underlying evidence; every count carries its evidence state in the label.
 3. **Evidence browser** — tree over `00_..07_`, JSON viewer with schema badge, resource gallery (sprite sheets rendered as frame strips), decompiled function viewer with role/priority, fingerprint matches.
 4. **Reconstruction** — module list with status (`SCAFFOLD_ONLY → STATIC_RECONSTRUCTED → BEHAVIOR_MATCHED → ACTIVE`), residual plots (transfer curve, spectrum, error), promote/demote actions gated by §10.
@@ -260,16 +262,16 @@ Behavioral comparison   99.2%
 - Secrets never enter worker environments or bundles; export scanner blocks tokens, keys, absolute user paths.
 - All IPC JSON validated against schemas; unknown major `schema_version` rejected.
 - Ghidra runs with its own user dir under the app data folder; no scripts loaded outside `ghidra/`.
-- `PROTECTED_SUBSYSTEM` code is never decompiled into `human_source/`; only its call-graph relationships are recorded.
-- Ownership declaration is stored in `00_manifest/input_manifest.json`; third-party mode disables `Active/` generation and export of reconstruction source.
+- `LICENSING_AND_ENTITLEMENT_SUBSYSTEM` code follows the same recovery/transformation path as everything else; every behavioral change to it (e.g. replacing an activation backend) is recorded in the transformation graph, and bypass-style edits (`validate → true`) are flagged `TRANSFORMED_BREAKING`, never labelled recovered.
+- `usage_context` and `source_availability` are stored in `00_manifest/input_manifest.json`; neither disables a capability. Known-source fixture source is isolated from recovery stages (benchmark integrity, not permission) and reference code is never copied into a user project unless the user explicitly chooses to incorporate it.
 
 ---
 
 ## 16. Debugging and observability
 
-- Structured logs (JSONL) per job and per worker in `%LOCALAPPDATA%\Palimpsest\logs\<job>\`; GUI "Copy diagnostics" bundles logs + `performance.json` + tool versions with secrets scrubbed.
+- Structured logs (JSONL) per job and per worker in `%LOCALAPPDATA%\ArtifactBench\logs\<job>\`; GUI "Copy diagnostics" bundles logs + `performance.json` + tool versions with secrets scrubbed.
 - Every stage writes `stage.json` (status, timings, warnings, completeness) before and after; partial outputs are never left unmarked.
-- `palimpsest-cli doctor` checks tools, versions, disk, sandbox; `palimpsest-cli run --stage static <file>` reproduces any stage headlessly; `palimpsest-cli diff-baseline` runs §13.
+- `ab-cli doctor` checks tools, versions, disk, sandbox; `ab-cli run --stage static <file>` reproduces any stage headlessly; `ab-cli diff-baseline` runs §13.
 - Crash dumps from `vst3host.exe` collected via WER local dumps; Ghidra stdout/stderr captured with a tail visible in the stage drawer.
 - Feature flags for deep scan, fingerprint variants, and reference-corpus suggestions.
 

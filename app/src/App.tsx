@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
-import type { BackendStatus, Env, Job, Ownership, ProgressEvent } from "./lib/types";
+import type { BackendStatus, Env, Job, RecoveryContext, ProgressEvent } from "./lib/types";
 import { api, backendStatus, onProgress, saveWindow } from "./lib/api";
 import { runStaticInWorker } from "./lib/staticWorker";
 import { Recover } from "./views/Recover";
@@ -114,12 +114,12 @@ export default function App() {
     }
   }, []);
 
-  const recover = useCallback(async (paths: string[], ownership: Ownership, name?: string) => {
+  const recover = useCallback(async (paths: string[], context: RecoveryContext, name?: string) => {
     setBusy(true);
     setError(null);
     setEvents([]);
     try {
-      const result = await api.ingest(paths, ownership, name);
+      const result = await api.ingest(paths, context, name);
       refreshJobs();
       if (result.jobs.length === 0) {
         setError("Nothing usable in that drop. Try the plugin file, a preset, or your old project folder.");

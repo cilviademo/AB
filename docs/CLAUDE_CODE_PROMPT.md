@@ -1,4 +1,4 @@
-# CLAUDE_CODE_PROMPT.md — Kickoff for the Palimpsest build
+# CLAUDE_CODE_PROMPT.md — Kickoff for the Artifact Bench (AB) build
 
 Paste this file as the first message in a fresh Claude Code session opened at the root of an empty repo. Everything it references is in the `handoff/` folder shipped beside it.
 
@@ -8,7 +8,7 @@ Paste this file as the first message in a fresh Claude Code session opened at th
 
 A standalone Windows desktop application that takes an **owned compiled audio plugin** (`.vst3/.dll/.vst`) plus whatever survives around it and returns a **portable, buildable, evidence-backed source project** with a behavioral comparison against the original and a coding-agent handoff. Product statement, hard rules, architecture, UX, security, debugging, data contracts and phases are in **`SPEC.md`**. Ordered build directives with acceptance gates are in **`EXECUTE.md`**. Read both fully before writing code. This file adds the context that lives only in the project history.
 
-Working name: **Palimpsest**. Owner: Marc, Multibanded LLC. Mirror the build pattern of his existing app **Prosody** (FL Studio `.flp` extraction + arrangement): Tauri 2 + React/TypeScript/Vite shell, bundled Python sidecar, CLI kept for diagnostics, distributed as a ZIP containing a single `.exe` that needs no dev tooling, Windows studio PC first. If the Prosody repo is available locally, fork its shell/supervisor/updater/theme; if not, scaffold equivalently and say so.
+Product name: **Artifact Bench (AB)**. Owner: Marc, Multibanded LLC. Mirror the build pattern of his existing app **Prosody** (FL Studio `.flp` extraction + arrangement): Tauri 2 + React/TypeScript/Vite shell, bundled Python sidecar, CLI kept for diagnostics, distributed as a ZIP containing a single `.exe` that needs no dev tooling, Windows studio PC first. If the Prosody repo is available locally, fork its shell/supervisor/updater/theme; if not, scaffold equivalently and say so.
 
 ---
 
@@ -16,7 +16,7 @@ Working name: **Palimpsest**. Owner: Marc, Multibanded LLC. Mirror the build pat
 
 | Path | Role | How to use it |
 |---|---|---|
-| `SPEC.md`, `EXECUTE.md`, `EXECUTE_ADDENDUM_A.md` | The contract | Authoritative. Addendum A amends EXECUTE in place (dependency stack, cumulative knowledge base, Git checkpoints, iPlug2 fixture). When this file and SPEC disagree, SPEC wins. |
+| `SPEC.md`, `EXECUTE.md`, `EXECUTE_ADDENDUM_A.md`, `EXECUTE_ADDENDUM_B.md`, `EXECUTE_ADDENDUM_C.md` | The contract | Authoritative. Addendum A amends EXECUTE in place (dependency stack, cumulative knowledge base, Git checkpoints, iPlug2 fixture). Addendum B is the post-build hardening pass (audit, universal ingest router, known-source validation, acceptance tests) — run after EXECUTE Phase 4. Addendum C defines the context model, full-system recovery incl. licensing, and transformation as a first-class capability — read before Phase 1, implement transformation in Phase 5. When this file and SPEC disagree, SPEC wins. |
 | `handoff/static-engine/plugin-recovery-bench.v2.html` | **Static Recovery v2 — frozen** | The single-file browser extractor that ran the 21-plugin corpus. The `<script>` block is the reference implementation of the static stage. Port its analysis functions to `app/static-engine/` **without behavioral changes** (EXECUTE §1.4). The UI parts (drop zone, tabs, JSZip bundle writer) are throwaway; the analysis functions are canon. |
 | `handoff/kit/vst_recover.py`, `ExportDecompiled.java`, `README.md` | v1 desktop kit | Starting point for `ghidra/ExportDecompiled.java` (upgrade per SPEC §8) and for the Python stage runner. `pedalboard` in the kit was an interim host — replaced by `vst3host.exe` in Phase 2; keep it only as a diagnostic fallback. |
 | `handoff/reference/music_reference_corpus_21.zip` | Clean-room candidate DSP library + corpus vocabulary | Unzip to `reference/music_reference_corpus_21/`. 33 reference components (C++17, builds with its own CMake, smoke test passes), `catalog/observed_symbols.json` (657 corpus symbols → candidate families/dependencies), `parameter_state_catalog.json` (946 serialized-key names), `plugin_families.json` (Gen A/B/C hypotheses marked `CORPUS_INFERENCE_NOT_IMPLEMENTATION_PROOF`), `ProbeSignals.h` (deterministic probes for Phase 4). **Never** promote anything from here into `Active/` on a name match. |
@@ -51,11 +51,11 @@ These are bugs the browser tool actually shipped and had to fix. Each is now a r
 
 ## 3. What the 21-plugin corpus established (use as priors, never as facts)
 
-- 455 MB, 21 VST3 binaries, all JUCE, all MSVC linker 14.0, three build batches (2024-05-15, 2024-07, 2025-02). All are **third-party** (a single vendor's catalogue); they are regression fixtures and corpus signatures only — no reconstruction export for them.
+- 455 MB, 21 VST3 binaries, all JUCE, all MSVC linker 14.0, three build batches (2024-05-15, 2024-07, 2025-02). One vendor's catalogue; `usage_context: BLACK_BOX_REFERENCE`, `source_availability: SOURCE_UNAVAILABLE`; regression fixtures and corpus signatures. The full pipeline runs on them like anything else; reports say "binary-derived".
 - **Three codebase families by class-name-set Jaccard** (INFERRED): Gen A "Studio/Safari" (`StudioChainEffect→StudioNodeEffect→Morph*`, `SafariPlugin`, `ModulationManager`, SoundTouch, `tdps/tuner/pitchcommon`), Gen B "Morph/WDF" (`chowdsp::wdft`, `MorphDiodeClipper`, `MorphBaxendell`, resonators), Gen C "Hammer" (`HammerEffectBase`, `DisotrtionEffect`, `ParametericEQ`, `RotaryKnob` kit). Products are forks: Gorilla Drive contains `TimeMachineAudioProcessor` (Jaccard 0.926, zero unique classes); Silver Llama FX ↔ Twin Panda FX 0.927.
 - 88 "plugin-owned" class names recur in ≥ 7 plugins (shared internal symbol family); ~4.2 unique owned names per plugin, mostly LookAndFeel/formatter subclasses. Deep-analysis budget belongs to processBlock-reachable, plugin-specific code.
 - Embedded preset XML mixes exported parameters with engine state (`waveShapers_4_2`, `bandBypass1_0_0`, `masterMorph`): 715 keys in one plugin, ~12 real controls. Hence the tier split in SPEC §7.
-- `juce::dsp::Oversampling<float>` is JUCE's stock oversampler in 18/21; `SerialScreen`/`isLicensed`/`serial_number_background` is the shared licence subsystem (`PROTECTED_SUBSYSTEM`).
+- `juce::dsp::Oversampling<float>` is JUCE's stock oversampler in 18/21; `SerialScreen`/`isLicensed`/`serial_number_background` is the shared licence subsystem (`LICENSING_AND_ENTITLEMENT_SUBSYSTEM`; the frozen static engine still emits the label `PROTECTED_SUBSYSTEM` — alias it).
 - Shared byte-identical assets: Baumans font, preset-browser icon set, several 4–18 MB knob filmstrips (tall PNGs are `SPRITE_SHEET_CANDIDATE`, not corruption).
 - Typos `DisotrtionEffect`, `ParametericEQ` recur → `SYMBOL_LINEAGE_FINGERPRINT`, supporting evidence only.
 - Static throughput 1.8 MB/s in-browser overall; the standalone target is ≥ 10 MB/s for the static stage with per-stage instrumentation.
@@ -68,18 +68,18 @@ Regression fixtures and why: **Twin Panda FX** (Gen A, SoundTouch, embedded IR, 
 
 - The owner's genuine recovery target is a **lost-source SP-emulation plugin** (binary and surviving folder to be supplied). It is the Phase 4/5 acceptance fixture — never the thing you debug the engine on.
 - The owner also builds his own JUCE plugin line (BTZ); if any BTZ build with source exists, it is a second, richer ground-truth fixture. Ask before assuming.
-- Ownership mode is declared per job at ingest and stored in `00_manifest/input_manifest.json`; third-party jobs disable `Active/` generation and reconstruction export.
+- **No ownership gate, no ownership assumption.** AB runs the same artifact-driven pipeline on everything and makes no legal determination. Two orthogonal metadata fields (`usage_context`, `source_availability`) tell reports how to interpret results — binary-derived vs validated against known source. Licensing/activation code is `LICENSING_AND_ENTITLEMENT_SUBSYSTEM` and is recovered, reconstructed and transformed like any other subsystem; bypass edits are transformations, not recovery (Addendum C).
 
 ---
 
 ## 5. Session protocol
 
-1. Read `SPEC.md`, `EXECUTE.md`, `EXECUTE_ADDENDUM_A.md`, this file, `handoff/docs/PLUGIN_RECOVERY_BENCH.md`, and skim the `<script>` in `handoff/static-engine/plugin-recovery-bench.v2.html` (functions: `parsePE`, `extractStrings`, `classifyClass`, `classifyPath`, `roleFor`, `carve`, `pngLen/riffLen/fontLen`, `validateResources`, `fontName`, `mapBinaryData`, `extractStateXml`, `scanConstants`, `serializedKeyRecord`, `typeInfo`, `buildCorpus`, `corpusReport`, `withSchema`).
+1. Read `SPEC.md`, `EXECUTE.md`, `EXECUTE_ADDENDUM_A.md`, `EXECUTE_ADDENDUM_B.md`, `EXECUTE_ADDENDUM_C.md`, this file, `handoff/docs/PLUGIN_RECOVERY_BENCH.md`, and skim the `<script>` in `handoff/static-engine/plugin-recovery-bench.v2.html` (functions: `parsePE`, `extractStrings`, `classifyClass`, `classifyPath`, `roleFor`, `carve`, `pngLen/riffLen/fontLen`, `validateResources`, `fontName`, `mapBinaryData`, `extractStateXml`, `scanConstants`, `serializedKeyRecord`, `typeInfo`, `buildCorpus`, `corpusReport`, `withSchema`).
 2. Create `CLAUDE.md` at repo root containing: the standing instructions from EXECUTE.md, the evidence vocabulary, the "no invention" rule, the untrusted-plugin rule, the commit format, and a pointer to this file. Keep it under 150 lines.
 3. Create `docs/DECISIONS.md` and record every deviation from SPEC with reason.
 4. Execute EXECUTE.md top to bottom. After each numbered step, run its gate and paste the gate result into the commit message. Do not proceed on a red gate; fix or record a blocker in `docs/BLOCKERS.md` and ask.
-5. Before touching `app/static-engine/`, run `palimpsest-cli diff-baseline`. If baselines don't exist yet, generating them from the four fixtures **is** step 1.4's first task.
-6. When a decision needs the owner (product name Palimpsest vs Artifact Bench, VST3 SDK licence choice, Prosody repo path, fixture binaries, SP plugin location, GitHub usage), stop and ask in one message with the options listed.
+5. Before touching `app/static-engine/`, run `ab-cli diff-baseline`. If baselines don't exist yet, generating them from the four fixtures **is** step 1.4's first task.
+6. When a decision needs the owner (VST3 SDK licence choice, Prosody repo path, fixture binaries, SP plugin location, GitHub usage), stop and ask in one message with the options listed.
 
 ---
 

@@ -63,8 +63,10 @@ def test_four_fixtures_three_presets_yield_four_jobs(ws, tmp_path):
     # manifests were written by the INGESTED stage with contract envelopes
     pd = by_name["Twin_Panda_FX"]["project_dir"]
     man = json.load(open(f"{pd}/00_manifest/input_manifest.json"))
-    assert man["schema"] == "artifactbench.input_manifest" and man["data"]["mode"] == "THIRD_PARTY_ANALYSIS_ONLY"
-    assert man["data"]["reconstruction_allowed"] is False
+    # the legacy --ownership word is only an alias (D-026): THIRD_PARTY → BLACK_BOX_REFERENCE / SOURCE_UNAVAILABLE, interpretation only
+    assert man["schema"] == "artifactbench.input_manifest" and man["data"]["usage_context"] == "BLACK_BOX_REFERENCE"
+    assert man["data"]["source_availability"] == "SOURCE_UNAVAILABLE" and "binary-derived" in man["data"]["interpretation"] and man["data"]["legacy_ownership"] == "THIRD_PARTY"
+    assert "reconstruction_allowed" not in man["data"] and "mode" not in man["data"]
     assert sorted(man["data"]["attachments"]) == ["pdb", "preset"]
     assert json.load(open(f"{pd}/00_manifest/hashes.json"))["data"]["algorithm"] == "sha256"
     assert "engine" in json.load(open(f"{pd}/00_manifest/tool_versions.json"))["data"]

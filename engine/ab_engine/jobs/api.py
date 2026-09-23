@@ -82,7 +82,7 @@ def _cli_jobs(p):
     def run(args, ws):
         for j in jobs_db.list_jobs(jobs_db.connect(ws.db_path)):
             done = ",".join(s.stage.replace("_COMPLETE", "") for s in j.stages if s.status == "OK")
-            sys.stdout.write(f"{j.job_id}  {j.ownership:<11} {j.artifact_sha256[:12]}  {j.name}  [{done or 'INGESTED?'}]\n")
+            sys.stdout.write(f"{j.job_id}  {j.usage_context:<26} {j.artifact_sha256[:12]}  {j.name}  [{done or 'INGESTED?'}]\n")
         return 0
     p.set_defaults(func=run)
 

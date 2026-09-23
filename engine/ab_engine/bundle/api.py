@@ -8,7 +8,7 @@
 * ``bundle.export`` — materialises ``Exports/<name>-<sha8>/`` as independent
   files (carved bytes from the object store), writes ``UNRECOVERABLE.md`` at
   the root, runs the path and secret scanners and the GIT_READY checklist,
-  optionally zips. Third-party jobs export without ``04_reconstruction``.
+  optionally zips. Every job exports its reconstruction; CONTEXT.md carries the interpretation tags (D-026).
 """
 
 from __future__ import annotations
@@ -172,8 +172,7 @@ def scorecard(job: Job) -> list[dict[str, str]]:
         cells.append(cell("Build readiness", f"{build.get('build_kind', '?')} {build.get('status', '?')}", "VERIFIED_RUNTIME" if build.get("status") == "BUILT" else "FAILED",
                           f"pluginval {pv}" + (f" strictness {pluginval.get('strictness')}" if pluginval and pluginval.get("strictness") else "")))
     else:
-        cells.append(cell("Build readiness", "FIDELITY needs identity" if job.reconstruction_allowed else "analysis only", "GENERATED" if recon and job.reconstruction_allowed else "UNKNOWN",
-                          "SURROGATE build available for DSP work" if job.reconstruction_allowed else "third-party: no reconstruction"))
+        cells.append(cell("Build readiness", "FIDELITY needs identity", "GENERATED" if recon else "UNKNOWN", "SURROGATE build available for DSP work"))
     if cross:
         cells.append(cell("State compatibility", cross.get("classification", "?"), "VERIFIED_RUNTIME" if cross.get("classification") == "CROSS_LOAD_VALIDATED" else cross.get("classification", "UNKNOWN"), "original ⇄ rebuild, every exported parameter"))
     else:
@@ -278,7 +277,7 @@ def export_job(ws: Workspace, conn: Any, job: Job, *, zip_it: bool, ctx: StageCo
         copy_tree(pd / d, out / "evidence" / d)
     copy_tree(pd / "06_validation", out / "validation")
     rec = pd / "04_reconstruction"
-    if job.reconstruction_allowed and rec.is_dir():
+    if rec.is_dir():
         for d in ("Source", "Resources", "human_source", "evidence_source"):
             copy_tree(rec / d, out / d)
         for f in ("CMakeLists.txt", "identity.cmake", "RECONSTRUCTION.md", "reconstruction_model.json"):
@@ -291,8 +290,10 @@ def export_job(ws: Workspace, conn: Any, job: Job, *, zip_it: bool, ctx: StageCo
         names_note = "" if any(i.get("kind") == "pdb" for i in (json.loads((pd / "00_manifest" / "input_manifest.json").read_text(encoding="utf-8")).get("data", {}).get("inputs", []))) else "\n- original function and member names (no .pdb)"
         (out / "UNRECOVERABLE.md").write_text(UNRECOVERABLE.format(names=names_note), encoding="utf-8")
     (out / ".gitignore").write_text("build/\nJUCE/\n*.pdb\n*.ilk\n.DS_Store\nThumbs.db\nevidence/05_reference_behavior/original_renders/\nvalidation/rebuild_renders/\n", encoding="utf-8")
-    if not job.reconstruction_allowed:
-        (out / "ANALYSIS_ONLY.md").write_text("# Third-party analysis\n\nOwnership was declared THIRD_PARTY at ingest: this export holds evidence, architecture and corpus signatures only. No reconstruction source is generated or exported (SPEC §1.9, §15).\n", encoding="utf-8")
+    # ADDENDUM C1: the context changes how the export reads, never what it holds
+    (out / "CONTEXT.md").write_text(f"# Context\n\n- usage_context: `{job.usage_context}`\n- source_availability: `{job.source_availability}`\n- interpretation: {job.interpretation}\n\n"
+                                     + ("This export is a binary-derived reconstruction of a reference. It is evidence for comparison; nothing in it is copied into a user project unless the user explicitly chooses to incorporate it.\n" if job.usage_context == "BLACK_BOX_REFERENCE" else
+                                        "Results were validated against known source by the evaluator; the recovery stages never read the source.\n" if job.usage_context == "KNOWN_SOURCE_FIXTURE" else ""), encoding="utf-8")
     if ctx is not None:
         from ab_engine.knowledge import hooks as knowledge_hooks  # noqa: PLC0415
 
@@ -319,7 +320,7 @@ def export_job(ws: Workspace, conn: Any, job: Job, *, zip_it: bool, ctx: StageCo
     git_ready = all(c["ok"] is True for c in checks if c["ok"] is not None) and not any(c["ok"] is False for c in checks)
     zip_path = (ws.exports / f"{product}_RECOVERED.zip") if zip_it else None
     report = {"job_id": job.job_id, "exported": datetime.now(UTC).isoformat(), "out_dir": str(out), "files": copied, "layout": "A7 <Plugin>_RECOVERED",
-              "reconstruction_exported": job.reconstruction_allowed, "path_findings": path_findings, "secret_findings": secret_findings,
+              "reconstruction_exported": rec.is_dir(), **job.context, "path_findings": path_findings, "secret_findings": secret_findings,
               "git_ready": git_ready, "checks": checks, "zip_path": str(zip_path) if zip_path else None, "scrubbed": scrubbed}
     # the file inside the export carries placeholders; the RPC/CLI answer keeps the real locations for the shell
     on_disk = dict(report, out_dir=(f"<WORKSPACE>/{out.relative_to(ws.home).as_posix()}" if str(out).startswith(str(ws.home)) else "<EXPORT>"),

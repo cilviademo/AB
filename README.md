@@ -47,7 +47,7 @@ single `AB.exe` plus its bundled engine; no dev tooling is needed to run it.
 ## Pipeline (one plugin, from the CLI)
 ```
 export AB_VST3HOST=.../vst3host AB_JUCE_DIR=.../JUCE            # or install pinned tools: ab-cli tools install
-ab-cli ingest --ownership OWNED <plugin.vst3> [presets/ sessions/ *.pdb]
+ab-cli ingest [--context USER_RECOVERY] <plugin.vst3> [presets/ sessions/ *.pdb]   # tags only change wording, never what runs
 ab-cli run <job> --stage INGESTED --stage STATIC_COMPLETE --stage RUNTIME_COMPLETE \
     --stage DECOMPILATION_COMPLETE --stage BEHAVIOR_COMPLETE                      # INGEST · STATIC · RUNTIME · DECOMPILE · PROBE
 ab-cli loop <job>                                                                # RECONSTRUCT → BUILD → COMPARE → handoff (repeat after edits)

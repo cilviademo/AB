@@ -1,6 +1,7 @@
 import { useCallback, useState } from "react";
 import { open } from "@tauri-apps/plugin-dialog";
-import type { Job, Ownership } from "../lib/types";
+import type { Job, UsageContext, SourceAvailability, RecoveryContext } from "../lib/types";
+import { CONTEXT_LABEL } from "../lib/types";
 import { Button, Note, Segmented } from "../components/ui";
 import { shortHash, when } from "../lib/format";
 
@@ -35,11 +36,12 @@ export function Recover({
   recent: Job[];
   busy: boolean;
   error: string | null;
-  onRecover: (paths: string[], ownership: Ownership, name?: string) => void;
+  onRecover: (paths: string[], context: RecoveryContext, name?: string) => void;
   onOpen: (jobId: string) => void;
 }) {
   const [hot, setHot] = useState(false);
-  const [ownership, setOwnership] = useState<Ownership>("OWNED");
+  const [usageContext, setUsageContext] = useState<UsageContext>("USER_RECOVERY");
+  const [sourceAvail, setSourceAvail] = useState<SourceAvailability>("SOURCE_UNKNOWN");
 
   const chooseFiles = useCallback(async () => {
     const chosen = await open({ multiple: true, directory: false });
@@ -95,21 +97,36 @@ export function Recover({
           </div>
 
           <div className="ownership">
-            <Segmented<Ownership>
-              ariaLabel="Ownership"
-              value={ownership}
-              onChange={setOwnership}
+            {/* optional context tags (ADDENDUM C1): they change how reports read, never what runs */}
+            <Segmented<UsageContext>
+              ariaLabel="Usage context"
+              value={usageContext}
+              onChange={setUsageContext}
               options={[
-                { value: "OWNED", label: "My plugin", caption: "reconstruction + export" },
-                { value: "AUTHORIZED", label: "Authorized", caption: "reconstruction + export" },
-                { value: "THIRD_PARTY", label: "Third-party", caption: "analysis only" },
+                { value: "USER_RECOVERY", label: "My recovery", caption: "every artifact is evidence" },
+                { value: "KNOWN_SOURCE_FIXTURE", label: "Known-source fixture", caption: "source withheld, evaluator only" },
+                { value: "BLACK_BOX_REFERENCE", label: "Black-box reference", caption: "binary-derived, for comparison" },
+                { value: "SOURCE_AVAILABLE_REFERENCE", label: "Source-available reference", caption: "source kept for comparison" },
               ]}
               tall
             />
+            <Segmented<SourceAvailability>
+              ariaLabel="Source availability"
+              value={sourceAvail}
+              onChange={setSourceAvail}
+              options={[
+                { value: "SOURCE_UNKNOWN", label: "Source unknown" },
+                { value: "SOURCE_UNAVAILABLE", label: "Unavailable" },
+                { value: "SOURCE_PARTIAL", label: "Partial" },
+                { value: "SOURCE_AVAILABLE", label: "Available" },
+                { value: "KNOWN_SOURCE_GROUND_TRUTH", label: "Ground truth" },
+              ]}
+            />
+            <p className="faint" style={{ margin: "var(--s2) 0 0" }}>Tags describe how results are read (binary-derived vs validated against known source). Every stage runs on every artifact.</p>
           </div>
 
           <div className="row" style={{ marginTop: "var(--s6)" }}>
-            <Button variant="primary" size="lg" disabled={busy || !hasBinary} onClick={() => onRecover(dropped, ownership)}>
+            <Button variant="primary" size="lg" disabled={busy || !hasBinary} onClick={() => onRecover(dropped, { usage_context: usageContext, source_availability: sourceAvail })}>
               RECOVER PROJECT
             </Button>
             <Button variant="quiet" disabled={busy} onClick={() => onDropped([])}>Clear</Button>
@@ -137,7 +154,7 @@ export function Recover({
           {recent.slice(0, 8).map((j) => (
             <button key={j.job_id} className="recent-row" type="button" title={j.primary} onClick={() => onOpen(j.job_id)}>
               <span className="nm">{j.name}</span>
-              <span className="meta">{j.ownership.toLowerCase().replace("_", "-")} · {shortHash(j.artifact_sha256)}</span>
+              <span className="meta">{CONTEXT_LABEL[j.usage_context] ?? j.usage_context} · {shortHash(j.artifact_sha256)}</span>
               <span className="meta">{when(j.created)}</span>
             </button>
           ))}

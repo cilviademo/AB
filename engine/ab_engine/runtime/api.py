@@ -180,8 +180,7 @@ def stage_runtime(ctx: StageContext) -> None:
     ident["programs"] = units["data"].get("program_lists")
     write_json(ctx.project_dir / "03_architecture" / "identity.json", "artifactbench.identity", ident)
     ctx.output("03_architecture/identity.json")
-    if ctx.job.reconstruction_allowed:
-        _write_identity_cmake(ctx, ident)
+    _write_identity_cmake(ctx, ident)   # every job (D-026: no ownership gate)
 
     mapped = sum(1 for m in srmap if m["relationship"] in ("SAME_ID", "MAPPED") and m["value_representation"] != "UNKNOWN")
     ctx.metrics.update({"parameters": len(params["data"]), "state_fields": len(serialized_keys), "mapped": mapped,

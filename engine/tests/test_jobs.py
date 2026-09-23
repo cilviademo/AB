@@ -138,4 +138,6 @@ def test_stage_record_roundtrip(ws):
     job = Job("j", "n", "b" * 64, "THIRD_PARTY", "2026", "/p", "/d", [StageRecord("j", "INGESTED", "OK", cache_key="k")])
     jobs_db.upsert_job(conn, job)
     back = jobs_db.get_job(conn, "j")
-    assert back.stages[0].cache_key == "k" and back.reconstruction_allowed is False
+    # a legacy ownership word round-trips as its context alias (D-026); nothing is gated on it
+    assert back.stages[0].cache_key == "k" and back.usage_context == "BLACK_BOX_REFERENCE" and back.source_availability == "SOURCE_UNAVAILABLE"
+    assert "binary-derived" in back.interpretation

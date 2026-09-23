@@ -1,7 +1,7 @@
 # EXECUTE_ADDENDUM_A.md — Cumulative knowledge, open-source stack, checkpoints
 ### Read after SPEC.md and EXECUTE.md. These directives amend the phases in place; they do not replace them.
 
-**Naming note.** The product has been called "Palimpsest" here and "Artifact Bench (AB)" in parallel design notes. They are the same thing. Before the first commit, ask the owner which name to use and apply it consistently (repo, exe, app data folder, schema prefix). Until answered, keep `palimpsest` in code and treat "AB" in these notes as a synonym.
+**Naming.** The product is **Artifact Bench (AB)**. Repo `artifact-bench`, executable `ArtifactBench.exe`, CLI `ab-cli`, app-data folder `ArtifactBench`, schema prefix `ab.` (contracts formerly `recovery.*` become `ab.*`; keep a one-line alias map for Static Recovery v2 files, which stay `recovery.*` as frozen inputs). Earlier drafts used the working name Artifact Bench; treat any remaining occurrence as a typo and fix it.
 
 **Guiding sentence for this addendum:** every owned plugin analysed must make the next one easier, and nothing becomes trusted knowledge because an LLM guessed it.
 
@@ -31,7 +31,7 @@ Add these as the core dependencies. Wrap each behind a small internal interface 
 
 Ordering rule for cost: **LIEF → Capstone fingerprints → knowledge cache → Ghidra only on the residual → runtime host → probes → reference candidate → compile → pluginval + Steinberg validator → differential → knowledge promotion.** The expensive tool never runs first.
 
-**Gate A1:** `palimpsest-cli doctor` lists every dependency with version, licence, and pinned hash; LIEF-based inventory reproduces v2 `binary.json` for the four fixtures (diff-baseline clean).
+**Gate A1:** `ab-cli doctor` lists every dependency with version, licence, and pinned hash; LIEF-based inventory reproduces v2 `binary.json` for the four fixtures (diff-baseline clean).
 
 ---
 
@@ -39,7 +39,7 @@ Ordering rule for cost: **LIEF → Capstone fingerprints → knowledge cache →
 
 **Layout**
 ```
-%LOCALAPPDATA%/<app>/knowledge/
+%LOCALAPPDATA%/ArtifactBench/knowledge/
   knowledge.db                 # SQLite index
   objects/sha256/ab/cd/<hash>  # bytes: artifacts, carved resources, renders, decompiled text
 ```
@@ -59,7 +59,7 @@ Bytes are stored once by hash; every table row that needs bytes references an ob
 `parameter` (artifact_sha256, param_id, title, units, step_count, default_norm, flags, tier) ·
 `state_field` (artifact_sha256, key, representation, mapped_param_id, relation) ·
 `behavior` (behavior_id, impl_id, probe_set_hash, metrics_ref, result_state) ·
-`reconstruction` (impl_id, evidence_source_ref, human_source_ref, validation_state, rmse) ·
+`reconstruction` (impl_id, evidence_source_ref, recovered_source_ref, validation_state, rmse) ·
 `classification_history` (entity_type, entity_id, previous, current, changed_at, tool_version, evidence_version, reason)
 
 **Versioning rule.** Never mutate a classification in place. Write the new row, append to `classification_history`, keep `first_seen`, `last_verified`, `tool_version`, `evidence_version`. A later run that contradicts earlier knowledge downgrades it and records why.
@@ -72,7 +72,7 @@ Bytes are stored once by hash; every table row that needs bytes references an ob
 - `IMPLEMENTATION_VERIFIED`: normalized function hash + vtable + constants + CFG agree across ≥ 2 binaries **and** behavior matched at least once.
 Only `BEHAVIOR_MATCHED` and `IMPLEMENTATION_VERIFIED` may be reused to skip analysis. `CANDIDATE` and `STATIC_SUPPORTED` may only *prioritize*.
 
-**Three stores, never merged:** raw evidence (immutable objects) · reconstructed source (evidence_source / human_source, versioned) · validated implementation knowledge (`implementation` rows at `BEHAVIOR_MATCHED`+). Cleaned-up C++ never overwrites evidence.
+**Three stores, never merged:** raw evidence (immutable objects) · reconstructed source (evidence_source / recovered_source / transformed_source, versioned) · validated implementation knowledge (`implementation` rows at `BEHAVIOR_MATCHED`+). Cleaned-up C++ never overwrites evidence.
 
 **Provenance on every reuse decision.** When the app says "appears to be the same implementation as X", the UI and `LINEAGE_REPORT.md` must show: which signatures matched (norm hash, vtable, constants, CFG, TLSH distance), in how many prior binaries, and how many behavior confirmations. A name match alone is never shown as a reason.
 
@@ -100,7 +100,7 @@ Per function: `SHA256(raw bytes)`, `SHA256(normalized instructions)` (Capstone: 
 
 ## A5. Ingestion matrix and second fixture
 
-**Ingest anything.** For each dropped item: identify (magic + extension + LIEF), hash, choose parser/worker, attach to the project. Types: plugin binaries, `.pdb/.map`, presets/state, DAW sessions (`.RPP .als .flp .cpr`), source fragments, CMake/Projucer files, images/fonts/IRs/samples, installers, ZIPs, folders. **Unsupported or unparsed types are preserved in the object store and listed in `00_manifest/input_manifest.json` as `PRESERVED_UNPARSED` — never silently dropped.**
+**Ingest anything, run everything.** For each dropped item: identify (magic + extension + LIEF), hash, choose parser/worker, attach to the project, record `usage_context`/`source_availability` when known (defaults `USER_RECOVERY`/`SOURCE_UNKNOWN`), and run every applicable stage — capability, not permission, decides. Types: plugin binaries, `.pdb/.map`, presets/state, DAW sessions (`.RPP .als .flp .cpr`), source fragments, CMake/Projucer files, images/fonts/IRs/samples, installers, ZIPs, folders. **Unsupported or unparsed types are preserved in the object store and listed in `00_manifest/input_manifest.json` as `PRESERVED_UNPARSED` — never silently dropped.**
 
 **Second ground-truth fixture in iPlug2** (`fixtures/groundtruth_iplug2/`): same parameter/DSP/resource content as the JUCE fixture, built stripped. Both fixtures run in CI; `GROUND_TRUTH_REPORT.json` is produced for each.
 

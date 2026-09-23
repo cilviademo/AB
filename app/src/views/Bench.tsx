@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import type { BundleEntry, Job, ProgressEvent, StageKey } from "../lib/types";
-import { STAGE_KEYS, STAGE_OF } from "../lib/types";
+import { CONTEXT_LABEL, STAGE_KEYS, STAGE_OF } from "../lib/types";
 import { api, shell } from "../lib/api";
 import {
   Advanced, Button, Ev, KeyValues, Note, Scorecard, Section, StageRail, type RailStage,
@@ -59,7 +59,7 @@ export function Bench({
     <div className="view wide enter">
       <div className="row" style={{ alignItems: "baseline" }}>
         <div className="label">Recovery Bench</div>
-        <span className="mono faint">{job.ownership.toLowerCase().replace("_", "-")} · {shortHash(job.artifact_sha256)}</span>
+        <span className="mono faint">{CONTEXT_LABEL[job.usage_context] ?? job.usage_context} · {shortHash(job.artifact_sha256)}</span>
         <span className="grow" />
         <Button size="sm" variant="quiet" onClick={onRefresh}>Refresh</Button>
         <Button size="sm" disabled={busy} onClick={() => onRun()}>{busy ? "Working" : "Run remaining stages"}</Button>
@@ -145,7 +145,8 @@ function Overview({ job, onScreen }: { job: Job; onScreen: (s: BenchScreen) => v
           ["Primary binary", <span className="mono" key="p">{job.primary}</span>],
           ["SHA-256", <span className="mono" key="h">{job.artifact_sha256}</span>],
           ["Project folder", <span className="mono" key="d">{job.project_dir}</span>],
-          ["Ownership", job.ownership],
+          ["Usage context", `${job.usage_context} · ${job.source_availability}`],
+          ["Interpretation", job.interpretation ?? "binary-derived"],
         ]} />
         <div className="row" style={{ marginTop: "var(--s4)" }}>
           <Button size="sm" onClick={() => void shell.reveal(job.project_dir)}>Show folder</Button>

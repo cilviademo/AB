@@ -25,7 +25,7 @@ INGEST → STATIC (frozen v2) → RUNTIME (`vst3host`) → DECOMPILE (Ghidra hea
 Local Phase 4 loop on the fixture (Linux):
 ```
 export AB_VST3HOST=$PWD/native/vst3host/build/vst3host AB_JUCE_DIR=$PWD/fixtures/groundtruth/third_party/JUCE
-ab-cli --workspace /tmp/gtws ingest --ownership OWNED fixtures/groundtruth/out/stripped/ABGroundTruth.vst3
+ab-cli --workspace /tmp/gtws ingest --context KNOWN_SOURCE_FIXTURE --source-availability KNOWN_SOURCE_GROUND_TRUTH fixtures/groundtruth/out/stripped/ABGroundTruth.vst3
 ab-cli --workspace /tmp/gtws run <job> --stage INGESTED --stage STATIC_COMPLETE --stage RUNTIME_COMPLETE --stage BEHAVIOR_COMPLETE \
    --stage RECONSTRUCTION_COMPLETE --stage BUILD_COMPLETE --stage VALIDATION_COMPLETE
 ab-cli --workspace /tmp/gtws --text ground-truth <job> --phase 4 --allow-pending

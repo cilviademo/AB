@@ -49,7 +49,7 @@ def _safe(ctx: StageContext, what: str, fn) -> Any:
 def after_static(ctx: StageContext, *, inventory: list[dict[str, Any]] | None = None) -> None:
     def go():
         db = _db(ctx)
-        db.record_artifact(ctx.job.artifact_sha256, kind="binary", size=int((inventory or [{}])[0].get("size", 0)), ownership=ctx.job.ownership, name=ctx.job.name)
+        db.record_artifact(ctx.job.artifact_sha256, kind="binary", size=int((inventory or [{}])[0].get("size", 0)), ownership=ctx.job.usage_context, name=ctx.job.name)
         res = _load(ctx.project_dir / "01_evidence" / "resources" / "index.json") or []
         n = db.record_resources(ctx.job.artifact_sha256, res)
         ctx.metrics["knowledge"] = {"resources_recorded": n}
@@ -99,7 +99,7 @@ def after_decompile(ctx: StageContext, *, pre: dict[str, Any], ghidra_fps: list[
             r = role_by.get(fp.get("addr"), {})
             if r.get("noise_kind") == "FRAMEWORK_PLUMBING" or (r.get("role") == "FRAMEWORK"):
                 return "KNOWN_FRAMEWORK"
-            return kind_from_name(fp.get("name")) or (None if r.get("noise") else ("KNOWN_PLUGIN_SPECIFIC" if r.get("role") in ("WAVESHAPER", "FILTER", "AUDIO_LOOP", "PARAMETER_UPDATE", "STATE", "GAIN") and ctx.job.ownership == "OWNED" else None))
+            return kind_from_name(fp.get("name")) or (None if r.get("noise") else ("KNOWN_PLUGIN_SPECIFIC" if r.get("role") in ("WAVESHAPER", "FILTER", "AUDIO_LOOP", "PARAMETER_UPDATE", "STATE", "GAIN", "LICENSING") else None))
 
         a = db.record_functions(ctx.job.artifact_sha256, pre_fns, source="capstone", tool_version=pre.get("tool", "capstone"), evidence_version=f"decompile-stage-v{stage_version}", kind_of=kind_pre)
         b = db.record_functions(ctx.job.artifact_sha256, ghidra_fps, source="ghidra", tool_version="ghidra/Fingerprint.java", evidence_version=f"decompile-stage-v{stage_version}",

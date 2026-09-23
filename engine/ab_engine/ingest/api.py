@@ -6,7 +6,7 @@
 * groups binaries by bundle, largest binary per group is the primary
 * attaches presets/sessions/sources/objs by path prefix; .pdb/.map to every group
 * streamed SHA-256 for everything; duplicates by hash
-* records the ownership declaration; writes ``00_manifest/{input_manifest,
+* records usage_context / source_availability (ADDENDUM C1); writes ``00_manifest/{input_manifest,
   hashes, tool_versions}.json`` from the INGESTED stage so they are cached
   and invalidated like every other stage output
 """
@@ -27,14 +27,13 @@ from ab_engine.contracts import write_json
 from ab_engine.ingest.classify import attaches, bundle_key, classify, safe_folder
 from ab_engine.jobs import db as jobs_db
 from ab_engine.jobs import runner
-from ab_engine.jobs.model import OWNERSHIPS, Job, StageRecord
+from ab_engine.jobs.model import SOURCE_AVAILABILITIES, USAGE_CONTEXTS, Job, StageRecord, normalize_context
 from ab_engine.jobs.runner import StageContext, StageFailed, StageImpl
 from ab_engine.jobs.store import ObjectStore, sha256_file
 from ab_engine.workspace import Workspace
 
 MAX_ARCHIVE_MEMBER = 2 * 1024 * 1024 * 1024
 MAX_ARCHIVE_TOTAL = 8 * 1024 * 1024 * 1024
-MODE = {"OWNED": "OWNER_RECOVERY", "AUTHORIZED": "AUTHORIZED_RECOVERY", "THIRD_PARTY": "THIRD_PARTY_ANALYSIS_ONLY"}
 
 
 # --------------------------------------------------------------------------- #
@@ -185,8 +184,10 @@ def stage_ingested(ctx: StageContext) -> None:
     dupes = [v for v in by_hash.values() if len(v) > 1]
 
     manifest = {
-        "job_id": job.job_id, "name": job.name, "ownership": job.ownership, "mode": MODE[job.ownership],
-        "reconstruction_allowed": job.reconstruction_allowed,
+        "job_id": job.job_id, "name": job.name,
+        # ADDENDUM C1: interpretation metadata only — no stage reads it to decide what runs (D-026)
+        "usage_context": job.usage_context, "source_availability": job.source_availability, "interpretation": job.interpretation,
+        **({"legacy_ownership": meta["legacy_ownership"]} if meta.get("legacy_ownership") else {}),
         "primary": {"path": primary["path"], "size": primary["size"], "sha256": primary["sha256"], "kind": "binary",
                     "format_hint": meta.get("format", "unknown")},
         # ADDENDUM A5: every dropped item is identified (magic + extension + LIEF for binaries) and kept; types AB has no
@@ -218,11 +219,13 @@ runner.register_stage(StageImpl("INGESTED", version=1, run=stage_ingested, confi
 
 def h_ingest_run(params: dict[str, Any], ws: Workspace) -> dict[str, Any]:
     paths = params.get("paths")
-    ownership = str(params.get("ownership", "OWNED")).upper()
     if not isinstance(paths, list) or not paths:
         raise api.ApiError("bad_request", "paths must be a non-empty list")
-    if ownership not in OWNERSHIPS:
-        raise api.ApiError("bad_request", f"ownership must be one of {', '.join(OWNERSHIPS)}")
+    try:
+        usage_context, source_availability = normalize_context(params.get("usage_context"), params.get("source_availability"), params.get("ownership"))
+    except ValueError as exc:
+        raise api.ApiError("bad_request", str(exc)) from exc
+    legacy_ownership = str(params.get("ownership") or "").upper() or None
     if os.environ.get("AB_SAFE_MODE") == "1":
         raise api.ApiError("safe_mode", "AB is in Safe Mode and will not write files")
     for raw in paths:
@@ -254,11 +257,11 @@ def h_ingest_run(params: dict[str, Any], ws: Workspace) -> dict[str, Any]:
             name = str(params.get("name") or safe_folder(g["key"]))
             job_id = "ab-" + primary["sha256"][:12]
             project_dir = ws.projects / f"{safe_folder(name)}-{primary['sha256'][:8]}"
-            job = Job(job_id, name, primary["sha256"], ownership, created, primary["path"], str(project_dir),
-                      [StageRecord(job_id, "INGESTED")])
+            job = Job(job_id, name, primary["sha256"], usage_context, created, primary["path"], str(project_dir),
+                      [StageRecord(job_id, "INGESTED")], source_availability=source_availability)
         else:
-            if job.ownership != ownership:
-                job.ownership = ownership  # the declaration at the latest drop wins; recorded in the manifest
+            if (job.usage_context, job.source_availability) != (usage_context, source_availability) and (params.get("usage_context") or params.get("source_availability") or params.get("ownership")):
+                job.usage_context, job.source_availability = usage_context, source_availability   # the tags at the latest drop win; recorded in the manifest
         project_dir = Path(job.project_dir)
         project_dir.mkdir(parents=True, exist_ok=True)
 
@@ -271,7 +274,7 @@ def h_ingest_run(params: dict[str, Any], ws: Workspace) -> dict[str, Any]:
                 inputs[f["path"]] = {"path": f["path"], "size": f["size"], "sha256": f["sha256"], "kind": kind, "attached_to": g["key"]}
         jobs_db.upsert_job(conn, job)
         jobs_db.put_inputs(conn, job.job_id, list(inputs.values()))
-        (project_dir / "ingest.json").write_text(json.dumps({
+        (project_dir / "ingest.json").write_text(json.dumps({**({"legacy_ownership": legacy_ownership} if legacy_ownership else {}), 
             "format": primary.get("format"), "bundle_key": g["key"], "ignored": ignored,
             "source_roots": sorted({str(Path(p).resolve()) for p in paths if Path(p).is_dir()}),
         }, indent=2), encoding="utf-8")
@@ -315,14 +318,17 @@ api.register("ingest.run", h_ingest_run)
 from ab_engine.cli import subcommand  # noqa: E402
 
 
-@subcommand("ingest", "ingest files/folders/zips into recovery jobs (ab-cli ingest --ownership OWNED <paths...>)")
+@subcommand("ingest", "ingest files/folders/zips into recovery jobs (ab-cli ingest [--context USER_RECOVERY] [--source-availability SOURCE_UNKNOWN] <paths...>)")
 def _cli_ingest(p):
     p.add_argument("paths", nargs="+")
-    p.add_argument("--ownership", default="OWNED", choices=OWNERSHIPS)
+    p.add_argument("--context", dest="usage_context", default=None, choices=USAGE_CONTEXTS, help="how reports interpret the results (ADDENDUM C1); default USER_RECOVERY")
+    p.add_argument("--source-availability", dest="source_availability", default=None, choices=SOURCE_AVAILABILITIES, help="default SOURCE_UNKNOWN")
+    p.add_argument("--ownership", default=None, choices=("OWNED", "AUTHORIZED", "THIRD_PARTY"), help="deprecated alias (D-026): OWNED/AUTHORIZED → USER_RECOVERY, THIRD_PARTY → BLACK_BOX_REFERENCE")
     p.add_argument("--name")
 
     def run(args, ws):
-        result = api.dispatch("ingest.run", {"paths": args.paths, "ownership": args.ownership, "name": args.name}, ws)
+        result = api.dispatch("ingest.run", {"paths": args.paths, "usage_context": args.usage_context, "source_availability": args.source_availability,
+                                             "ownership": args.ownership, "name": args.name}, ws)
         sys.stdout.write(json.dumps({"ok": True, "data": result}, indent=2) + "\n")
         return 0 if result["jobs"] else 1
     p.set_defaults(func=run)

@@ -77,16 +77,36 @@ def test_export_runs_scanners_and_git_ready(ws, tmp_path):
 
 
 @needs_node
-def test_third_party_export_has_no_reconstruction(ws, tmp_path):
-    drop = tmp_path / "drop"
-    drop.mkdir()
-    shutil.copyfile(FIXTURE, drop / "Vendor.vst3")
-    job_id = api.dispatch("ingest.run", {"paths": [str(drop)], "ownership": "THIRD_PARTY"}, ws)["jobs"][0]["job_id"]
-    api.dispatch("job.run", {"job_id": job_id, "stages": ["INGESTED", "STATIC_COMPLETE"], "options": {"prefer_node": True}}, ws)
-    r = api.dispatch("bundle.export", {"job_id": job_id, "zip": False}, ws)
-    out = Path(r["out_dir"])
-    assert not (out / "Source").exists() and not (out / "CMakeLists.txt").exists() and (out / "ANALYSIS_ONLY.md").is_file()
-    assert (out / "evidence" / "01_evidence" / "rtti" / "classes.json").is_file()
+def test_context_changes_wording_never_capability(ws, tmp_path):
+    """Gate C1: every usage_context runs the same stages with the same outputs; only the interpretation
+    text differs, and a black-box reference export still carries its (binary-derived) reconstruction."""
+    from ab_engine.workspace import Workspace  # noqa: PLC0415
+
+    runs = {}
+    for ctx, extra in (("USER_RECOVERY", {}), ("BLACK_BOX_REFERENCE", {"source_availability": "SOURCE_UNAVAILABLE"}), ("KNOWN_SOURCE_FIXTURE", {"source_availability": "KNOWN_SOURCE_GROUND_TRUTH"}),
+                       ("legacy", {"ownership": "THIRD_PARTY"})):
+        ws = Workspace.open(tmp_path / ctx / "ws")          # one workspace per context: identical bytes dedupe into one job otherwise
+        drop = tmp_path / ctx / "drop"
+        drop.mkdir(parents=True)
+        shutil.copyfile(FIXTURE, drop / "Vendor.vst3")
+        params = {"paths": [str(drop)], "name": "Vendor"}
+        params.update({"usage_context": ctx} if ctx != "legacy" else {})
+        params.update(extra)
+        job_id = api.dispatch("ingest.run", params, ws)["jobs"][0]["job_id"]
+        job = api.dispatch("job.run", {"job_id": job_id, "stages": ["INGESTED", "STATIC_COMPLETE"], "options": {"prefer_node": True}}, ws)
+        r = api.dispatch("bundle.export", {"job_id": job_id, "zip": False}, ws)
+        out = Path(r["out_dir"])
+        man = json.loads((out / "evidence" / "00_manifest" / "input_manifest.json").read_text(encoding="utf-8"))["data"]
+        runs[ctx] = {"stages": [(s["stage"], s["status"]) for s in job["job"]["stages"]] if isinstance(job, dict) and "job" in job else None,
+                     "files": sorted(p.relative_to(out).as_posix() for p in out.rglob("*") if p.is_file() and p.name != "CONTEXT.md" and "00_manifest" not in p.parts),
+                     "manifest": man, "context_md": (out / "CONTEXT.md").read_text(encoding="utf-8"), "has_recon": (out / "CMakeLists.txt").is_file()}
+    files = {tuple(v["files"]) for v in runs.values()}
+    assert len(files) == 1, "the exported file set must not depend on the context"
+    assert all(v["has_recon"] for v in runs.values())
+    assert runs["BLACK_BOX_REFERENCE"]["manifest"]["usage_context"] == "BLACK_BOX_REFERENCE" and "binary-derived" in runs["BLACK_BOX_REFERENCE"]["context_md"]
+    assert runs["KNOWN_SOURCE_FIXTURE"]["manifest"]["source_availability"] == "KNOWN_SOURCE_GROUND_TRUTH" and "known source" in runs["KNOWN_SOURCE_FIXTURE"]["context_md"]
+    assert runs["legacy"]["manifest"]["usage_context"] == "BLACK_BOX_REFERENCE" and runs["legacy"]["manifest"]["legacy_ownership"] == "THIRD_PARTY"
+    assert runs["USER_RECOVERY"]["manifest"]["source_availability"] == "SOURCE_UNKNOWN"
 
 
 def test_export_scrubs_this_machines_paths(tmp_path):

@@ -1,11 +1,15 @@
 # CLAUDE.md — AB (Artifact Bench)
 
-AB recovers an **owned** compiled audio plugin into a portable, buildable,
-evidence-backed source project. `docs/SPEC.md` is the contract, `docs/EXECUTE.md`
-the ordered directives with gates, `docs/EXECUTE_ADDENDUM_A.md` amends them in
-place (dependency stack, cumulative knowledge base, Git checkpoints, iPlug2
-fixture), `docs/AB_BRIEF.md` is the product brief. When
+AB recovers a compiled audio plugin into a portable, buildable, evidence-backed
+source project, and transforms it when the owner asks. `docs/SPEC.md` is the
+contract, `docs/EXECUTE.md` the ordered directives with gates; the addenda amend
+them in place — `EXECUTE_ADDENDUM_A.md` (dependency stack, cumulative knowledge
+base, Git checkpoints, iPlug2 fixture), `EXECUTE_ADDENDUM_B.md` (post-build
+hardening pass, after Phase 4), `EXECUTE_ADDENDUM_C.md` (context model,
+full-system recovery incl. licensing, transformation), `NAMING_CANONICALIZATION.md`
+(identifier transformation layer). `docs/AB_BRIEF.md` is the product brief. When
 they disagree, SPEC wins; every deviation is recorded in `docs/DECISIONS.md`.
+Reading order for a fresh session: SPEC → EXECUTE → A → B → C → naming.
 Project history and corpus priors: `docs/CLAUDE_CODE_PROMPT.md` (read it once).
 
 ## Standing instructions (from EXECUTE.md)
@@ -20,6 +24,26 @@ Project history and corpus priors: `docs/CLAUDE_CODE_PROMPT.md` (read it once).
   and validated against `engine/ab_engine/contracts/`. Frozen v2 files keep
   `recovery.*` / `schema_version: 2`; new files use `artifactbench.*` / `1`.
   Unknown major versions are rejected, never reinterpreted.
+- **No ownership gate, no ownership assumption (SPEC rule 9, Addendum C1).** The same
+  pipeline runs on every artifact by technical capability. Two orthogonal metadata
+  fields govern only how reports read: `usage_context` (`USER_RECOVERY` default ·
+  `KNOWN_SOURCE_FIXTURE` · `BLACK_BOX_REFERENCE` · `SOURCE_AVAILABLE_REFERENCE` ·
+  `UNKNOWN_CONTEXT`) and `source_availability` (`SOURCE_UNKNOWN` default ·
+  `SOURCE_UNAVAILABLE` · `SOURCE_PARTIAL` · `SOURCE_AVAILABLE` ·
+  `KNOWN_SOURCE_GROUND_TRUTH`). Known-source fixture source is withheld from
+  recovery stages (benchmark integrity); reference code is never copied into a
+  user project unless the user explicitly chooses. No code path branches on an
+  ownership flag.
+- **Licensing is a normal subsystem.** `LICENSING_AND_ENTITLEMENT_SUBSYSTEM` (the
+  frozen static engine still emits `PROTECTED_SUBSYSTEM`; alias it) is recovered,
+  reconstructed, transformed and validated like DSP. `validate → true` is a
+  `TRANSFORMED_BREAKING` transformation, recorded in the transformation graph,
+  never labelled recovery and never silent.
+- **Names are evidence + transformable identifiers.** Original identifiers stay
+  under evidence/provenance forever; reconstructed/transformed source may use
+  canonical names through a reversible `identifier_map.json`. Parameter IDs,
+  state keys and identity are never renamed silently (compatibility/migration
+  maps). No naming-based capability gate.
 - **Plugins are untrusted.** Only `native/vst3host` loads a plugin. If you find
   yourself writing `LoadLibrary` / `ctypes.CDLL` on a plugin anywhere else, stop.
   Workers run isolated: timeout, temp cwd, scrubbed env, captured stdout/stderr,
@@ -53,7 +77,16 @@ function/vtable fingerprints; a name is never enough). Families are
 Cache: `KNOWN_FRAMEWORK` · `KNOWN_THIRD_PARTY` · `KNOWN_SHARED_INTERNAL` ·
 `KNOWN_PLUGIN_SPECIFIC` · `UNKNOWN`; keyed by fingerprints, never by name; a
 match is downgraded and re-analysed on any contradiction.
-Licensing code is `PROTECTED_SUBSYSTEM`: mapped, never reimplemented or bypassed.
+Licensing: `LICENSING_AND_ENTITLEMENT_SUBSYSTEM` (alias of v2 `PROTECTED_SUBSYSTEM`);
+validation `LICENSE_BEHAVIOR_MATCHED` · `LICENSE_STATE_COMPATIBLE` ·
+`LICENSE_MIGRATION_VALIDATED` · `LICENSE_TRANSFORMED` · `LICENSE_REQUIRES_MANUAL_REVIEW`.
+Transformation status: `RECOVERED_EXACT` · `RECONSTRUCTED` · `MODERNIZED_EQUIVALENT` ·
+`TRANSFORMED_COMPATIBLE` · `TRANSFORMED_WITH_MIGRATION` · `TRANSFORMED_BREAKING` ·
+`UNRECOVERABLE`; behaviours `ORIGINAL_BEHAVIOR` / `RECOVERED_BEHAVIOR` /
+`TRANSFORMED_BEHAVIOR` stored separately. Recovery goal: `PRESERVE ORIGINAL`
+(default) · `MODERNIZE` · `MIGRATE` · `REFACTOR` · `PORT` · `REBUILD`.
+Naming: `PRESERVE_ORIGINAL_NAMES` (evidence) · `CANONICALIZE_NAMES` (transformed
+source default) · `CUSTOM_RENAME_MAP`.
 
 ## Rules learned the hard way (each shipped as a bug once — see CLAUDE_CODE_PROMPT §2)
 - Parameters come only from XML keys (static) or the runtime host; bare strings
@@ -68,13 +101,16 @@ Licensing code is `PROTECTED_SUBSYSTEM`: mapped, never reimplemented or bypassed
   BUILD_MACHINE | UNKNOWN`; word boundaries in every keyword classifier.
 - Role classification tokenizes CamelCase; roles are `CANDIDATE` with a
   `role_basis` until the callgraph confirms them.
-- Ownership mode is declared at ingest and stored in
-  `00_manifest/input_manifest.json`; third-party jobs never get `Active/` or a
-  reconstruction export.
+- `usage_context` / `source_availability` are stored in
+  `00_manifest/input_manifest.json`; they change wording ("binary-derived" vs
+  "validated against known source"), never what runs. (The former ownership gate
+  is gone — D-026.)
 
 ## Layout (SPEC §3, at repo root)
 `app/` Tauri+React shell and `app/static-engine/` · `engine/` Python sidecar
-(`ab_engine` package, `ab-cli`) · `native/vst3host/` · `ghidra/` ·
+(`ab_engine` package, `ab-cli`; source tree `evidence_source/` ·
+`recovered_source/` (formerly `human_source/`) · `transformed_source/` ·
+`Source/Active`) · `native/vst3host/` · `ghidra/` ·
 `reference/` · `fixtures/{groundtruth,static_v2}` · `tools/` · `docs/` ·
 `handoff/` (frozen originals, read-only).
 

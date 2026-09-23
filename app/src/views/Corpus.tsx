@@ -1,5 +1,6 @@
 import { useState } from "react";
 import type { Job } from "../lib/types";
+import { CONTEXT_LABEL } from "../lib/types";
 import { api, type LineageReport } from "../lib/api";
 import { Button, Empty, Ev, Note, Section } from "../components/ui";
 import { shortHash, when } from "../lib/format";
@@ -49,7 +50,7 @@ export function Corpus({ jobs, onOpen }: { jobs: Job[]; onOpen: (jobId: string) 
           {jobs.map((j) => (
             <div key={j.job_id} className="data-row" style={{ gridTemplateColumns: "1fr 120px 140px 110px 100px" }}>
               <button type="button" className="truncate" style={{ textAlign: "left", background: "none", border: 0, color: "inherit", cursor: "pointer" }} onClick={() => onOpen(j.job_id)}>{j.name}</button>
-              <span className="c">{j.ownership.toLowerCase().replace("_", "-")}</span>
+              <span className="c">{CONTEXT_LABEL[j.usage_context] ?? j.usage_context}</span>
               <span className="c mono">{shortHash(j.artifact_sha256)}</span>
               <span className="c">{when(j.created)}</span>
               <span className="c"><Button size="sm" variant={target === j.job_id ? "primary" : "quiet"} disabled={busy} onClick={() => lineage(j.job_id)}>Lineage</Button></span>

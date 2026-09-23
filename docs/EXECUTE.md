@@ -1,13 +1,13 @@
-# EXECUTE.md — Palimpsest build directives for Claude Code
+# EXECUTE.md — Artifact Bench (AB) build directives for Claude Code
 ### Read SPEC.md first. Work top to bottom. Do not start a phase until the previous phase's gate is green.
 
 **Standing instructions for every session**
-- Static Recovery v2 is frozen. Port it; do not "improve" it. Any change to `app/static-engine/` must pass `palimpsest-cli diff-baseline` (fixtures/static_v2) before commit.
+- Static Recovery v2 is frozen. Port it; do not "improve" it. Any change to `app/static-engine/` must pass `ab-cli diff-baseline` (fixtures/static_v2) before commit.
 - Never write `VERIFIED` for anything not read from an authoritative artifact or runtime API. Never invent identity, ranges, defaults, or algorithms. Unknown stays `UNKNOWN`.
 - Every JSON you emit is wrapped `{schema, schema_version, tool, generated, data}` and validated against `engine/contracts/`.
 - Plugins are untrusted: only `native/vst3host` loads them. If you find yourself writing `LoadLibrary`/`ctypes.CDLL` on a plugin anywhere else, stop.
 - Keep the repo buildable at every commit (`app`, `engine`, `native` each have a one-command build). Commit small; message format `phase-N: <area>: <change>`.
-- Mirror Prosody: Tauri 2 + React/TS + Vite shell, Python sidecar bundled with PyInstaller, ZIP distribution containing `Palimpsest.exe`. Reuse Prosody's supervisor, updater, logging and theme code where licenses/paths allow; do not copy Prosody's FL-specific code.
+- Mirror Prosody: Tauri 2 + React/TS + Vite shell, Python sidecar bundled with PyInstaller, ZIP distribution containing `ArtifactBench.exe`. Reuse Prosody's supervisor, updater, logging and theme code where licenses/paths allow; do not copy Prosody's FL-specific code.
 - Reference material lives in `reference/music_reference_corpus_21/` (user-supplied). It is a clean-room candidate library and vocabulary, not recovered source; never promote it into `Active/` by name.
 
 ---
@@ -15,10 +15,10 @@
 ## PHASE 1 — Shell, jobs, static port, fixture
 
 ### 1.1 Repo + shell
-- Scaffold `palimpsest/` per SPEC §3. Fork Prosody's Tauri shell: window, tray, updater stub, theme tokens, logger, sidecar supervisor.
+- Scaffold `artifact-bench/` per SPEC §3. Fork Prosody's Tauri shell: window, tray, updater stub, theme tokens, logger, sidecar supervisor.
 - Rust side: `spawn_worker(kind, args, timeout, env_allowlist, cwd_temp)` returning `{pid, exit_code, stdout_path, stderr_path, timed_out, crash_dump}`; Job Object on Windows so child trees die with the worker.
-- Python sidecar `engine/` exposes a JSON-lines RPC (`method, params, id`) over stdio; every method has a CLI twin in `palimpsest-cli`.
-- **Gate:** `palimpsest-cli doctor` reports shell, engine, disk, and tool status; `Palimpsest.exe` launches from a clean ZIP on a machine with no dev tools.
+- Python sidecar `engine/` exposes a JSON-lines RPC (`method, params, id`) over stdio; every method has a CLI twin in `ab-cli`.
+- **Gate:** `ab-cli doctor` reports shell, engine, disk, and tool status; `ArtifactBench.exe` launches from a clean ZIP on a machine with no dev tools.
 
 ### 1.2 Job system + cache
 - SQLite `jobs.db`: `jobs(job_id, artifact_sha256, ownership, created)`, `stages(job_id, stage, status, input_hashes, tool_versions, config_hash, started, ended, warnings, outputs, completeness)`.
@@ -35,7 +35,7 @@
 - Move the browser engine's analysis functions into `app/static-engine/` as pure TS modules (no DOM). Run in a Web Worker; stream stage progress to the UI; return contracts to the engine via IPC.
 - Add stage instrumentation (SPEC §6.4) and completeness flags (§1.10). Implement `DEEP_SCAN` mode and its auto-triggers (§6.3).
 - Engine writes `01_evidence/{binary,rtti,strings,paths,resources,presets}`, `02_recovered_assets` (content-addressed), `03_architecture/{serialized_keys,classes}.json`, `07_agent_handoff/*` exactly as v2, plus `stage.json`.
-- **Gate:** `palimpsest-cli diff-baseline` shows zero evidence-status diffs and ≤ 20% timing variance against `fixtures/static_v2/` for all four fixtures.
+- **Gate:** `ab-cli diff-baseline` shows zero evidence-status diffs and ≤ 20% timing variance against `fixtures/static_v2/` for all four fixtures.
 
 ### 1.5 Evidence viewer + bundle export
 - Screens: Recover (drop zone, ownership, RECOVER PROJECT, stage rail), Scorecard, Evidence browser (JSON with schema badge, resource gallery with sprite-strip rendering), Export (folder/ZIP; `GIT_READY` checklist runs but may show pending items for later stages).
@@ -71,7 +71,7 @@
 ## PHASE 3 — Decompiler, fingerprints, lineage
 
 ### 3.1 Tool provisioning
-- First-run downloader for JDK 21 + Ghidra + pluginval into `%LOCALAPPDATA%\Palimpsest\tools\` with pinned SHA-256 from `tools/manifest.json`; resumable; offline mode allowed (stages degrade to SKIPPED with reason).
+- First-run downloader for JDK 21 + Ghidra + pluginval into `%LOCALAPPDATA%\ArtifactBench\tools\` with pinned SHA-256 from `tools/manifest.json`; resumable; offline mode allowed (stages degrade to SKIPPED with reason).
 
 ### 3.2 Ghidra scripts
 - `ExportRTTI.java`: run MSVC RTTI analyzer; export `classes_verified.json` (inheritance, vtables, slots, ctor/dtor candidates). Merge with v2 `classes.json` → `name_status: VERIFIED_RTTI`, `structure_status: VERIFIED_VTABLE`.
@@ -99,7 +99,7 @@
 - `vst3host render`: probes per SPEC §11 at 44.1/48/96 kHz, block sizes 32…1024, one parameter swept at a time. Metrics written to `05_reference_behavior/measurements.json`, audio to object store.
 
 ### 4.2 Fit + reconstruction
-- Target: fixture waveshaper first. Transfer-curve fit against candidate families (from `reference/` and SPEC §11); choose by residual. Produce `evidence_source/` (from decompiler) and `human_source/` (concise), with `reconstruction_index.json` entries carrying addresses, evidence, rmse.
+- Target: fixture waveshaper first. Transfer-curve fit against candidate families (from `reference/` and SPEC §11); choose by residual. Produce `evidence_source/` (from decompiler) and `recovered_source/` (formerly `human_source/`) (concise), with `reconstruction_index.json` entries carrying addresses, evidence, rmse.
 - Evidence gates enforced in code (SPEC §10): promotion to `Active/` requires `BEHAVIOR_MATCHED`.
 
 ### 4.3 Build + validate

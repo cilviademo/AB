@@ -116,6 +116,7 @@ class KnowledgeDB:
 
     # ---- artifacts / runs / identity ----------------------------------------------------------
     def record_artifact(self, sha256: str, *, kind: str, size: int, ownership: str, name: str, compiler_fingerprint: str | None = None) -> None:
+        """``ownership`` carries the usage_context since D-026 (column name kept for existing databases)."""
         row = self.db.execute("SELECT sha256 FROM artifact WHERE sha256=?", (sha256,)).fetchone()
         if row:
             self.db.execute("UPDATE artifact SET last_seen=?, name=COALESCE(name, ?) WHERE sha256=?", (_now(), name, sha256))

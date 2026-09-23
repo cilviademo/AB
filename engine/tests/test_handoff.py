@@ -27,7 +27,7 @@ def _job(tmp_path: Path) -> Job:
                 {"symbol": "ns::Lic", "role": "PROTECTED_SUBSYSTEM", "file": "x", "status": "SCAFFOLD_ONLY", "compiled": False}])
     write_json(pd / "04_reconstruction/reconstruction_model.json", "artifactbench.reconstruction_model",
                {"modules": [{"name": "Waveshaper", "family": "tanh", "rmse": 1e-5, "modulation": [{"key": "cut", "law": "unmodeled", "basis": "filter"}, {"key": "g", "law": "db", "basis": "x"}, {"key": "t", "law": "table", "basis": "y"}]}]})
-    job = Job(job_id="ab-1", name="P", primary="x.so", artifact_sha256="a" * 64, ownership="OWNED", project_dir=str(pd), created="now")
+    job = Job(job_id="ab-1", name="P", primary="x.so", artifact_sha256="a" * 64, usage_context="USER_RECOVERY", project_dir=str(pd), created="now")
     for st in ("INGESTED", "STATIC_COMPLETE", "RUNTIME_COMPLETE", "BEHAVIOR_COMPLETE", "RECONSTRUCTION_COMPLETE", "BUILD_COMPLETE", "VALIDATION_COMPLETE"):
         job.stages.append(StageRecord(job_id="ab-1", stage=st, status="OK"))
     return job

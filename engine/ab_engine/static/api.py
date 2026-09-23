@@ -96,10 +96,18 @@ def _install(ctx: StageContext, result: dict[str, Any], out_dir: Path | None, en
     """Copy the plan into the project folder; carved bytes go through the object store."""
     counts = {"files": 0, "carved_objects": 0}
     written: list[str] = []
+
+    def target(rel: str) -> str:
+        # AB's ingest manifest (usage_context / source_availability, ADDENDUM C1) lives at 00_manifest/input_manifest.json;
+        # the frozen v2 bundle writes a file of the same name — keep it beside, never over, the AB one
+        return "00_manifest/static_input_manifest.json" if rel == "00_manifest/input_manifest.json" else rel
+
     if out_dir is not None:
         for f in result.get("files", []):
             rel = f["path"]
             src = out_dir / rel
+            rel = target(rel)
+            f["path"] = rel
             dst = ctx.project_dir / rel
             dst.parent.mkdir(parents=True, exist_ok=True)
             if f.get("carved"):
@@ -113,7 +121,7 @@ def _install(ctx: StageContext, result: dict[str, Any], out_dir: Path | None, en
             counts["files"] += 1
     elif entries_b64 is not None:
         for e in entries_b64:
-            rel = e["path"]
+            rel = target(e["path"])
             dst = ctx.project_dir / rel
             if Path(rel).is_absolute() or ".." in Path(rel).parts:
                 raise StageFailed("BAD_PLAN", f"refusing plan path {rel}")

@@ -19,7 +19,14 @@ export const STAGE_OF: Record<string, StageKey> = {
 
 export type StageStatus = "PENDING" | "RUNNING" | "OK" | "FAILED" | "SKIPPED";
 
-export type Ownership = "OWNED" | "AUTHORIZED" | "THIRD_PARTY";
+// ADDENDUM C1: interpretation tags — they change how results read, never what runs
+export type UsageContext = "USER_RECOVERY" | "KNOWN_SOURCE_FIXTURE" | "BLACK_BOX_REFERENCE" | "SOURCE_AVAILABLE_REFERENCE" | "UNKNOWN_CONTEXT";
+export type SourceAvailability = "SOURCE_UNKNOWN" | "SOURCE_UNAVAILABLE" | "SOURCE_PARTIAL" | "SOURCE_AVAILABLE" | "KNOWN_SOURCE_GROUND_TRUTH";
+export interface RecoveryContext { usage_context: UsageContext; source_availability: SourceAvailability }
+export const CONTEXT_LABEL: Record<UsageContext, string> = {
+  USER_RECOVERY: "user recovery", KNOWN_SOURCE_FIXTURE: "known-source fixture", BLACK_BOX_REFERENCE: "black-box reference",
+  SOURCE_AVAILABLE_REFERENCE: "source-available reference", UNKNOWN_CONTEXT: "context unknown",
+};
 
 export interface StageRecord {
   job_id: string;
@@ -43,7 +50,9 @@ export interface Job {
   job_id: string;
   name: string;
   artifact_sha256: string;
-  ownership: Ownership;
+  usage_context: UsageContext;
+  source_availability: SourceAvailability;
+  interpretation?: string;
   created: string;
   primary: string;          // path of the primary binary
   project_dir: string;      // Projects/<slug>/

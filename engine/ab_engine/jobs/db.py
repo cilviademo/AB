@@ -46,6 +46,10 @@ def connect(path: Path) -> sqlite3.Connection:
     conn.execute("PRAGMA journal_mode=WAL")
     conn.execute("PRAGMA foreign_keys=ON")
     conn.executescript(_DDL)
+    # D-026 migration: the ownership column keeps its name (SQLite), holds the usage_context; source_availability is new
+    cols = {r[1] for r in conn.execute("PRAGMA table_info(jobs)")}
+    if "source_availability" not in cols:
+        conn.execute("ALTER TABLE jobs ADD COLUMN source_availability TEXT NOT NULL DEFAULT 'SOURCE_UNKNOWN'")
     row = conn.execute("SELECT value FROM meta WHERE key='schema_version'").fetchone()
     if row is None:
         conn.execute("INSERT INTO meta VALUES ('schema_version', ?)", (str(SCHEMA_VERSION),))
@@ -70,8 +74,8 @@ def tx(conn: sqlite3.Connection) -> Iterator[sqlite3.Connection]:
 def upsert_job(conn: sqlite3.Connection, job: Job) -> None:
     with tx(conn):
         conn.execute(
-            "INSERT OR REPLACE INTO jobs VALUES (?,?,?,?,?,?,?)",
-            (job.job_id, job.name, job.artifact_sha256, job.ownership, job.created, job.primary, job.project_dir),
+            "INSERT OR REPLACE INTO jobs (job_id, name, artifact_sha256, ownership, created, primary_path, project_dir, source_availability) VALUES (?,?,?,?,?,?,?,?)",
+            (job.job_id, job.name, job.artifact_sha256, job.usage_context, job.created, job.primary, job.project_dir, job.source_availability),
         )
         for s in job.stages:
             _put_stage(conn, s)
@@ -110,7 +114,7 @@ def get_job(conn: sqlite3.Connection, job_id: str) -> Job | None:
 
     stages.sort(key=lambda s: STAGES.index(s.stage) if s.stage in STAGES else 99)
     return Job(r["job_id"], r["name"], r["artifact_sha256"], r["ownership"], r["created"], r["primary_path"],
-               r["project_dir"], stages)
+               r["project_dir"], stages, source_availability=(r["source_availability"] if "source_availability" in r.keys() and r["source_availability"] else "SOURCE_UNKNOWN"))
 
 
 def list_jobs(conn: sqlite3.Connection) -> list[Job]:

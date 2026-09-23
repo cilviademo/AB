@@ -3,7 +3,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import type {
-  BackendStatus, BundleEntry, Doctor, Env, IngestResult, Job, Ownership, ProgressEvent,
+  BackendStatus, BundleEntry, Doctor, Env, IngestResult, Job, RecoveryContext, ProgressEvent,
 } from "./types";
 
 export class BackendError extends Error {
@@ -45,8 +45,8 @@ export const api = {
   saveSettings: (settings: Record<string, unknown>) => call<Record<string, unknown>>("settings.set", { settings }),
 
   // -- jobs (1.2 / 1.3) --
-  ingest: (paths: string[], ownership: Ownership, name?: string) =>
-    call<IngestResult>("ingest.run", { paths, ownership, name }),
+  ingest: (paths: string[], context: RecoveryContext, name?: string) =>
+    call<IngestResult>("ingest.run", { paths, usage_context: context.usage_context, source_availability: context.source_availability, name }),
   jobs: () => call<{ jobs: Job[] }>("job.list").then((r) => r.jobs),
   job: (jobId: string) => call<Job>("job.get", { job_id: jobId }),
   runJob: (jobId: string, stages?: string[], options?: Record<string, unknown>) =>

@@ -42,11 +42,19 @@ export function Help() {
             representation UNKNOWN until the state-differential harness resolves them.
           </p>
         </Section>
-        <Section title="Owner mode">
+        <Section title="Context tags">
           <p className="copy">
-            Reconstruction and export exist for plugins you own or are authorized to recover. Third-party binaries get
-            architecture, behaviour documentation and corpus signatures only. Licensing code is a PROTECTED_SUBSYSTEM:
-            mapped, never reimplemented or bypassed.
+            AB runs the same pipeline on every artifact by technical capability and makes no ownership determination. Two
+            optional tags — usage context (my recovery · known-source fixture · black-box reference · source-available
+            reference) and source availability — only change how reports read: "binary-derived" versus "validated against
+            known source". Known-source fixture source is withheld from recovery and read only by the evaluator; reference
+            code is never copied into your project unless you choose to.
+          </p>
+          <p className="copy">
+            Licensing and entitlement code is a normal subsystem (LICENSING_AND_ENTITLEMENT_SUBSYSTEM): recovered,
+            reconstructed, transformed and validated like DSP. Replacing a validation with a constant is a
+            TRANSFORMED_BREAKING transformation, recorded in the transformation graph — never labelled recovery and never
+            silent.
           </p>
         </Section>
       </div>
